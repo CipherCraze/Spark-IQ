@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router';
-import { LockClosedIcon, UserCircleIcon } from '@heroicons/react/24/outline';
+import { LockClosedIcon, UserCircleIcon, SparklesIcon } from '@heroicons/react/24/outline';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -11,16 +11,16 @@ export default function Login() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-900 p-4">
-      <div className="w-full max-w-md space-y-8 bg-gray-800 rounded-xl shadow-2xl p-8">
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 p-4">
+      <div className="w-full max-w-md space-y-8 bg-gray-800 rounded-xl shadow-2xl p-8 border border-gray-700">
         {/* Logo & Header */}
         <div className="text-center">
           <div className="inline-flex items-center gap-2 mb-4">
-            <SparklesIcon className="w-8 h-8 text-indigo-400" />
+            <SparklesIcon className="w-8 h-8 text-indigo-400 animate-pulse" />
             <span className="text-2xl font-bold text-white">SPARK-IQ</span>
           </div>
-          <h2 className="mt-6 text-3xl font-bold text-white">Educator Login</h2>
-          <p className="mt-2 text-gray-400">Access your AI-powered teaching dashboard</p>
+          <h2 className="mt-6 text-3xl font-bold text-white">Welcome Back</h2>
+          <p className="mt-2 text-gray-400">Unlock your AI-powered teaching dashboard</p>
         </div>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-6">
@@ -38,7 +38,7 @@ export default function Login() {
                   autoComplete="email"
                   required
                   placeholder="name@university.edu"
-                  className="w-full px-4 py-3 text-gray-100 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-4 py-3 text-gray-100 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
                 />
                 <UserCircleIcon className="absolute right-3 top-3.5 h-5 w-5 text-gray-400" />
               </div>
@@ -57,7 +57,7 @@ export default function Login() {
                   autoComplete="current-password"
                   required
                   placeholder="••••••••"
-                  className="w-full px-4 py-3 text-gray-100 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-4 py-3 text-gray-100 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
                 />
                 <LockClosedIcon className="absolute right-3 top-3.5 h-5 w-5 text-gray-400" />
               </div>
@@ -105,14 +105,14 @@ export default function Login() {
                 Remember me
               </label>
             </div>
-            <Link to="/forgot-password" className="text-sm font-medium text-indigo-400 hover:text-indigo-300">
+            <Link to="/forgot-password" className="text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors duration-200">
               Forgot password?
             </Link>
           </div>
 
           <button
             type="submit"
-            className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors duration-200"
+            className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-all duration-200 transform hover:scale-105"
           >
             Sign in to Dashboard
           </button>
@@ -120,7 +120,7 @@ export default function Login() {
           {/* Google Sign-In */}
           <button
             type="button"
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-white hover:bg-gray-50 text-gray-700 font-medium rounded-lg border border-gray-300 transition-colors duration-200"
+            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-white hover:bg-gray-50 text-gray-700 font-medium rounded-lg border border-gray-300 transition-all duration-200 transform hover:scale-105"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -146,7 +146,7 @@ export default function Login() {
 
         <p className="mt-8 text-center text-gray-400">
           New to SPARK-IQ?{' '}
-          <Link to="/signup" className="font-medium text-indigo-400 hover:text-indigo-300">
+          <Link to="/signup" className="font-medium text-indigo-400 hover:text-indigo-300 transition-colors duration-200">
             Create institution account
           </Link>
         </p>
