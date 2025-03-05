@@ -12,7 +12,9 @@ export default function Login() {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 p-4">
+      
       <div className="w-full max-w-md space-y-8 bg-gray-800 rounded-xl shadow-2xl p-8 border border-gray-700">
+        <br></br>
         {/* Logo & Header */}
         <div className="text-center">
           <div className="inline-flex items-center gap-2 mb-4">

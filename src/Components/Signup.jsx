@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router'; // Updated import to 'react-router-dom'
 import { LockClosedIcon, UserCircleIcon, SparklesIcon, AcademicCapIcon, BookOpenIcon } from '@heroicons/react/24/outline';
 import { useState } from 'react';
 
@@ -15,6 +15,7 @@ export default function Signup() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 p-4">
       <div className="w-full max-w-md space-y-8 bg-gray-800 rounded-xl shadow-2xl p-8 border border-gray-700">
+        <br></br>
         {/* Logo & Header */}
         <div className="text-center">
           <div className="inline-flex items-center gap-2 mb-4">
@@ -103,35 +104,40 @@ export default function Signup() {
               </div>
             </div>
 
-            {/* Role Selection */}
-            <div className="flex gap-4">
-              <div className="flex items-center">
+            {/* Role Selection with Custom Toggle Buttons */}
+            <div className="flex gap-4 justify-center">
+              <label
+                className={`flex items-center gap-2 p-3 rounded-lg cursor-pointer transition-colors duration-200 ${
+                  role === 'student' ? 'bg-indigo-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
                 <input
-                  id="student"
-                  name="role"
                   type="radio"
+                  name="role"
                   value="student"
-                  className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
-                  defaultChecked
+                  checked={role === 'student'}
                   onChange={() => setRole('student')}
+                  className="sr-only"
                 />
-                <label htmlFor="student" className="ml-2 block text-sm text-gray-300">
-                  Student
-                </label>
-              </div>
-              <div className="flex items-center">
+                <AcademicCapIcon className="w-5 h-5" />
+                <span>Student</span>
+              </label>
+              <label
+                className={`flex items-center gap-2 p-3 rounded-lg cursor-pointer transition-colors duration-200 ${
+                  role === 'educator' ? 'bg-indigo-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
                 <input
-                  id="educator"
-                  name="role"
                   type="radio"
+                  name="role"
                   value="educator"
-                  className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                  checked={role === 'educator'}
                   onChange={() => setRole('educator')}
+                  className="sr-only"
                 />
-                <label htmlFor="educator" className="ml-2 block text-sm text-gray-300">
-                  Educator
-                </label>
-              </div>
+                <BookOpenIcon className="w-5 h-5" />
+                <span>Educator</span>
+              </label>
             </div>
 
             {/* Dynamic Fields Based on Role */}
