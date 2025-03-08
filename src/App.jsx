@@ -3,7 +3,7 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import Hero from './components/LandingPage/Hero';
 import CTA from './components/LandingPage/CTA';
-import Login from './Components/Login';
+import Login from './components/Login';
 import HowItWorks from './components/HowItWorks';
 import Signup from './components/Signup';
 import Team from './components/Team';

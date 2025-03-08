@@ -119,7 +119,7 @@ const Dashboard = ({ role }) => {
     { title: 'Social', Icon: ChatBubbleLeftRightIcon, link: '/chat-functionality' },
     { title: 'Inbox', Icon: EnvelopeIcon, link: '/inbox-for-suggestions' },
     { title: 'Feedback', Icon: LightBulbIcon, link: '/personalized-feedback' },
-    { title: 'Upgrade to Pro', Icon: SparklesIcon, link: '/upgrade-to-pro' },
+    { title: 'Upgrade to Pro', Icon: SparklesIcon, link: '/important-notifications' },
   ];
 
   const educatorMenu = [
@@ -199,7 +199,11 @@ const Dashboard = ({ role }) => {
                     <li key={index}>
                       <Link
                         to={item.link}
-                        className="flex items-center gap-3 p-3 text-gray-300 hover:bg-gray-700/50 rounded-lg transition-all duration-300 group hover:translate-x-1"
+                        className={`flex items-center gap-3 p-3 text-gray-300 hover:bg-gray-700/50 rounded-lg transition-all duration-300 group hover:translate-x-1 ${
+                          item.title === 'Upgrade to Pro'
+                            ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 hover:shadow-lg hover:scale-105'
+                            : ''
+                        }`}
                       >
                         <item.Icon className="w-5 h-5 text-indigo-400 group-hover:text-purple-400 transition-colors" />
                         <span>{item.title}</span>
