@@ -25,8 +25,78 @@ import {
   CalendarIcon,
   StarIcon,
   GiftIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { LineChart, PieChart, BarChart } from '../Charts.jsx';
+import ChatbotAccess from '../Chatbot/Chatbot.jsx';
+
+// Notification Component
+const Notifications = () => {
+  const [notifications, setNotifications] = useState([
+    { id: 1, message: 'Your assignment has been graded.', timestamp: '2 mins ago', read: false },
+    { id: 2, message: 'New message from Alice.', timestamp: '10 mins ago', read: false },
+    { id: 3, message: 'Reminder: Science quiz tomorrow.', timestamp: '1 hour ago', read: true },
+    { id: 4, message: 'You earned 50 points!', timestamp: '2 hours ago', read: true },
+  ]);
+
+  const markAsRead = (id) => {
+    setNotifications((prev) =>
+      prev.map((notification) =>
+        notification.id === id ? { ...notification, read: true } : notification
+      )
+    );
+  };
+
+  const deleteNotification = (id) => {
+    setNotifications((prev) => prev.filter((notification) => notification.id !== id));
+  };
+
+  return (
+    <div className="absolute right-0 mt-2 w-80 bg-gray-800 rounded-lg shadow-xl border border-gray-700/50 z-50 overflow-hidden">
+      <div className="p-4 border-b border-gray-700/50">
+        <h3 className="text-lg font-semibold text-white">Notifications</h3>
+      </div>
+      <div className="max-h-64 overflow-y-auto">
+        {notifications.map((notification) => (
+          <div
+            key={notification.id}
+            className={`p-4 hover:bg-gray-700/50 transition-colors ${
+              notification.read ? 'bg-gray-900/30' : 'bg-gray-800'
+            }`}
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <p className="text-sm text-white">{notification.message}</p>
+                <p className="text-xs text-gray-400 mt-1">{notification.timestamp}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {!notification.read && (
+                  <button
+                    onClick={() => markAsRead(notification.id)}
+                    className="p-1 hover:bg-gray-700 rounded-full transition-colors"
+                  >
+                    <CheckCircleIcon className="w-4 h-4 text-green-400" />
+                  </button>
+                )}
+                <button
+                  onClick={() => deleteNotification(notification.id)}
+                  className="p-1 hover:bg-gray-700 rounded-full transition-colors"
+                >
+                  <XMarkIcon className="w-4 h-4 text-red-400" />
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="p-4 border-t border-gray-700/50">
+        <button className="w-full py-2 bg-indigo-500/90 rounded-lg text-white hover:bg-indigo-600 transition-colors">
+          Mark All as Read
+        </button>
+      </div>
+    </div>
+  );
+};
 
 // Simple Calendar Component
 const SimpleCalendar = () => {
@@ -79,9 +149,11 @@ const SimpleCalendar = () => {
   );
 };
 
+// Dashboard Component
 const Dashboard = ({ role }) => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [tasks, setTasks] = useState([
     { id: 1, title: 'Complete Math Assignment', dueDate: '2023-10-20', completed: false },
     { id: 2, title: 'Prepare for Science Quiz', dueDate: '2023-10-22', completed: true },
@@ -246,10 +318,16 @@ const Dashboard = ({ role }) => {
               className="w-48 px-4 py-2 bg-gray-800 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
-          <button className="p-2 hover:bg-gray-800 rounded-full transition-colors relative">
-            <BellIcon className="w-6 h-6 text-gray-400" />
-            <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+              className="p-2 hover:bg-gray-800 rounded-full transition-colors relative"
+            >
+              <BellIcon className="w-6 h-6 text-gray-400" />
+              <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+            </button>
+            {isNotificationsOpen && <Notifications />}
+          </div>
           <div className="relative">
             <button
               onClick={() => setIsProfileOpen(!isProfileOpen)}

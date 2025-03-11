@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'; // Corrected import
 import Header from './components/Header';
 import Footer from './components/Footer';
 import Hero from './components/LandingPage/Hero';
@@ -13,6 +13,9 @@ import Features from './components/LandingPage/Features';
 import Testimonials from './components/LandingPage/Testimonials';
 import Newsletter from './components/LandingPage/Newsletter';
 import Dashboard from './components/dashboard/Dashboard'; // Import the Dashboard component
+import ChatbotAccess from './components/Chatbot/Chatbot'; // Import the Chatbot component
+import AssignmentSubmission from './components/Features/AssignmentSubmission'; // Import the AssignmentSubmission component
+import ChatFunctionality from './components/Features/ChatFunctionality';
 
 const Layout = ({ children, showHeaderFooter = true }) => (
   <div className="flex flex-col min-h-screen">
@@ -58,6 +61,44 @@ function App() {
           element={
             <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
               <Dashboard role="student" /> {/* Pass the role as a prop */}
+            </Layout>
+          }
+        />
+        {/*pricing */}
+        <Route
+          path="/pricing"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <Pricing />
+            </Layout>
+          }
+        />
+        {/* Chatbot Route */}
+        <Route
+          path="/chatbot-access"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <ChatbotAccess />
+            </Layout>
+          }
+        />
+
+        {/* Assignment Submission Route */}
+        <Route
+          path="/assignment-submission"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <AssignmentSubmission />
+            </Layout>
+          }
+        />
+          
+          {/* Chat Functionality Route */}
+        <Route
+          path="/chat-functionality"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <ChatFunctionality />
             </Layout>
           }
         />
