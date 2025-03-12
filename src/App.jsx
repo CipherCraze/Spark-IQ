@@ -22,6 +22,8 @@ import ResourceUtilization from './components/Features/ResourceUtilization';
 import Grades from './components/Features/GradingAccess';
 import AIGeneratedQuestions from './components/Features/AIGeneratedQuestions';
 import SuggestionsInbox from './components/Features/SuggestionsInbox';
+import PersonalizedFeedback from './components/Features/Personalized_feedback';
+import NotFound from './components/NotFound';
 
 const Layout = ({ children, showHeaderFooter = true }) => (
   <div className="flex flex-col min-h-screen">
@@ -162,6 +164,17 @@ function App() {
             </Layout>
           }
         />
+        {/*Personalized Feedback */}
+        <Route
+          path="/personalized-feedback"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <PersonalizedFeedback />
+            </Layout>
+          } 
+        />
+        {/* Not Found Route */}
+        <Route path="*" element={<Layout><h1>404 - Not Found</h1></Layout>} />
       </Routes>
     </Router>
   );
