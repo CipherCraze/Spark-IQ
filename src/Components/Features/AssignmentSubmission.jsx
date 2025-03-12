@@ -93,8 +93,8 @@ const AssignmentSubmission = () => {
                 {[
                   { title: 'Dashboard', link: '/dashboard', Icon: ClipboardDocumentIcon },
                   { title: 'Assignments', link: '/assignment-submission', Icon: DocumentTextIcon },
-                  { title: 'Grades', link: '/grades', Icon: ChartBarIcon },
-                  { title: 'Resources', link: '/resources', Icon: FolderIcon },
+                  { title: 'Grades', link: '/grading-access', Icon: ChartBarIcon },
+                  { title: 'Resources', link: '/resource-utilization', Icon: FolderIcon },
                 ].map((item, index) => (
                   <li key={index}>
                     <Link
