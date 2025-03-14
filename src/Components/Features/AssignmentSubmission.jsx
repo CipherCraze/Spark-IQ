@@ -144,7 +144,7 @@ const AssignmentSubmission = () => {
         {/* Assignment Details */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Assignment Info */}
-          <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50">
+          <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50 hover:shadow-lg transition-shadow duration-300">
             <div className="flex items-center gap-3 mb-6">
               <DocumentTextIcon className="w-7 h-7 text-blue-400" />
               <h3 className="text-xl font-semibold text-white">Assignment Details</h3>
@@ -168,7 +168,7 @@ const AssignmentSubmission = () => {
           </div>
 
           {/* File Upload Section */}
-          <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50">
+          <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50 hover:shadow-lg transition-shadow duration-300">
             <div className="flex items-center gap-3 mb-6">
               <PaperClipIcon className="w-7 h-7 text-green-400" />
               <h3 className="text-xl font-semibold text-white">Submit Assignment</h3>
@@ -203,7 +203,7 @@ const AssignmentSubmission = () => {
         </div>
 
         {/* Submission History */}
-        <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50">
+        <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50 hover:shadow-lg transition-shadow duration-300">
           <div className="flex items-center gap-3 mb-6">
             <ClipboardDocumentIcon className="w-7 h-7 text-purple-400" />
             <h3 className="text-xl font-semibold text-white">Submission History</h3>

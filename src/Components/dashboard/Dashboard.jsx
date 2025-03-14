@@ -191,7 +191,7 @@
       { title: 'Social', Icon: ChatBubbleLeftRightIcon, link: '/chat-functionality' },
       { title: 'Inbox', Icon: EnvelopeIcon, link: '/inbox-for-suggestions' },
       { title: 'Feedback', Icon: LightBulbIcon, link: '/personalized-feedback' },
-      { title: 'Upgrade to Pro', Icon: SparklesIcon, link: '/important-notifications' },
+      { title: 'Upgrade to Pro', Icon: SparklesIcon, link: '/pricing' },
     ];
 
     const educatorMenu = [
