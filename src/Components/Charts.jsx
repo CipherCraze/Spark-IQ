@@ -1,4 +1,4 @@
-import { Line, Pie, Bar } from 'react-chartjs-2';
+import { Line, Pie, Bar, Doughnut } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -116,6 +116,41 @@ const barChartOptions = {
   },
 };
 
+// Donut Chart Data
+const donutChartData = {
+  labels: ['Present', 'Absent', 'Late'],
+  datasets: [
+    {
+      label: 'Attendance',
+      data: [85, 10, 5],
+      backgroundColor: [
+        'rgba(99, 102, 241, 0.8)',
+        'rgba(239, 68, 68, 0.8)',
+        'rgba(245, 158, 11, 0.8)',
+      ],
+      borderColor: [
+        'rgba(99, 102, 241, 1)',
+        'rgba(239, 68, 68, 1)',
+        'rgba(245, 158, 11, 1)',
+      ],
+      borderWidth: 1,
+    },
+  ],
+};
+
+const donutChartOptions = {
+  responsive: true,
+  plugins: {
+    legend: {
+      position: 'top',
+    },
+    title: {
+      display: true,
+      text: 'Attendance Breakdown',
+    },
+  },
+};
+
 // Line Chart Component
 export const LineChart = () => (
   <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
@@ -134,5 +169,12 @@ export const PieChart = () => (
 export const BarChart = () => (
   <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
     <Bar data={barChartData} options={barChartOptions} />
+  </div>
+);
+
+// Donut Chart Component
+export const DonutChart = () => (
+  <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
+    <Doughnut data={donutChartData} options={donutChartOptions} />
   </div>
 );

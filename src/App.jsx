@@ -24,6 +24,7 @@ import AIGeneratedQuestions from './components/Features/AIGeneratedQuestions';
 import SuggestionsInbox from './components/Features/SuggestionsInbox';
 import PersonalizedFeedback from './components/Features/Personalized_feedback';
 import NotFound from './components/NotFound';
+import EducatorDashboard from './components/dashboard/EducatorDashboard';
 
 const Layout = ({ children, showHeaderFooter = true }) => (
   <div className="flex flex-col min-h-screen">
@@ -69,6 +70,15 @@ function App() {
           element={
             <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
               <Dashboard role="student" /> {/* Pass the role as a prop */}
+            </Layout>
+          }
+        />
+        {/* Educator Dashboard */}
+        <Route
+          path="/educator-dashboard"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <EducatorDashboard role="educator" /> {/* Pass the role as a prop */}
             </Layout>
           }
         />
