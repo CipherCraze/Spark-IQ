@@ -23,7 +23,7 @@ export default function Footer() {
             <h3 className="mb-4 text-lg font-semibold">Quick Links</h3>
             <ul className="space-y-2 text-sm text-gray-400">
               {[
-                { name: "About Us", path: "/about" },
+                { name: "About Us", path: "/team" },
                 { name: "How It Works", path: "/how-it-works" },
                 { name: "FAQs", path: "/support" },
                 { name: "Contact Us", path: "/support" },
