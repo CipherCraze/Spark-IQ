@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'; // Corrected import
+import { BrowserRouter as Router, Routes, Route } from 'react-router'; // Corrected import
 import Header from './components/Header';
 import Footer from './components/Footer';
 import Hero from './components/LandingPage/Hero';
@@ -16,6 +16,15 @@ import Dashboard from './components/dashboard/Dashboard'; // Import the Dashboar
 import ChatbotAccess from './components/Chatbot/Chatbot'; // Import the Chatbot component
 import AssignmentSubmission from './components/Features/AssignmentSubmission'; // Import the AssignmentSubmission component
 import ChatFunctionality from './components/Features/ChatFunctionality';
+import Meeting from './components/Features/Meetings';
+import AttendanceMonitoring from './components/Features/AttendanceMonitoring';
+import ResourceUtilization from './components/Features/ResourceUtilization';
+import Grades from './components/Features/GradingAccess';
+import AIGeneratedQuestions from './components/Features/AIGeneratedQuestions';
+import SuggestionsInbox from './components/Features/SuggestionsInbox';
+import PersonalizedFeedback from './components/Features/Personalized_feedback';
+import NotFound from './components/NotFound';
+import EducatorDashboard from './components/dashboard/EducatorDashboard';
 
 const Layout = ({ children, showHeaderFooter = true }) => (
   <div className="flex flex-col min-h-screen">
@@ -64,6 +73,24 @@ function App() {
             </Layout>
           }
         />
+        {/* Educator Dashboard */}
+        <Route
+          path="/educator-dashboard"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <EducatorDashboard role="educator" /> {/* Pass the role as a prop */}
+            </Layout>
+          }
+        />
+        {/* Resource Utilization */}
+        <Route
+          path="/resource-utilization"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <ResourceUtilization />
+            </Layout>
+          }
+        />
         {/*pricing */}
         <Route
           path="/pricing"
@@ -82,6 +109,15 @@ function App() {
             </Layout>
           }
         />
+        {/* Grades Route */}
+        <Route
+          path="/grading-access"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <Grades />
+            </Layout>
+          }
+        />
 
         {/* Assignment Submission Route */}
         <Route
@@ -93,6 +129,15 @@ function App() {
           }
         />
           
+        {/* Suggestions Inbox Route */}
+        <Route
+          path="/inbox-for-suggestions"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <SuggestionsInbox />
+            </Layout>
+          }
+        />
           {/* Chat Functionality Route */}
         <Route
           path="/chat-functionality"
@@ -102,6 +147,44 @@ function App() {
             </Layout>
           }
         />
+        {/*Attendance Monitoring */}
+        <Route
+          path="/attendance-monitoring"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <AttendanceMonitoring />
+            </Layout>
+          }
+        />
+        {/*AI Generated Questions */}
+        <Route
+          path="/ai-generated-questions"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <AIGeneratedQuestions />
+            </Layout>
+          }
+        />
+        {/*Meeting */}
+        <Route
+          path="/meeting-participation"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <Meeting />
+            </Layout>
+          }
+        />
+        {/*Personalized Feedback */}
+        <Route
+          path="/personalized-feedback"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <PersonalizedFeedback />
+            </Layout>
+          } 
+        />
+        {/* Not Found Route */}
+        <Route path="*" element={<Layout><h1>404 - Not Found</h1></Layout>} />
       </Routes>
     </Router>
   );

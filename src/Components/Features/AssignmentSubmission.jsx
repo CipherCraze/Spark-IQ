@@ -94,8 +94,8 @@ const AssignmentSubmission = () => {
                 {[
                   { title: 'Dashboard', link: '/dashboard', Icon: ClipboardDocumentIcon },
                   { title: 'Assignments', link: '/assignment-submission', Icon: DocumentTextIcon },
-                  { title: 'Grades', link: '/grades', Icon: ChartBarIcon },
-                  { title: 'Resources', link: '/resources', Icon: FolderIcon },
+                  { title: 'Grades', link: '/grading-access', Icon: ChartBarIcon },
+                  { title: 'Resources', link: '/resource-utilization', Icon: FolderIcon },
                 ].map((item, index) => (
                   <li key={index}>
                     <Link
@@ -145,7 +145,7 @@ const AssignmentSubmission = () => {
         {/* Assignment Details */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Assignment Info */}
-          <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50">
+          <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50 hover:shadow-lg transition-shadow duration-300">
             <div className="flex items-center gap-3 mb-6">
               <DocumentTextIcon className="w-7 h-7 text-blue-400" />
               <h3 className="text-xl font-semibold text-white">Assignment Details</h3>
@@ -170,12 +170,41 @@ const AssignmentSubmission = () => {
 
           {/* File Upload Section */}
           <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50">
-            <FileUpload/>
+            <div className="flex items-center gap-3 mb-6">
+              <PaperClipIcon className="w-7 h-7 text-green-400" />
+              <h3 className="text-xl font-semibold text-white">Submit Assignment</h3>
+            </div>
+            <div className="space-y-4">
+              <div className="flex items-center justify-center w-full">
+                <label
+                  htmlFor="file-upload"
+                  className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-700 rounded-lg cursor-pointer hover:bg-gray-700/50 transition-colors"
+                >
+                  <ArrowUpTrayIcon className="w-8 h-8 text-gray-400 mb-2" />
+                  <p className="text-gray-400">
+                    {file ? file.name : 'Click to upload or drag and drop'}
+                  </p>
+                </label>
+                <input
+                  id="file-upload"
+                  type="file"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+              </div>
+              <button
+                onClick={handleSubmit}
+                className="w-full py-3 bg-indigo-500/90 rounded-xl text-white hover:bg-indigo-600 transition-colors flex items-center justify-center gap-2"
+              >
+                <CheckCircleIcon className="w-5 h-5" />
+                Submit Assignment
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Submission History */}
-        <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50">
+        <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50 hover:shadow-lg transition-shadow duration-300">
           <div className="flex items-center gap-3 mb-6">
             <ClipboardDocumentIcon className="w-7 h-7 text-purple-400" />
             <h3 className="text-xl font-semibold text-white">Submission History</h3>
