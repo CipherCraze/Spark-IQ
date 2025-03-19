@@ -167,41 +167,9 @@ const AssignmentSubmission = () => {
               </div>
             </div>
           </div>
-
-          {/* File Upload Section */}
-          <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50">
-            <div className="flex items-center gap-3 mb-6">
-              <PaperClipIcon className="w-7 h-7 text-green-400" />
-              <h3 className="text-xl font-semibold text-white">Submit Assignment</h3>
-            </div>
-            <div className="space-y-4">
-              <div className="flex items-center justify-center w-full">
-                <label
-                  htmlFor="file-upload"
-                  className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-700 rounded-lg cursor-pointer hover:bg-gray-700/50 transition-colors"
-                >
-                  <ArrowUpTrayIcon className="w-8 h-8 text-gray-400 mb-2" />
-                  <p className="text-gray-400">
-                    {file ? file.name : 'Click to upload or drag and drop'}
-                  </p>
-                </label>
-                <input
-                  id="file-upload"
-                  type="file"
-                  className="hidden"
-                  onChange={handleFileChange}
-                />
-              </div>
-              <button
-                onClick={handleSubmit}
-                className="w-full py-3 bg-indigo-500/90 rounded-xl text-white hover:bg-indigo-600 transition-colors flex items-center justify-center gap-2"
-              >
-                <CheckCircleIcon className="w-5 h-5" />
-                Submit Assignment
-              </button>
-            </div>
-          </div>
         </div>
+          {/* File Upload Section */}
+          <FileUpload />
 
         {/* Submission History */}
         <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50 hover:shadow-lg transition-shadow duration-300">
