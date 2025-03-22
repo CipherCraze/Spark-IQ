@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router'; // Corrected import
-import Header from './components/Header';
+import Header from './components/Header.jsx';
 import Footer from './components/Footer';
 import Hero from './components/LandingPage/Hero';
 import CTA from './components/LandingPage/CTA';
