@@ -58,7 +58,7 @@ const EducatorDashboard = ({ role }) => {
     { title: 'Assignment Management', Icon: ClipboardDocumentIcon, link: '/assignment-management' },
     { title: 'Grading System', Icon: AcademicCapIcon, link: '/grading-system' },
     { title: 'Attendance Tracking', Icon: ChartBarIcon, link: '/attendance-tracking' },
-    { title: 'Chatbot Interaction', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-interaction' },
+    { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-access' },
     { title: 'Feedback Provision', Icon: LightBulbIcon, link: '/feedback-provision' },
     { title: 'Question Generation', Icon: SparklesIcon, link: '/question-generation' },
     { title: 'Suggestions to Students', Icon: EnvelopeIcon, link: '/suggestions-to-students' },

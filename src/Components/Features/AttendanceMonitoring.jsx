@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { Bar, Doughnut, Line } from 'react-chartjs-2';
 import { Chart as ChartJS, registerables } from 'chart.js';
 import {
