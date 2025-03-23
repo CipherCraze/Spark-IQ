@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router'; // Import useNavigate
+import { useNavigate } from 'react-router';
 import { 
   EnvelopeIcon,
   AcademicCapIcon,
@@ -14,14 +14,16 @@ import {
   HomeIcon,
   ChartBarIcon,
   BellIcon,
-  SparklesIcon
+  SparklesIcon,
+  Bars3Icon
 } from '@heroicons/react/24/outline';
 
 const SuggestionsInbox = () => {
   const [selectedSuggestion, setSelectedSuggestion] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [composeOpen, setComposeOpen] = useState(false);
-  const navigate = useNavigate(); // Initialize useNavigate
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const navigate = useNavigate();
 
   const suggestions = [
     {
@@ -46,7 +48,7 @@ const SuggestionsInbox = () => {
       priority: 'medium',
       fullMessage: `Hello,\n\nI've been reviewing your work and believe you have potential...`,
     },
-    // Add more mock data...
+    // Add more mock data as needed
   ];
 
   const statusStyles = {
@@ -57,9 +59,17 @@ const SuggestionsInbox = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex">
-      {/* Enhanced Sidebar */}
-      <div className="w-64 bg-gray-800/50 border-r border-gray-700/50 p-6 backdrop-blur-lg">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex flex-col md:flex-row">
+      {/* Sidebar Overlay for Mobile */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 md:hidden" 
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* Responsive Sidebar */}
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-gray-800/50 border-r border-gray-700/50 p-6 backdrop-blur-lg transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform md:relative md:translate-x-0 md:block ${isSidebarOpen ? 'block' : 'hidden'}`}>
         <div className="flex items-center gap-3 mb-8">
           <div className="p-2 bg-purple-500/20 rounded-lg">
             <AcademicCapIcon className="w-8 h-8 text-purple-400" />
@@ -72,7 +82,7 @@ const SuggestionsInbox = () => {
         <nav className="space-y-2">
           <button 
             className="w-full flex items-center gap-3 p-3 text-purple-300 bg-purple-500/20 rounded-lg"
-            onClick={() => navigate('/dashboard')} // Navigate to the dashboard page
+            onClick={() => navigate('/dashboard')}
           >
             <HomeIcon className="w-5 h-5" />
             <span>Dashboard</span>
@@ -103,10 +113,16 @@ const SuggestionsInbox = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
-        {/* Enhanced Header */}
-        <div className="p-6 border-b border-gray-700/50 flex items-center justify-between bg-gradient-to-r from-gray-800/50 to-gray-900/50">
-          <div className="flex items-center gap-4">
+      <div className="flex-1 flex flex-col overflow-x-hidden">
+        {/* Responsive Header */}
+        <div className="p-4 md:p-6 border-b border-gray-700/50 flex items-center justify-between bg-gradient-to-r from-gray-800/50 to-gray-900/50">
+          <div className="flex items-center gap-2 md:gap-4">
+            <button 
+              className="md:hidden p-2 hover:bg-gray-700/30 rounded-lg transition-all"
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            >
+              <Bars3Icon className="w-6 h-6 text-gray-300" />
+            </button>
             {selectedSuggestion ? (
               <button 
                 onClick={() => setSelectedSuggestion(null)}
@@ -115,22 +131,22 @@ const SuggestionsInbox = () => {
                 <ChevronLeftIcon className="w-6 h-6 text-gray-300" />
               </button>
             ) : (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 md:gap-3">
                 <ChartBarIcon className="w-6 h-6 text-purple-400" />
-                <h1 className="text-2xl font-semibold text-white">
+                <h1 className="text-xl md:text-2xl font-semibold text-white">
                   Suggestions Inbox
                 </h1>
               </div>
             )}
           </div>
           
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1">
+          <div className="flex items-center gap-2 md:gap-4">
+            <div className="relative flex-1 max-w-xs">
               <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-3" />
               <input
                 type="text"
                 placeholder="Search suggestions..."
-                className="pl-10 pr-4 py-2 bg-gray-700/50 rounded-xl text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500"
+                className="pl-10 pr-4 py-2 bg-gray-700/50 rounded-xl text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500 w-full"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -141,29 +157,29 @@ const SuggestionsInbox = () => {
           </div>
         </div>
 
-        {/* Enhanced Content Area */}
-        <div className="flex-1 overflow-y-auto p-6">
+        {/* Responsive Content Area */}
+        <div className="flex-1 overflow-y-auto p-4 md:p-6">
           {!selectedSuggestion ? (
             <div className="grid grid-cols-1 gap-4">
               {suggestions.map((suggestion) => (
                 <div
                   key={suggestion.id}
-                  className="group p-6 bg-gray-800/50 rounded-xl border border-gray-700/50 hover:border-purple-400/30 transition-all cursor-pointer"
+                  className="group p-4 md:p-6 bg-gray-800/50 rounded-xl border border-gray-700/50 hover:border-purple-400/30 transition-all cursor-pointer shadow-md hover:shadow-lg"
                   onClick={() => setSelectedSuggestion(suggestion)}
                 >
                   <div className="flex items-start gap-4">
                     <div className={`w-3 h-3 rounded-full mt-2 ${suggestion.priority === 'high' ? 'bg-red-400 animate-pulse' : 'bg-gray-400'}`} />
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-white font-medium group-hover:text-purple-300 transition-colors">
+                        <h3 className="text-white font-medium group-hover:text-purple-300 transition-colors truncate">
                           {suggestion.subject}
                         </h3>
                         <span className={`px-2 py-1 text-xs rounded-full ${statusStyles[suggestion.status]}`}>
                           {suggestion.status}
                         </span>
                       </div>
-                      <p className="text-gray-400 text-sm mb-4">{suggestion.preview}</p>
-                      <div className="flex items-center gap-4 text-sm">
+                      <p className="text-gray-400 text-sm mb-4 line-clamp-2">{suggestion.preview}</p>
+                      <div className="flex flex-wrap items-center gap-4 text-sm">
                         <div className="flex items-center gap-2 text-gray-400">
                           <UserCircleIcon className="w-5 h-5 text-purple-400" />
                           <span>{suggestion.teacher}</span>
@@ -183,11 +199,11 @@ const SuggestionsInbox = () => {
               ))}
             </div>
           ) : (
-            <div className="max-w-3xl mx-auto bg-gray-800/50 rounded-xl border border-gray-700/50 transform transition-all">
+            <div className="max-w-3xl mx-auto bg-gray-800/50 rounded-xl border border-gray-700/50 shadow-xl transform transition-all">
               {/* Message Header */}
-              <div className="p-6 border-b border-gray-700/50 bg-gradient-to-r from-gray-800 to-gray-900/50 rounded-t-xl">
+              <div className="p-4 md:p-6 border-b border-gray-700/50 bg-gradient-to-r from-gray-800 to-gray-900/50 rounded-t-xl">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-2xl font-semibold text-white">{selectedSuggestion.subject}</h2>
+                  <h2 className="text-xl md:text-2xl font-semibold text-white">{selectedSuggestion.subject}</h2>
                   <div className="flex items-center gap-2">
                     <CheckCircleIcon className="w-6 h-6 text-green-400" />
                     <span className="text-sm text-gray-400">Verified Teacher</span>
@@ -209,14 +225,14 @@ const SuggestionsInbox = () => {
               </div>
 
               {/* Message Body */}
-              <div className="p-6 prose prose-invert max-w-none bg-gray-800/30">
+              <div className="p-4 md:p-6 prose prose-invert max-w-none bg-gray-800/30">
                 {selectedSuggestion.fullMessage.split('\n').map((para, i) => (
                   <p key={i} className="mb-4 text-gray-300">{para}</p>
                 ))}
               </div>
 
-              {/* Enhanced Action Bar */}
-              <div className="p-6 border-t border-gray-700/50 bg-gray-800/50 rounded-b-xl flex items-center gap-4">
+              {/* Action Bar */}
+              <div className="p-4 md:p-6 border-t border-gray-700/50 bg-gray-800/50 rounded-b-xl flex flex-wrap items-center gap-4">
                 <button className="px-4 py-2 bg-purple-500/20 text-purple-300 rounded-xl hover:bg-purple-500/30 flex items-center gap-2 transition-all">
                   <ChatBubbleLeftEllipsisIcon className="w-5 h-5" />
                   <span>Reply</span>
@@ -239,7 +255,7 @@ const SuggestionsInbox = () => {
           )}
         </div>
 
-        {/* Animated Floating Action Button */}
+        {/* Floating Action Button */}
         {!selectedSuggestion && (
           <button 
             className="fixed bottom-8 right-8 p-4 bg-purple-500 rounded-full hover:bg-purple-600 shadow-lg transition-all hover:scale-110 animate-pulse"
@@ -247,6 +263,19 @@ const SuggestionsInbox = () => {
           >
             <EnvelopeIcon className="w-6 h-6 text-white" />
           </button>
+        )}
+
+        {/* Responsive Compose Modal */}
+        {composeOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setComposeOpen(false)}>
+            <div className="bg-gray-800 rounded-xl p-4 md:p-6 max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+              <h2 className="text-xl font-semibold text-white mb-4">New Message</h2>
+              {/* Placeholder for form fields */}
+              <button onClick={() => setComposeOpen(false)} className="mt-4 px-4 py-2 bg-gray-700 text-white rounded-lg">
+                Close
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>

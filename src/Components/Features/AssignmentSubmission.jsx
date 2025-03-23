@@ -1,22 +1,19 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { FileUpload } from '../FileUpload.jsx'
+import { FileUpload } from '../FileUpload.jsx';
 import {
   ClipboardDocumentIcon,
-  CalendarIcon,
   DocumentTextIcon,
   PaperClipIcon,
-  CheckCircleIcon,
   ChevronLeftIcon,
   Bars3Icon,
   XMarkIcon,
   ArrowUpTrayIcon,
 } from '@heroicons/react/24/outline';
-import { ChartBarIcon } from '@heroicons/react/24/outline';
-import { FolderIcon } from '@heroicons/react/24/outline';
+import { ChartBarIcon, FolderIcon } from '@heroicons/react/24/outline';
 
 const AssignmentSubmission = () => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Closed by default for mobile
   const [file, setFile] = useState(null);
   const [submissionHistory, setSubmissionHistory] = useState([
     {
@@ -37,9 +34,7 @@ const AssignmentSubmission = () => {
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-    }
+    if (selectedFile) setFile(selectedFile);
   };
 
   const handleSubmit = () => {
@@ -61,13 +56,20 @@ const AssignmentSubmission = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 flex">
+      {/* Sidebar Overlay for Mobile */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Collapsible Sidebar */}
       <aside
         className={`fixed top-0 left-0 h-screen w-64 bg-gray-800 border-r border-gray-700/50 transform transition-transform duration-300 ease-in-out ${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } z-50 flex flex-col`}
+        } z-50 md:relative md:translate-x-0 md:block`}
       >
-        {/* Sidebar Content */}
         <div className="h-full flex flex-col">
           {/* Sidebar Header */}
           <div className="p-6 relative">
@@ -76,9 +78,9 @@ const AssignmentSubmission = () => {
             <div className="flex items-center gap-3 mb-8 relative">
               <button
                 onClick={() => setIsSidebarOpen(false)}
-                className="absolute -right-3 top-0 p-1.5 bg-gray-800 rounded-full hover:bg-gray-700 transition-colors"
+                className="absolute -right-3 top-0 p-1.5 bg-gray-800 rounded-full hover:bg-gray-700 transition-colors md:hidden"
               >
-                <ChevronLeftIcon className="w-5 h-5 text-gray-400" />
+                <XMarkIcon className="w-5 h-5 text-gray-400" />
               </button>
               <ClipboardDocumentIcon className="w-8 h-8 text-indigo-400 animate-pulse" />
               <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
@@ -116,15 +118,15 @@ const AssignmentSubmission = () => {
 
       {/* Main Content */}
       <main
-        className={`flex-1 p-8 overflow-y-auto relative transition-margin duration-300 ${
-          isSidebarOpen ? 'ml-64' : 'ml-0'
+        className={`flex-1 p-4 md:p-8 overflow-y-auto relative transition-all duration-300 ${
+          isSidebarOpen ? 'md:ml-64' : ''
         }`}
       >
         {/* Toggle Button */}
         {!isSidebarOpen && (
           <button
             onClick={() => setIsSidebarOpen(true)}
-            className="fixed left-4 top-4 z-40 p-2 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors"
+            className="fixed left-4 top-4 z-40 p-2 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors md:hidden"
           >
             <Bars3Icon className="w-6 h-6 text-gray-400" />
           </button>
@@ -132,20 +134,20 @@ const AssignmentSubmission = () => {
 
         {/* Header */}
         <header className="mb-8">
-          <h2 className="text-4xl font-bold text-white mb-3">
+          <h2 className="text-2xl md:text-4xl font-bold text-white mb-3">
             <span className="bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
               Assignment Submission
             </span>
           </h2>
-          <p className="text-gray-400 text-lg">
+          <p className="text-gray-400 text-base md:text-lg">
             Submit your assignments and track your progress effortlessly.
           </p>
         </header>
 
-        {/* Assignment Details */}
+        {/* Assignment Details and File Upload */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Assignment Info */}
-          <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50 hover:shadow-lg transition-shadow duration-300">
+          <div className="bg-gray-800/50 p-4 md:p-6 rounded-xl border border-gray-700/50 hover:shadow-lg transition-shadow duration-300">
             <div className="flex items-center gap-3 mb-6">
               <DocumentTextIcon className="w-7 h-7 text-blue-400" />
               <h3 className="text-xl font-semibold text-white">Assignment Details</h3>
@@ -167,12 +169,15 @@ const AssignmentSubmission = () => {
               </div>
             </div>
           </div>
+
+          {/* File Upload */}
+          <div className="bg-gray-800/50 p-4 md:p-6 rounded-xl border border-gray-700/50 hover:shadow-lg transition-shadow duration-300">
+            <FileUpload />
+          </div>
         </div>
-          {/* File Upload Section */}
-          <FileUpload />
 
         {/* Submission History */}
-        <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50 hover:shadow-lg transition-shadow duration-300">
+        <div className="bg-gray-800/50 p-4 md:p-6 rounded-xl border border-gray-700/50 hover:shadow-lg transition-shadow duration-300">
           <div className="flex items-center gap-3 mb-6">
             <ClipboardDocumentIcon className="w-7 h-7 text-purple-400" />
             <h3 className="text-xl font-semibold text-white">Submission History</h3>
@@ -181,10 +186,10 @@ const AssignmentSubmission = () => {
             {submissionHistory.map((submission) => (
               <div
                 key={submission.id}
-                className="flex items-center p-4 bg-gray-900/30 rounded-lg hover:bg-gray-800/50 transition-colors"
+                className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-4 items-center p-4 bg-gray-900/30 rounded-lg hover:bg-gray-800/50 transition-colors"
               >
-                <div className="flex-1">
-                  <p className="text-white">{submission.assignment}</p>
+                <div>
+                  <p className="text-white truncate">{submission.assignment}</p>
                   <p className="text-sm text-gray-400">Submitted on: {submission.submittedOn}</p>
                 </div>
                 <span
@@ -199,7 +204,7 @@ const AssignmentSubmission = () => {
                 <a
                   href={`/files/${submission.file}`}
                   download
-                  className="ml-4 p-2 hover:bg-gray-700 rounded-full transition-colors"
+                  className="p-2 hover:bg-gray-700 rounded-full transition-colors"
                 >
                   <PaperClipIcon className="w-5 h-5 text-gray-400" />
                 </a>
