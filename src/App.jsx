@@ -26,6 +26,7 @@ import PersonalizedFeedback from './Components/Features/Personalized_feedback';
 import NotFound from './Components/NotFound';
 import EducatorDashboard from './Components/dashboard/EducatorDashboard';
 import AssignmentManagement from './Components/Features/AssignmentManagement';
+import GradingSystem from './components/Features/GradingSytem';
 
 const Layout = ({ children, showHeaderFooter = true }) => (
   <div className="flex flex-col min-h-screen">
@@ -89,6 +90,15 @@ function App() {
           element={
             <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
               <AssignmentManagement />
+            </Layout>
+          }
+        />
+        {/* Grading System */}
+        <Route
+          path="/grading-system"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <GradingSystem />
             </Layout>
           }
         />
