@@ -1,7 +1,7 @@
 import axios from 'axios';
-
-const GEMINI_API_KEY = 'AIzaSyBfC-ylNy27SbMaC_lTY48UKXfPFQZERIw'; // Replace with your actual API key
 import { useState, useEffect, useRef } from 'react';
+import { BlockMath, InlineMath } from 'react-katex';
+import 'katex/dist/katex.min.css';
 import {
   ChatBubbleLeftRightIcon,
   PaperAirplaneIcon,
@@ -17,6 +17,8 @@ import {
 import confetti from 'canvas-confetti';
 import { ChartBarIcon } from '@heroicons/react/24/solid';
 
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY; // Replace with your actual API key
+
 const Chatbot = () => {
   const [messages, setMessages] = useState(() => {
     const saved = localStorage.getItem('chatHistory');
@@ -24,18 +26,18 @@ const Chatbot = () => {
   });
   const [inputText, setInputText] = useState('');
   const [isBotTyping, setIsBotTyping] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Closed by default for mobile
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(true);
   const [selectedMessage, setSelectedMessage] = useState(null);
   const messagesEndRef = useRef(null);
 
   // Quick reply suggestions
   const quickReplies = [
-    { text: "Help with math homework", type: "math" },
-    { text: "Explain quantum physics", type: "science" },
-    { text: "History resources", type: "history" },
-    { text: "Writing tips", type: "writing" },
-    { text: "Science project ideas", type: "science" },
+    { text: "Explain the Pythagorean theorem", type: "math" },
+    { text: "What's the solution to x² - 5x + 6 = 0?", type: "math" },
+    { text: "Derive the quadratic formula", type: "math" },
+    { text: "Explain quantum entanglement", type: "science" },
+    { text: "Help with calculus homework", type: "math" },
   ];
 
   // Background effect
@@ -91,18 +93,17 @@ const Chatbot = () => {
     }
   }, [messages]);
 
-  const sendMessageToGemini = async (inputText) => {
+  const sendMessageToGemini = async (messages) => {
     try {
+      // Map chat history to Gemini's expected format
+      const contents = messages.map(msg => ({
+        role: msg.sender === 'user' ? 'user' : 'model',
+        parts: [{ text: msg.text }]
+      }));
+
       const response = await axios.post(
         'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
-        {
-          contents: [
-            { 
-              role: 'user', 
-              parts: [{ text: inputText }] 
-            }
-          ],
-        },
+        { contents },
         {
           params: { key: GEMINI_API_KEY },
           headers: { 'Content-Type': 'application/json' },
@@ -116,12 +117,37 @@ const Chatbot = () => {
     }
   };
 
+  // Render LaTeX equations
+  const renderTextWithLaTeX = (text) => {
+    const segments = text.split(/(\$\$.*?\$\$|\\\(.*?\\\)|\\\[.*?\\\])/s);
+    return segments.map((segment, index) => {
+      if (segment.match(/^\$\$.*\$\$$/)) {
+        return <BlockMath key={index} math={segment.slice(2, -2)} />;
+      } else if (segment.match(/^\\\(.*\\\)$/)) {
+        return <InlineMath key={index} math={segment.slice(2, -2)} />;
+      } else if (segment.match(/^\\\[.*\\\]$/)) {
+        return <BlockMath key={index} math={segment.slice(2, -2)} />;
+      }
+      return <span key={index}>{segment}</span>;
+    });
+  };
+
   useEffect(() => {
-    const initialPrompt = "Hello! How can I assist you today?";
-    setMessages((prev) => [
-      ...prev,
-      { id: Date.now(), text: initialPrompt, sender: 'bot', timestamp: new Date().toISOString() },
-    ]);
+    const initialPrompt = `Hello! I'm Sparky, your AI assistant. I can help with math and science problems and will format equations properly:
+    
+    - Inline equations: \\(E=mc^2\\)
+    - Block equations: $$\\int_0^\\infty x^2 dx$$
+    
+    How can I help you today?`;
+    
+    if (messages.length === 0) {
+      setMessages([{
+        id: Date.now(),
+        text: initialPrompt,
+        sender: 'bot',
+        timestamp: new Date().toISOString()
+      }]);
+    }
   }, []);
 
   const handleSendMessage = async () => {
@@ -137,7 +163,8 @@ const Chatbot = () => {
     setInputText('');
     setIsBotTyping(true);
 
-    const botResponse = await sendMessageToGemini(inputText);
+    const updatedMessages = [...messages, newMessage];
+    const botResponse = await sendMessageToGemini(updatedMessages);
 
     setMessages((prev) => [
       ...prev,
@@ -154,9 +181,69 @@ const Chatbot = () => {
   };
 
   const generateStudyPlan = () => {
-    const plan = `Weekly Study Plan:\n1. Monday: Math practice (2hrs)\n2. Tuesday: Science experiments (1.5hrs)\n3. Wednesday: History research (2hrs)\n4. Thursday: Writing exercises (1hr)\n5. Friday: Project work (3hrs)`;
-    simulateBotResponse(plan);
-  };
+    const plan = `📚 Weekend Study Plan (All Subjects) 📚
+
+🔹 Mathematics:
+1. Algebra: Practice solving quadratic equations $$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$
+2. Geometry: Review area formulas $$A_{circle} = \\pi r^2$$, $$A_{triangle} = \\frac{1}{2}bh$$
+3. Calculus: Work on differentiation rules $$\\frac{d}{dx}x^n = nx^{n-1}$$
+
+🔹 Science:
+1. Physics: Study Newton's Laws $$F = ma$$
+2. Chemistry: Balance chemical equations $$2H_2 + O_2 \\rightarrow 2H_2O$$
+3. Biology: Review cell structure and functions
+
+🔹 Language Arts:
+1. Read 2 chapters of assigned novel
+2. Write 500-word essay on current topic
+3. Practice grammar exercises
+
+🔹 History/Social Studies:
+1. Create timeline of major historical events
+2. Study current political systems
+3. Review important geographical features
+
+🔹 Foreign Language:
+1. Practice vocabulary flashcards (30 min)
+2. Watch 1 episode in target language with subtitles
+3. Write 10 sentences using new grammar rules
+
+⏰ Recommended Schedule:
+Saturday Morning (3 hrs):
+- Math (1 hr)
+- Science (1 hr)
+- Language Arts (1 hr)
+
+Saturday Afternoon (2 hrs):
+- History (1 hr)
+- Foreign Language (1 hr)
+
+Sunday Morning (2 hrs):
+- Math review (1 hr)
+- Science experiments (1 hr)
+
+Sunday Afternoon (1 hr):
+- Quick review of all subjects
+- Prepare materials for school week`;
+
+    setMessages((prev) => [
+      ...prev,
+      { 
+        id: Date.now(), 
+        text: plan, 
+        sender: 'bot', 
+        timestamp: new Date().toISOString(),
+        pinned: true // Auto-pin the study plan
+      },
+    ]);
+    
+    // Add some celebratory confetti
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 }
+    });
+};
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
@@ -168,7 +255,7 @@ const Chatbot = () => {
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, newMessage]);
-      simulateBotResponse(`User uploaded a file: ${file.name}`);
+      simulateBotResponse(`I've received your file: ${file.name}. How would you like me to help with it?`);
     }
   };
 
@@ -256,7 +343,7 @@ const Chatbot = () => {
               <div className="flex items-center gap-3">
                 <ChatBubbleLeftRightIcon className="w-8 h-8 text-indigo-400 animate-pulse" />
                 <h2 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
-                  Sparky AI Assistant
+                  Sparky AI Chatbot
                 </h2>
               </div>
             </div>
@@ -285,7 +372,9 @@ const Chatbot = () => {
                   }}
                 >
                   {message.pinned && <span className="absolute -top-2 -left-2 text-yellow-400">📌</span>}
-                  <p className="text-base md:text-lg whitespace-pre-wrap">{message.text}</p>
+                  <div className="text-base md:text-lg whitespace-pre-wrap space-y-2">
+                    {renderTextWithLaTeX(message.text)}
+                  </div>
                   <div className="flex items-center justify-between mt-3">
                     <span className="text-xs text-gray-300 opacity-70">
                       {new Date(message.timestamp).toLocaleTimeString()}
@@ -340,7 +429,7 @@ const Chatbot = () => {
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                    placeholder="Ask me anything..."
+                    placeholder="Ask a math or science question..."
                     className="w-full px-4 py-3 bg-gray-800 rounded-xl text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 pr-16"
                   />
                   <div className="absolute right-1 top-1.5 flex items-center gap-2">
