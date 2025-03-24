@@ -1,3 +1,6 @@
+import axios from 'axios';
+
+const GEMINI_API_KEY = 'AIzaSyBfC-ylNy27SbMaC_lTY48UKXfPFQZERIw'; // Replace with your actual API key
 import { useState, useEffect, useRef } from 'react';
 import {
   ChatBubbleLeftRightIcon,
@@ -88,38 +91,40 @@ const Chatbot = () => {
     }
   }, [messages]);
 
-  // Bot response simulation
-  const simulateBotResponse = (userMessage) => {
-    setIsBotTyping(true);
-    setTimeout(() => {
-      const botResponse = {
-        id: Date.now(),
-        text: generateSmartResponse(userMessage),
-        sender: 'bot',
-        timestamp: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, botResponse]);
-      setIsBotTyping(false);
-    }, 1200);
+  const sendMessageToGemini = async (inputText) => {
+    try {
+      const response = await axios.post(
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
+        {
+          contents: [
+            { 
+              role: 'user', 
+              parts: [{ text: inputText }] 
+            }
+          ],
+        },
+        {
+          params: { key: GEMINI_API_KEY },
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+
+      return response.data.candidates?.[0]?.content?.parts?.[0]?.text || 'I couldn’t generate a response.';
+    } catch (error) {
+      console.error('Error fetching response:', error);
+      return 'Sorry, something went wrong. Please try again.';
+    }
   };
 
-  const generateSmartResponse = (message) => {
-    const responses = {
-      math: "Let's break this down step by step:\n1. Identify the problem type\n2. Apply relevant formula\n3. Solve step-by-step\n4. Verify your answer",
-      science: "Scientific concepts involved:\n- Quantum superposition\n- Wave-particle duality\n- Schrödinger equation\nLet's explore these fundamentals...",
-      history: "Historical context:\n1. Timeline of events\n2. Key figures involved\n3. Socio-political factors\n4. Long-term impacts",
-      writing: "Writing improvement tips:\n1. Outline your structure\n2. Use active voice\n3. Show, don't tell\n4. Edit ruthlessly",
-      default: "Here are comprehensive resources:\n- [Detailed Study Guide]\n- [Interactive Tutorial]\n- [Practice Exercises]\n- [Expert Video Explanation]",
-    };
-    const lowerMessage = message.toLowerCase();
-    if (lowerMessage.includes('math')) return responses.math;
-    if (lowerMessage.includes('science') || lowerMessage.includes('physics')) return responses.science;
-    if (lowerMessage.includes('history')) return responses.history;
-    if (lowerMessage.includes('writing')) return responses.writing;
-    return responses.default;
-  };
+  useEffect(() => {
+    const initialPrompt = "Hello! How can I assist you today?";
+    setMessages((prev) => [
+      ...prev,
+      { id: Date.now(), text: initialPrompt, sender: 'bot', timestamp: new Date().toISOString() },
+    ]);
+  }, []);
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!inputText.trim()) return;
     const newMessage = {
       id: Date.now(),
@@ -127,9 +132,19 @@ const Chatbot = () => {
       sender: 'user',
       timestamp: new Date().toISOString(),
     };
+    
     setMessages((prev) => [...prev, newMessage]);
     setInputText('');
-    simulateBotResponse(inputText);
+    setIsBotTyping(true);
+
+    const botResponse = await sendMessageToGemini(inputText);
+
+    setMessages((prev) => [
+      ...prev,
+      { id: Date.now(), text: botResponse, sender: 'bot', timestamp: new Date().toISOString() },
+    ]);
+    
+    setIsBotTyping(false);
   };
 
   const pinMessage = (messageId) => {
