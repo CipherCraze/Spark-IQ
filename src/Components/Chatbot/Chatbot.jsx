@@ -13,15 +13,21 @@ import {
   MoonIcon,
   PaperClipIcon,
   XMarkIcon,
+  ClockIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline';
 import confetti from 'canvas-confetti';
 import { ChartBarIcon } from '@heroicons/react/24/solid';
 
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY; // Replace with your actual API key
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 const Chatbot = () => {
   const [messages, setMessages] = useState(() => {
     const saved = localStorage.getItem('chatHistory');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [chatHistory, setChatHistory] = useState(() => {
+    const saved = localStorage.getItem('allChatSessions');
     return saved ? JSON.parse(saved) : [];
   });
   const [inputText, setInputText] = useState('');
@@ -29,6 +35,7 @@ const Chatbot = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(true);
   const [selectedMessage, setSelectedMessage] = useState(null);
+  const [activeTab, setActiveTab] = useState('current'); // 'current' or 'history'
   const messagesEndRef = useRef(null);
 
   // Quick reply suggestions
@@ -243,7 +250,7 @@ Sunday Afternoon (1 hr):
       spread: 70,
       origin: { y: 0.6 }
     });
-};
+  };
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
@@ -278,6 +285,57 @@ Sunday Afternoon (1 hr):
     </div>
   );
 
+  const saveChatSession = () => {
+    if (messages.length <= 1) return; // Don't save empty or initial greeting chats
+    
+    const newSession = {
+      id: Date.now(),
+      title: messages.find(m => m.sender === 'user')?.text || "New Chat",
+      messages: [...messages],
+      timestamp: new Date().toISOString()
+    };
+    
+    setChatHistory(prev => [newSession, ...prev]);
+    localStorage.setItem('allChatSessions', JSON.stringify([newSession, ...chatHistory]));
+    
+    // Show confirmation
+    confetti({
+      particleCount: 30,
+      spread: 70,
+      origin: { y: 0.6 }
+    });
+  };
+
+  const loadChatSession = (sessionId) => {
+    const session = chatHistory.find(s => s.id === sessionId);
+    if (session) {
+      setMessages(session.messages);
+      setActiveTab('current');
+      setIsSidebarOpen(false);
+    }
+  };
+
+  const deleteChatSession = (sessionId, e) => {
+    e.stopPropagation();
+    setChatHistory(prev => prev.filter(s => s.id !== sessionId));
+    localStorage.setItem(
+      'allChatSessions', 
+      JSON.stringify(chatHistory.filter(s => s.id !== sessionId))
+    );
+  };
+
+  const clearAllChats = () => {
+    setMessages([{
+      id: Date.now(),
+      text: "Hello! I'm Sparky, your AI assistant. How can I help you today?",
+      sender: 'bot',
+      timestamp: new Date().toISOString()
+    }]);
+    setChatHistory([]);
+    localStorage.removeItem('allChatSessions');
+    localStorage.removeItem('chatHistory');
+  };
+
   return (
     <div className={`min-h-screen flex ${darkMode ? 'dark' : 'light'}`}>
       {/* Mobile Sidebar Backdrop */}
@@ -294,7 +352,7 @@ Sunday Afternoon (1 hr):
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } md:static md:w-64 md:translate-x-0 z-50 flex flex-col`}
       >
-        <div className="p-6">
+        <div className="p-6 flex-1 flex flex-col">
           <button
             onClick={() => setIsSidebarOpen(false)}
             className="absolute top-4 right-4 p-2 hover:bg-gray-700/50 rounded-lg md:hidden"
@@ -307,22 +365,94 @@ Sunday Afternoon (1 hr):
               SPARK-IQ
             </h1>
           </div>
-          <nav className="space-y-2">
-            {[
-              { name: 'Dashboard', icon: ChartBarIcon, action: () => (window.location.href = '/dashboard') },
-              { name: 'New Chat', icon: SparklesIcon, action: () => setMessages([]) },
-              { name: 'Generate Study Plan', icon: BookmarkIcon, action: generateStudyPlan },
-            ].map((item, i) => (
-              <button
-                key={i}
-                onClick={item.action}
-                className="w-full flex items-center gap-3 p-3 text-gray-300 hover:bg-gray-700/50 rounded-lg group transition-all"
-              >
-                <item.icon className="w-5 h-5 text-indigo-400 group-hover:text-purple-400" />
-                <span>{item.name}</span>
-              </button>
-            ))}
-          </nav>
+          
+          {/* Sidebar Tabs */}
+          <div className="flex border-b border-gray-700 mb-4">
+            <button
+              onClick={() => setActiveTab('current')}
+              className={`flex-1 py-2 text-center ${activeTab === 'current' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-gray-400'}`}
+            >
+              Chat
+            </button>
+            <button
+              onClick={() => setActiveTab('history')}
+              className={`flex-1 py-2 text-center ${activeTab === 'history' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-gray-400'}`}
+            >
+              History
+            </button>
+          </div>
+          
+          {/* Current Chat Tab */}
+          {activeTab === 'current' && (
+            <nav className="space-y-2 mb-6">
+              {[
+                { name: 'Dashboard', icon: ChartBarIcon, action: () => (window.location.href = '/dashboard') },
+                { name: 'New Chat', icon: SparklesIcon, action: () => setMessages([]) },
+                { name: 'Save Chat', icon: BookmarkIcon, action: saveChatSession },
+                { name: 'Generate Study Plan', icon: BookmarkIcon, action: generateStudyPlan },
+              ].map((item, i) => (
+                <button
+                  key={i}
+                  onClick={item.action}
+                  className="w-full flex items-center gap-3 p-3 text-gray-300 hover:bg-gray-700/50 rounded-lg group transition-all"
+                >
+                  <item.icon className="w-5 h-5 text-indigo-400 group-hover:text-purple-400" />
+                  <span>{item.name}</span>
+                </button>
+              ))}
+            </nav>
+          )}
+          
+          {/* History Tab */}
+          {activeTab === 'history' && (
+            <div className="flex-1 overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium text-gray-200">Chat History</h3>
+                <button
+                  onClick={clearAllChats}
+                  className="text-sm text-red-400 hover:text-red-300 flex items-center gap-1"
+                >
+                  <TrashIcon className="w-4 h-4" />
+                  Clear All
+                </button>
+              </div>
+              
+              {chatHistory.length === 0 ? (
+                <div className="text-center py-8 text-gray-400">
+                  <ClockIcon className="w-8 h-8 mx-auto mb-2" />
+                  <p>No chat history yet</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {chatHistory.map((session) => (
+                    <div
+                      key={session.id}
+                      onClick={() => loadChatSession(session.id)}
+                      className="p-3 bg-gray-700/30 rounded-lg hover:bg-gray-700/50 cursor-pointer transition-colors relative group"
+                    >
+                      <div className="flex justify-between items-start">
+                        <h4 className="font-medium text-gray-200 truncate pr-6">
+                          {session.title.length > 30 ? `${session.title.substring(0, 30)}...` : session.title}
+                        </h4>
+                        <button
+                          onClick={(e) => deleteChatSession(session.id, e)}
+                          className="absolute right-2 top-2 p-1 text-gray-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <XMarkIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {new Date(session.timestamp).toLocaleString()}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1 truncate">
+                        {session.messages.find(m => m.sender === 'bot')?.text.substring(0, 50)}...
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </aside>
 
