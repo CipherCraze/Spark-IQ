@@ -75,7 +75,7 @@ const SuggestionsInbox = () => {
             <AcademicCapIcon className="w-8 h-8 text-purple-400" />
           </div>
           <h2 className="text-xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400">
-            EduConnect
+            Spark IQ
           </h2>
         </div>
         

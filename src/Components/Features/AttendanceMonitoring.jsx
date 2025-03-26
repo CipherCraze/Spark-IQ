@@ -156,7 +156,7 @@ const AttendanceMonitoring = () => {
                   { title: 'Dashboard', link: '/dashboard', Icon: ClipboardDocumentIcon },
                   { title: 'Attendance', link: '/attendance-monitoring', Icon: CalendarIcon },
                   { title: 'Grades', link: '/grading-access', Icon: ChartBarIcon },
-                  { title: 'Resources', link: '/resources', Icon: FolderIcon },
+                  { title: 'Resources', link: '/resource-utilization', Icon: FolderIcon },
                 ].map((item, index) => (
                   <li key={index}>
                     <Link
