@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router';
-import { LockClosedIcon, UserCircleIcon, SparklesIcon, AcademicCapIcon, BookOpenIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
+import { LockClosedIcon, UserCircleIcon, SparklesIcon, AcademicCapIcon, BookOpenIcon, EyeIcon, EyeSlashIcon, CalendarIcon } from '@heroicons/react/24/outline';
 import { useState } from 'react';
 
 export default function Signup() {
@@ -8,6 +8,12 @@ export default function Signup() {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [selectedBatch, setSelectedBatch] = useState('');
+  const [selectedYear, setSelectedYear] = useState('');
+
+  // Generate year options from 2024 to 2044
+  const yearOptions = Array.from({ length: 21 }, (_, i) => 2024 + i);
+  const batchOptions = ['Batch 1', 'Batch 2', 'Batch 3', 'Batch 4'];
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -184,20 +190,51 @@ export default function Signup() {
             {/* Dynamic Fields */}
             <div className="animate-fade-in">
               {role === 'student' ? (
-                <div>
-                  <label htmlFor="batch" className="block text-sm font-medium text-gray-300 mb-2">
-                    Batch
-                  </label>
-                  <div className="relative group">
-                    <input
-                      id="batch"
-                      name="batch"
-                      type="text"
-                      required
-                      placeholder="2023"
-                      className="w-full px-4 py-3.5 text-gray-100 bg-gray-800/60 border border-gray-700 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 group-hover:border-gray-600 placeholder-gray-500"
-                    />
-                    <AcademicCapIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-purple-400 transition-colors" />
+                <div className="space-y-4">
+                  {/* Batch Dropdown */}
+                  <div>
+                    <label htmlFor="batch" className="block text-sm font-medium text-gray-300 mb-2">
+                      Batch
+                    </label>
+                    <div className="relative group">
+                      <select
+                        id="batch"
+                        name="batch"
+                        value={selectedBatch}
+                        onChange={(e) => setSelectedBatch(e.target.value)}
+                        required
+                        className="w-full px-4 py-3.5 text-gray-100 bg-gray-800/60 border border-gray-700 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 group-hover:border-gray-600 appearance-none"
+                      >
+                        <option value="" disabled>Select Batch</option>
+                        {batchOptions.map((batch) => (
+                          <option key={batch} value={batch}>{batch}</option>
+                        ))}
+                      </select>
+                      <AcademicCapIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  {/* Year Dropdown */}
+                  <div>
+                    <label htmlFor="year" className="block text-sm font-medium text-gray-300 mb-2">
+                      Year
+                    </label>
+                    <div className="relative group">
+                      <select
+                        id="year"
+                        name="year"
+                        value={selectedYear}
+                        onChange={(e) => setSelectedYear(e.target.value)}
+                        required
+                        className="w-full px-4 py-3.5 text-gray-100 bg-gray-800/60 border border-gray-700 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 group-hover:border-gray-600 appearance-none"
+                      >
+                        <option value="" disabled>Select Year</option>
+                        {yearOptions.map((year) => (
+                          <option key={year} value={year}>{year}</option>
+                        ))}
+                      </select>
+                      <CalendarIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 pointer-events-none" />
+                    </div>
                   </div>
                 </div>
               ) : (
