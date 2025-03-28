@@ -28,6 +28,8 @@ import EducatorDashboard from './Components/dashboard/EducatorDashboard';
 import AssignmentManagement from './Components/Features/AssignmentManagement';
 import GradingSystem from './Components/Features/GradingSytem';
 import EducationalNewsPage from './Components/Features/EducationalNewsPage';
+import Profile from './Components/Features/Profile'; // Import the Profile component
+import Settings from './Components/Features/Settings'; // Import the Settings component
 
 const Layout = ({ children, showHeaderFooter = true }) => (
   <div className="flex flex-col min-h-screen">
@@ -85,6 +87,24 @@ function App() {
             </Layout>
           }
         />
+        {/* Profile Route */}
+        <Route
+          path="/profile"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <Profile />
+            </Layout>
+          }
+        />
+        {/* Settings Route */}
+        <Route
+          path="/settings"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <Settings />
+            </Layout>
+          }
+        />  
         {/* Assignment Management */}
         <Route
           path="/assignment-management"

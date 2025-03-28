@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Link } from 'react-router';
+// import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router-dom'; // Add useNavigate
 import { useMediaQuery } from 'react-responsive';
 import {
   SparklesIcon,
@@ -796,12 +797,18 @@ const DesktopDashboard = ({ role }) => {
                   <p className="text-sm text-gray-400">{role}@sparkiq.com</p>
                 </div>
                 <div className="p-2">
-                  <button className="w-full text-left p-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                  <Link
+                    to="/profile"
+                    className="w-full text-left p-2 text-gray-300 hover:bg-gray-700 rounded-md block"
+                  >
                     Profile
-                  </button>
-                  <button className="w-full text-left p-2 text-gray-300 hover:bg-gray-700 rounded-md">
+                  </Link>
+                  <Link
+                    to="/settings"
+                    className="w-full text-left p-2 text-gray-300 hover:bg-gray-700 rounded-md block"
+                  >
                     Settings
-                  </button>
+                  </Link>
                   <button className="w-full text-left p-2 text-red-400 hover:bg-gray-700 rounded-md">
                     Logout
                   </button>
