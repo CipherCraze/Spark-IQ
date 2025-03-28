@@ -92,8 +92,11 @@ const Notifications = () => {
         ))}
       </div>
       <div className="p-4 border-t border-gray-700/50">
-        <button className="w-full py-2 bg-indigo-500/90 rounded-lg text-white hover:bg-indigo-600 transition-colors">
-          Mark All as Read
+        <button
+          onClick={() => setNotifications([])}
+          className="w-full py-2 bg-indigo-500/90 rounded-lg text-white hover:bg-indigo-600 transition-colors"
+        >
+          Clear All Notifications
         </button>
       </div>
     </div>
