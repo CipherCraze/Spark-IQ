@@ -27,6 +27,7 @@ import NotFound from './Components/NotFound';
 import EducatorDashboard from './Components/dashboard/EducatorDashboard';
 import AssignmentManagement from './Components/Features/AssignmentManagement';
 import GradingSystem from './Components/Features/GradingSytem';
+import EducationalNewsPage from './Components/Features/EducationalNewsPage';
 
 const Layout = ({ children, showHeaderFooter = true }) => (
   <div className="flex flex-col min-h-screen">
@@ -202,6 +203,15 @@ function App() {
               <PersonalizedFeedback />
             </Layout>
           } 
+        />
+        {/*Educational News Page */}
+        <Route
+          path="/educational-news"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <EducationalNewsPage />
+            </Layout>
+          }
         />
         {/* Not Found Route */}
         <Route path="*" element={<Layout><h1>404 - Not Found</h1></Layout>} />

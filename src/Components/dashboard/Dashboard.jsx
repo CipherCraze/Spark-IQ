@@ -211,6 +211,7 @@ const MobileDashboard = ({ role }) => {
     { title: 'Social', Icon: ChatBubbleLeftRightIcon, link: '/chat-functionality' },
     { title: 'Inbox', Icon: EnvelopeIcon, link: '/inbox-for-suggestions' },
     { title: 'Feedback', Icon: LightBulbIcon, link: '/personalized-feedback' },
+    { title: 'News', Icon: UsersIcon, link: '/educational-news' },
     { title: 'Upgrade to Pro', Icon: SparklesIcon, link: '/pricing' },
   ];
 
@@ -659,6 +660,7 @@ const DesktopDashboard = ({ role }) => {
     { title: 'Social', Icon: ChatBubbleLeftRightIcon, link: '/chat-functionality' },
     { title: 'Inbox', Icon: EnvelopeIcon, link: '/inbox-for-suggestions' },
     { title: 'Feedback', Icon: LightBulbIcon, link: '/personalized-feedback' },
+    { title: 'News', Icon: UsersIcon, link: '/educational-news' },
     { title: 'Upgrade to Pro', Icon: SparklesIcon, link: '/pricing' },
   ];
 
