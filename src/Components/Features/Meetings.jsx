@@ -1,227 +1,142 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import {
   VideoCameraIcon,
   CalendarIcon,
   UserGroupIcon,
   ClockIcon,
-  ChatBubbleLeftIcon,
+  ChevronLeftIcon,
+  Bars3Icon,
+  CheckCircleIcon,
+  XCircleIcon,
+  ArrowRightIcon,
+  PlayIcon,
   ShareIcon,
-  DocumentDuplicateIcon,
-  PresentationChartBarIcon,
-  HandRaisedIcon,
-  MicrophoneIcon,
-  CameraIcon,
+  DocumentTextIcon,
+  ClipboardDocumentIcon,
 } from '@heroicons/react/24/outline';
-import { ChevronLeftIcon, Bars3Icon } from '@heroicons/react/24/outline';
 
 const Meetings = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [scheduledMeetings, setScheduledMeetings] = useState([
-    {
-      id: 1,
-      title: 'Math Lecture',
-      date: '2023-11-15',
-      time: '14:00',
-      duration: '90 mins',
-      participants: 25,
-      joinLink: '#',
-    },
-    {
-      id: 2,
-      title: 'Science Workshop',
-      date: '2023-11-17',
-      time: '10:30',
-      duration: '120 mins',
-      participants: 42,
-      joinLink: '#',
-    },
-  ]);
+  const [activeTab, setActiveTab] = useState('upcoming');
 
-  const [newMeeting, setNewMeeting] = useState({
-    title: '',
-    date: '',
-    time: '',
-    duration: '60',
-    description: '',
-  });
-
-  // WebRTC Refs
-  const localVideoRef = useRef(null);
-  const remoteVideoRefs = useRef([]);
-  const [streams, setStreams] = useState([]);
-  const [isMicMuted, setIsMicMuted] = useState(false);
-  const [isCameraOff, setIsCameraOff] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [isScreenSharing, setIsScreenSharing] = useState(false);
-  const [chatMessages, setChatMessages] = useState([]);
-  const [messageInput, setMessageInput] = useState('');
-  const [participantCount, setParticipantCount] = useState(4); // Mock participants
-  const [handRaised, setHandRaised] = useState(false);
-
-  // Initialize media devices
-  useEffect(() => {
-    const initMedia = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true
-        });
-        
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-        }
-        
-        // Mock remote streams
-        const mockStreams = Array(4).fill(null).map((_, i) => ({
-          id: `remote-${i}`,
-          name: `Student ${i + 1}`,
-          stream: null // In a real app, this would be from other participants
-        }));
-        
-        setStreams(mockStreams);
-      } catch (err) {
-        console.error("Error accessing media devices:", err);
-      }
-    };
-
-    initMedia();
-
-    return () => {
-      if (localVideoRef.current?.srcObject) {
-        localVideoRef.current.srcObject.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, []);
-
-  const handleScheduleMeeting = () => {
-    if (newMeeting.title && newMeeting.date && newMeeting.time) {
-      const meeting = {
-        id: scheduledMeetings.length + 1,
-        ...newMeeting,
-        participants: 0,
-        joinLink: `meeting-${Date.now()}`,
-      };
-      setScheduledMeetings([meeting, ...scheduledMeetings]);
-      setNewMeeting({
-        title: '',
-        date: '',
-        time: '',
-        duration: '60',
-        description: '',
-      });
-    }
+  // Sample meeting data
+  const meetingsData = {
+    live: [
+      {
+        id: 1,
+        title: 'Advanced Calculus Lecture',
+        date: '2023-11-15',
+        time: '14:00',
+        duration: '90 mins',
+        participants: 25,
+        joinLink: '#',
+        instructor: 'Dr. Smith',
+      },
+    ],
+    upcoming: [
+      {
+        id: 3,
+        title: 'Organic Chemistry Review',
+        date: '2023-11-17',
+        time: '10:30',
+        duration: '120 mins',
+        participants: 42,
+        joinLink: '#',
+        instructor: 'Dr. Williams',
+      },
+      {
+        id: 4,
+        title: 'Literature Seminar',
+        date: '2023-11-18',
+        time: '13:00',
+        duration: '90 mins',
+        participants: 15,
+        joinLink: '#',
+        instructor: 'Prof. Davis',
+      },
+    ],
+    past: [
+      {
+        id: 6,
+        title: 'Introduction to Biology',
+        date: '2023-11-10',
+        time: '11:00',
+        duration: '90 mins',
+        participants: 28,
+        recordingLink: '#',
+        materialsLink: '#',
+        instructor: 'Dr. Wilson',
+        attended: true,
+        rating: 4,
+        notes: 'Covered cell structure and function. Important concepts for next exam.',
+      },
+      {
+        id: 7,
+        title: 'History Discussion',
+        date: '2023-11-08',
+        time: '15:00',
+        duration: '60 mins',
+        participants: 12,
+        recordingLink: '#',
+        materialsLink: '#',
+        instructor: 'Prof. Miller',
+        attended: false,
+        rating: null,
+        notes: 'Missed due to conflicting appointment',
+      },
+      {
+        id: 8,
+        title: 'Mathematics Problem Solving',
+        date: '2023-11-05',
+        time: '14:00',
+        duration: '120 mins',
+        participants: 22,
+        recordingLink: '#',
+        materialsLink: '#',
+        instructor: 'Dr. Anderson',
+        attended: true,
+        rating: 5,
+        notes: 'Excellent session on differential equations. Practice problems were very helpful.',
+      },
+      {
+        id: 9,
+        title: 'Physics Lab Review',
+        date: '2023-11-03',
+        time: '09:30',
+        duration: '90 mins',
+        participants: 18,
+        recordingLink: '#',
+        materialsLink: '#',
+        instructor: 'Prof. Johnson',
+        attended: true,
+        rating: 3,
+        notes: 'Good overview of lab procedures, but some concepts needed more explanation.',
+      },
+    ],
   };
 
-  const toggleMic = async () => {
-    if (localVideoRef.current?.srcObject) {
-      const audioTracks = localVideoRef.current.srcObject.getAudioTracks();
-      audioTracks.forEach(track => {
-        track.enabled = !track.enabled;
-      });
-      setIsMicMuted(!isMicMuted);
-    }
-  };
-
-  const toggleCamera = async () => {
-    if (localVideoRef.current?.srcObject) {
-      const videoTracks = localVideoRef.current.srcObject.getVideoTracks();
-      videoTracks.forEach(track => {
-        track.enabled = !track.enabled;
-      });
-      setIsCameraOff(!isCameraOff);
-    }
-  };
-
-  const toggleScreenShare = async () => {
-    try {
-      if (!isScreenSharing) {
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({
-          video: true,
-          audio: true
-        });
-        
-        if (localVideoRef.current) {
-          // Replace video track with screen share
-          const videoTrack = screenStream.getVideoTracks()[0];
-          const sender = localVideoRef.current.srcObject.getVideoTracks()[0];
-          sender.replaceTrack(videoTrack);
-          
-          videoTrack.onended = () => {
-            toggleScreenShare();
-          };
-        }
-      } else {
-        // Switch back to camera
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true
-        });
-        const videoTrack = stream.getVideoTracks()[0];
-        const sender = localVideoRef.current.srcObject.getVideoTracks()[0];
-        sender.replaceTrack(videoTrack);
-      }
-      
-      setIsScreenSharing(!isScreenSharing);
-    } catch (err) {
-      console.error("Error sharing screen:", err);
-    }
-  };
-
-  const startRecording = async () => {
-    if (!isRecording) {
-      try {
-        // In a real app, you would use MediaRecorder API
-        // This is a simplified mock implementation
-        setIsRecording(true);
-        console.log("Recording started");
-      } catch (err) {
-        console.error("Error starting recording:", err);
-      }
-    } else {
-      setIsRecording(false);
-      console.log("Recording stopped");
-    }
-  };
-
-  const toggleHandRaise = () => {
-    setHandRaised(!handRaised);
-    // In a real app, this would notify other participants
-  };
-
-  const sendMessage = () => {
-    if (messageInput.trim()) {
-      const newMessage = {
-        id: chatMessages.length + 1,
-        sender: 'You',
-        text: messageInput,
-        timestamp: new Date().toISOString(),
-      };
-      setChatMessages([...chatMessages, newMessage]);
-      setMessageInput('');
-      
-      // Mock response (in a real app, this would come from other participants)
-      setTimeout(() => {
-        const responses = [
-          "Thanks for your question!",
-          "I agree with that point.",
-          "Let me check and get back to you.",
-          "Could you elaborate on that?"
-        ];
-        const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-        
-        setChatMessages(prev => [...prev, {
-          id: prev.length + 2,
-          sender: 'Dr. Smith',
-          text: randomResponse,
-          timestamp: new Date().toISOString(),
-        }]);
-      }, 1000);
-    }
+  // Function to render star rating
+  const renderRating = (rating) => {
+    if (!rating) return null;
+    return (
+      <div className="flex items-center mt-1">
+        {[...Array(5)].map((_, i) => (
+          <svg
+            key={i}
+            className={`w-4 h-4 ${i < rating ? 'text-yellow-400' : 'text-gray-500'}`}
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+          </svg>
+        ))}
+      </div>
+    );
   };
 
   return (
     <div className="min-h-screen bg-gray-900 flex">
-      {/* Collapsible Sidebar */}
+      {/* Collapsible Sidebar (unchanged) */}
       <aside
         className={`fixed top-0 left-0 h-screen w-64 bg-gray-800 border-r border-gray-700/50 transform transition-transform duration-300 ease-in-out ${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
@@ -251,10 +166,9 @@ const Meetings = () => {
               <ul className="space-y-1">
                 {[
                   { title: 'Dashboard', link: '/dashboard', Icon: VideoCameraIcon },
-                  { title: 'Schedule Meeting', link: '#schedule', Icon: CalendarIcon },
                   { title: 'My Meetings', link: '#my-meetings', Icon: UserGroupIcon },
-                  { title: 'Recordings', link: '#recordings', Icon: DocumentDuplicateIcon },
-                  { title: 'Virtual Classroom', link: '#classroom', Icon: PresentationChartBarIcon },
+                  { title: 'Schedule Meeting', link: '#schedule', Icon: CalendarIcon },
+                  { title: 'Recordings', link: '#recordings', Icon: VideoCameraIcon },
                 ].map((item, index) => (
                   <li key={index}>
                     <a
@@ -292,206 +206,157 @@ const Meetings = () => {
         <header className="mb-8">
           <h2 className="text-4xl font-bold text-white mb-3">
             <span className="bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
-              Virtual Classroom
+              My Meetings
             </span>
           </h2>
           <p className="text-gray-400 text-lg">
-            Host and join interactive virtual meetings with real-time collaboration.
+            View and manage your scheduled meetings
           </p>
         </header>
 
-        {/* Main Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Meeting Space */}
-          <div className="lg:col-span-2 bg-gray-800/50 p-6 rounded-xl border border-gray-700/50">
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              {/* Host Video */}
-              <div className="col-span-2 bg-gray-900 rounded-lg aspect-video relative overflow-hidden">
-                <video
-                  ref={localVideoRef}
-                  autoPlay
-                  muted
-                  playsInline
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute bottom-4 left-4 flex items-center gap-2 bg-gray-900/70 px-3 py-1 rounded-full">
-                  <MicrophoneIcon className={`w-4 h-4 ${isMicMuted ? 'text-red-400' : 'text-green-400'}`} />
-                  <CameraIcon className={`w-4 h-4 ${isCameraOff ? 'text-red-400' : 'text-green-400'}`} />
-                  <span className="text-white text-sm">You (Host)</span>
-                </div>
-              </div>
-              
-              {/* Participant Videos */}
-              {streams.map((stream, i) => (
-                <div key={stream.id} className="bg-gray-900 rounded-lg aspect-video relative overflow-hidden">
-                  {!isCameraOff && (
-                    <video
-                      ref={el => remoteVideoRefs.current[i] = el}
-                      autoPlay
-                      playsInline
-                      className="w-full h-full object-cover"
-                    />
-                  )}
-                  <div className="absolute bottom-2 left-2 flex items-center gap-1 bg-gray-900/70 px-2 py-0.5 rounded-full">
-                    <MicrophoneIcon className="w-3 h-3 text-green-400" />
-                    <span className="text-white text-xs">{stream.name}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Meeting Controls */}
-            <div className="flex items-center justify-center gap-4">
-              <button 
-                onClick={toggleMic}
-                className={`p-3 ${isMicMuted ? 'bg-red-500/90' : 'bg-indigo-500/90'} rounded-full hover:opacity-90 transition-colors`}
-              >
-                <MicrophoneIcon className="w-6 h-6 text-white" />
-              </button>
-              <button 
-                onClick={toggleCamera}
-                className={`p-3 ${isCameraOff ? 'bg-red-500/90' : 'bg-indigo-500/90'} rounded-full hover:opacity-90 transition-colors`}
-              >
-                <CameraIcon className="w-6 h-6 text-white" />
-              </button>
-              <button 
-                onClick={toggleScreenShare}
-                className={`p-3 ${isScreenSharing ? 'bg-purple-500' : 'bg-gray-700'} rounded-full hover:opacity-90 transition-colors`}
-              >
-                <ShareIcon className="w-6 h-6 text-white" />
-              </button>
-              <button
-                onClick={startRecording}
-                className={`p-3 ${isRecording ? 'bg-red-500' : 'bg-gray-700'} rounded-full hover:opacity-90 transition-colors`}
-              >
-                <DocumentDuplicateIcon className="w-6 h-6 text-white" />
-              </button>
-              <button 
-                onClick={toggleHandRaise}
-                className={`p-3 ${handRaised ? 'bg-yellow-500/90' : 'bg-gray-700'} rounded-full hover:opacity-90 transition-colors`}
-              >
-                <HandRaisedIcon className="w-6 h-6 text-white" />
-              </button>
-            </div>
-          </div>
-
-          {/* Right Sidebar */}
-          <div className="space-y-6">
-            {/* Schedule Meeting */}
-            <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50">
-              <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                <CalendarIcon className="w-6 h-6 text-indigo-400" />
-                Schedule New Meeting
-              </h3>
-              <div className="space-y-4">
-                <input
-                  type="text"
-                  placeholder="Meeting Title"
-                  className="w-full p-2 bg-gray-900 rounded-lg text-white border border-gray-700 focus:border-indigo-500 focus:outline-none"
-                  value={newMeeting.title}
-                  onChange={(e) => setNewMeeting({...newMeeting, title: e.target.value})}
-                />
-                <input
-                  type="date"
-                  className="w-full p-2 bg-gray-900 rounded-lg text-white border border-gray-700 focus:border-indigo-500 focus:outline-none"
-                  value={newMeeting.date}
-                  onChange={(e) => setNewMeeting({...newMeeting, date: e.target.value})}
-                />
-                <input
-                  type="time"
-                  className="w-full p-2 bg-gray-900 rounded-lg text-white border border-gray-700 focus:border-indigo-500 focus:outline-none"
-                  value={newMeeting.time}
-                  onChange={(e) => setNewMeeting({...newMeeting, time: e.target.value})}
-                />
-                <select
-                  className="w-full p-2 bg-gray-900 rounded-lg text-white border border-gray-700 focus:border-indigo-500 focus:outline-none"
-                  value={newMeeting.duration}
-                  onChange={(e) => setNewMeeting({...newMeeting, duration: e.target.value})}
-                >
-                  <option value="30">30 minutes</option>
-                  <option value="60">1 hour</option>
-                  <option value="90">1.5 hours</option>
-                  <option value="120">2 hours</option>
-                </select>
-                <button
-                  onClick={handleScheduleMeeting}
-                  className="w-full py-2 bg-indigo-500/90 rounded-lg text-white hover:bg-indigo-600 transition-colors"
-                  disabled={!newMeeting.title || !newMeeting.date || !newMeeting.time}
-                >
-                  Schedule Meeting
-                </button>
-              </div>
-            </div>
-
-            {/* Chat Section */}
-            <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50 h-96 flex flex-col">
-              <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                <ChatBubbleLeftIcon className="w-6 h-6 text-green-400" />
-                Meeting Chat
-              </h3>
-              <div className="flex-1 overflow-y-auto mb-4 space-y-3 pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800/50">
-                {chatMessages.map((msg) => (
-                  <div key={msg.id} className={`bg-gray-900/30 p-3 rounded-lg ${msg.sender === 'You' ? 'ml-6' : 'mr-6'}`}>
-                    <div className="flex justify-between text-sm text-gray-400">
-                      <span className={msg.sender === 'You' ? 'text-indigo-300' : 'text-green-300'}>{msg.sender}</span>
-                      <span>{new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                    </div>
-                    <p className="text-white mt-1">{msg.text}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={messageInput}
-                  onChange={(e) => setMessageInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                  placeholder="Type a message..."
-                  className="flex-1 p-2 bg-gray-900 rounded-lg text-white border border-gray-700 focus:border-indigo-500 focus:outline-none"
-                />
-                <button
-                  onClick={sendMessage}
-                  className="p-2 bg-indigo-500/90 rounded-lg hover:bg-indigo-600 transition-colors"
-                  disabled={!messageInput.trim()}
-                >
-                  Send
-                </button>
-              </div>
-            </div>
-          </div>
+        {/* Tabs */}
+        <div className="flex border-b border-gray-700 mb-6">
+          <button
+            onClick={() => setActiveTab('live')}
+            className={`px-4 py-2 font-medium text-sm flex items-center gap-2 ${
+              activeTab === 'live' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            <PlayIcon className="w-5 h-5" />
+            Live Meetings
+          </button>
+          <button
+            onClick={() => setActiveTab('upcoming')}
+            className={`px-4 py-2 font-medium text-sm flex items-center gap-2 ${
+              activeTab === 'upcoming' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            <CalendarIcon className="w-5 h-5" />
+            Upcoming
+          </button>
+          <button
+            onClick={() => setActiveTab('past')}
+            className={`px-4 py-2 font-medium text-sm flex items-center gap-2 ${
+              activeTab === 'past' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            <CheckCircleIcon className="w-5 h-5" />
+            Past Meetings
+          </button>
         </div>
 
-        {/* Scheduled Meetings */}
-        <div className="mt-8 bg-gray-800/50 p-6 rounded-xl border border-gray-700/50">
-          <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-            <UserGroupIcon className="w-6 h-6 text-purple-400" />
-            Upcoming Meetings
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {scheduledMeetings.map((meeting) => (
-              <div key={meeting.id} className="bg-gray-900/30 p-4 rounded-lg hover:bg-gray-800/50 transition-colors">
-                <div className="flex justify-between items-start mb-2">
-                  <h4 className="text-white text-lg font-semibold">{meeting.title}</h4>
-                  <span className="text-sm text-gray-400">{meeting.date} {meeting.time}</span>
+        {/* Meeting Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {meetingsData[activeTab].map((meeting) => (
+            <div key={meeting.id} className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50 hover:border-indigo-400/30 transition-all">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="text-xl font-semibold text-white">{meeting.title}</h3>
+                  <p className="text-gray-400 text-sm mt-1">Instructor: {meeting.instructor}</p>
+                  {activeTab === 'past' && renderRating(meeting.rating)}
                 </div>
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <ClockIcon className="w-4 h-4" />
-                    <span>{meeting.duration} mins</span>
-                    <UserGroupIcon className="w-4 h-4 ml-2" />
-                    <span>{meeting.participants}</span>
+                {activeTab === 'past' && (
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    meeting.attended ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'
+                  }`}>
+                    {meeting.attended ? 'Attended' : 'Missed'}
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 text-gray-300">
+                  <CalendarIcon className="w-5 h-5 text-indigo-400" />
+                  <span>{meeting.date} at {meeting.time}</span>
+                </div>
+                <div className="flex items-center gap-3 text-gray-300">
+                  <ClockIcon className="w-5 h-5 text-amber-400" />
+                  <span>{meeting.duration}</span>
+                </div>
+                <div className="flex items-center gap-3 text-gray-300">
+                  <UserGroupIcon className="w-5 h-5 text-purple-400" />
+                  <span>{meeting.participants} participants</span>
+                </div>
+
+                {/* Additional details for past meetings */}
+                {activeTab === 'past' && meeting.notes && (
+                  <div className="mt-3 pt-3 border-t border-gray-700">
+                    <div className="flex items-start gap-2">
+                      <ClipboardDocumentIcon className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                      <p className="text-gray-400 text-sm">{meeting.notes}</p>
+                    </div>
                   </div>
+                )}
+              </div>
+
+              <div className="mt-6">
+                {activeTab === 'live' && (
                   <a
                     href={meeting.joinLink}
-                    className="px-3 py-1 bg-indigo-500/90 rounded-lg text-white hover:bg-indigo-600 transition-colors"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
                   >
-                    Join Now
+                    <PlayIcon className="w-5 h-5" />
+                    Join Meeting
                   </a>
-                </div>
+                )}
+                {activeTab === 'upcoming' && (
+                  <div className="flex gap-2">
+                    <a
+                      href={meeting.joinLink}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+                    >
+                      <ArrowRightIcon className="w-5 h-5" />
+                      Join When Live
+                    </a>
+                    <button className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors">
+                      <CalendarIcon className="w-5 h-5" />
+                    </button>
+                  </div>
+                )}
+                {activeTab === 'past' && (
+                  <div className="flex flex-wrap gap-2">
+                    <a
+                      href={meeting.recordingLink}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                    >
+                      <PlayIcon className="w-5 h-5" />
+                      View Recording
+                    </a>
+                    <a
+                      href={meeting.materialsLink}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                    >
+                      <DocumentTextIcon className="w-5 h-5" />
+                      Materials
+                    </a>
+                    <button className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors">
+                      <ShareIcon className="w-5 h-5" />
+                    </button>
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
+
+        {/* Empty State */}
+        {meetingsData[activeTab].length === 0 && (
+          <div className="text-center py-12">
+            <div className="mx-auto h-24 w-24 text-gray-500 mb-4">
+              <CalendarIcon className="w-full h-full" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-300 mb-1">
+              No {activeTab} meetings
+            </h3>
+            <p className="text-gray-500">
+              {activeTab === 'live'
+                ? 'There are currently no live meetings'
+                : activeTab === 'upcoming'
+                ? 'You have no upcoming meetings scheduled'
+                : 'No past meetings to display'}
+            </p>
+          </div>
+        )}
       </main>
     </div>
   );

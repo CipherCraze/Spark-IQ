@@ -1,8 +1,7 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom'; // Corrected import
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import {
   FolderIcon,
-  DocumentArrowUpIcon,
   DocumentMagnifyingGlassIcon,
   BookOpenIcon,
   VideoCameraIcon,
@@ -17,11 +16,73 @@ import {
   ChartBarIcon,
   ArrowUpTrayIcon,
   MagnifyingGlassIcon,
+  LinkIcon,
 } from '@heroicons/react/24/outline';
+
+// Mock function to simulate LLM API call
+const fetchResourcesFromLLM = async (query) => {
+  // In a real app, you would call your backend API which uses an LLM
+  // to find resources. Here's a mock implementation:
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      const mockResources = {
+        books: [
+          {
+            id: `book-${Date.now()}-1`,
+            title: `Introduction to ${query}`,
+            author: 'Expert Author',
+            link: 'https://example.com/book1',
+            type: 'book',
+            description: `A comprehensive guide to ${query} covering all fundamental concepts.`
+          },
+          {
+            id: `book-${Date.now()}-2`,
+            title: `Advanced ${query} Techniques`,
+            author: 'Professional Educator',
+            link: 'https://example.com/book2',
+            type: 'book',
+            description: `Deep dive into advanced topics of ${query} with practical examples.`
+          }
+        ],
+        videos: [
+          {
+            id: `video-${Date.now()}-1`,
+            title: `${query} Crash Course`,
+            channel: 'Education Channel',
+            link: 'https://youtube.com/watch?v=123',
+            type: 'video',
+            duration: '15:30'
+          },
+          {
+            id: `video-${Date.now()}-2`,
+            title: `Mastering ${query}`,
+            channel: 'Tech Tutorials',
+            link: 'https://youtube.com/watch?v=456',
+            type: 'video',
+            duration: '45:20'
+          }
+        ],
+        websites: [
+          {
+            id: `web-${Date.now()}-1`,
+            title: `Official ${query} Documentation`,
+            link: 'https://docs.example.com',
+            type: 'website',
+            description: `Official documentation and reference materials for ${query}.`
+          }
+        ]
+      };
+      resolve(mockResources);
+    }, 1000);
+  });
+};
 
 const ResourceUtilization = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [resources, setResources] = useState([
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [foundResources, setFoundResources] = useState(null);
+  const [localResources, setLocalResources] = useState([
     {
       id: 1,
       name: 'Math Basics',
@@ -40,46 +101,6 @@ const ResourceUtilization = () => {
       ],
     },
   ]);
-  const [newResource, setNewResource] = useState({
-    name: '',
-    description: '',
-    type: 'document',
-    file: null,
-  });
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setNewResource({ ...newResource, file });
-    }
-  };
-
-  const createNewFolder = () => {
-    const folder = {
-      id: resources.length + 1,
-      name: newResource.name || 'New Folder',
-      type: 'folder',
-      items: [],
-    };
-    setResources([folder, ...resources]);
-    setNewResource({ name: '', description: '', type: 'document', file: null });
-  };
-
-  const uploadResource = () => {
-    if (newResource.file) {
-      const resource = {
-        id: Date.now(),
-        name: newResource.name || newResource.file.name,
-        type: newResource.type,
-        uploaded: new Date().toISOString().split('T')[0],
-        file: newResource.file.name,
-      };
-      setResources([resource, ...resources]);
-      setNewResource({ name: '', description: '', type: 'document', file: null });
-    }
-  };
 
   const getIcon = (type) => {
     switch (type) {
@@ -91,14 +112,42 @@ const ResourceUtilization = () => {
         return <ArrowsPointingOutIcon className="w-6 h-6 text-purple-400" />;
       case 'folder':
         return <FolderIcon className="w-6 h-6 text-amber-400" />;
-      default:
+      case 'book':
         return <BookOpenIcon className="w-6 h-6 text-green-400" />;
+      case 'website':
+        return <LinkIcon className="w-6 h-6 text-indigo-400" />;
+      default:
+        return <BookOpenIcon className="w-6 h-6 text-gray-400" />;
     }
   };
 
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+    
+    setIsSearching(true);
+    try {
+      const resources = await fetchResourcesFromLLM(searchQuery);
+      setFoundResources(resources);
+    } catch (error) {
+      console.error('Error fetching resources:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchQuery.trim()) {
+        handleSearch();
+      }
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   return (
     <div className="min-h-screen bg-gray-900 flex">
-      {/* Collapsible Sidebar */}
+      {/* Collapsible Sidebar (unchanged) */}
       <aside
         className={`fixed top-0 left-0 h-screen w-64 bg-gray-800 border-r border-gray-700/50 transform transition-transform duration-300 ease-in-out ${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
@@ -171,155 +220,184 @@ const ResourceUtilization = () => {
         <header className="mb-8">
           <h2 className="text-4xl font-bold text-white mb-3">
             <span className="bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent">
-              Resource Hub
+              Smart Resource Finder
             </span>
           </h2>
           <p className="text-gray-400 text-lg">
-            Share and organize educational materials with your students
+            Discover the best learning resources from across the web
           </p>
         </header>
 
-        {/* Upload Section */}
-        <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50 mb-8">
-          <div className="flex items-center gap-3 mb-6">
-            <DocumentArrowUpIcon className="w-7 h-7 text-purple-400" />
-            <h3 className="text-xl font-semibold text-white">Upload New Resource</h3>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <input
-                type="text"
-                placeholder="Resource Title"
-                className="w-full p-3 bg-gray-700/50 rounded-lg text-white placeholder-gray-400"
-                value={newResource.name}
-                onChange={(e) => setNewResource({ ...newResource, name: e.target.value })}
-              />
-              <textarea
-                placeholder="Description"
-                className="w-full p-3 bg-gray-700/50 rounded-lg text-white placeholder-gray-400"
-                rows="3"
-                value={newResource.description}
-                onChange={(e) => setNewResource({ ...newResource, description: e.target.value })}
-              />
-              <select
-                className="w-full p-3 bg-gray-700/50 rounded-lg text-white"
-                value={newResource.type}
-                onChange={(e) => setNewResource({ ...newResource, type: e.target.value })}
-              >
-                <option value="document">Document</option>
-                <option value="video">Video</option>
-                <option value="presentation">Presentation</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-
-            <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-600 rounded-lg p-6">
-              <label className="flex flex-col items-center justify-center cursor-pointer">
-                <ArrowUpTrayIcon className="w-12 h-12 text-gray-400 mb-4" />
-                <span className="text-gray-400 text-center">
-                  {newResource.file ? newResource.file.name : 'Drag & Drop or Click to Upload'}
-                </span>
-                <input
-                  type="file"
-                  className="hidden"
-                  onChange={handleFileUpload}
-                />
-              </label>
-            </div>
-          </div>
-
-          <div className="flex gap-4 mt-6">
-            <button
-              onClick={uploadResource}
-              className="px-6 py-3 bg-purple-500/90 rounded-xl text-white hover:bg-purple-600 transition-colors flex items-center gap-2"
-            >
-              <PlusCircleIcon className="w-5 h-5" />
-              Upload Resource
-            </button>
-            <button
-              onClick={createNewFolder}
-              className="px-6 py-3 bg-indigo-500/90 rounded-xl text-white hover:bg-indigo-600 transition-colors flex items-center gap-2"
-            >
-              <FolderIcon className="w-5 h-5" />
-              Create New Folder
-            </button>
-          </div>
-        </div>
-
-        {/* Search & Filter */}
-        <div className="flex flex-col md:flex-row gap-4 mb-8">
-          <div className="relative flex-1">
+        {/* Search Section */}
+        <div className="mb-8">
+          <div className="relative max-w-2xl">
             <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-3" />
             <input
               type="text"
-              placeholder="Search resources..."
-              className="w-full pl-10 pr-4 py-2 bg-gray-700/50 rounded-lg text-white placeholder-gray-400"
+              placeholder="Enter topic to search (e.g. Linear Algebra, Python Programming)"
+              className="w-full pl-10 pr-4 py-3 bg-gray-700/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
+            {isSearching && (
+              <div className="absolute right-3 top-3">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-400"></div>
+              </div>
+            )}
           </div>
-          <select
-            className="bg-gray-700/50 rounded-lg px-4 py-2 text-white"
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-          >
-            <option value="all">All Categories</option>
-            <option value="document">Documents</option>
-            <option value="video">Videos</option>
-            <option value="folder">Folders</option>
-          </select>
         </div>
 
-        {/* Resource Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {resources.map((resource) => (
-            <div
-              key={resource.id}
-              className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50 hover:border-purple-400/30 transition-all"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  {getIcon(resource.type)}
-                  <h3 className="text-lg font-semibold text-white">{resource.name}</h3>
-                </div>
-                <div className="flex gap-2">
-                  <button className="p-2 hover:bg-gray-700/50 rounded-lg">
-                    <ShareIcon className="w-5 h-5 text-gray-400" />
-                  </button>
-                  <button className="p-2 hover:bg-gray-700/50 rounded-lg">
-                    <TrashIcon className="w-5 h-5 text-red-400" />
-                  </button>
-                </div>
-              </div>
-
-              {resource.type === 'folder' ? (
-                <div className="space-y-2">
-                  {resource.items.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center gap-3 p-3 bg-gray-900/30 rounded-lg"
-                    >
-                      {getIcon(item.type)}
-                      <span className="text-gray-300 text-sm">{item.name}</span>
+        {/* Search Results */}
+        {foundResources && (
+          <div className="space-y-8">
+            {/* Books Section */}
+            {foundResources.books && foundResources.books.length > 0 && (
+              <div>
+                <h3 className="text-2xl font-semibold text-white mb-4 flex items-center gap-2">
+                  <BookOpenIcon className="w-6 h-6 text-green-400" />
+                  Recommended Books
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {foundResources.books.map((book) => (
+                    <div key={book.id} className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50 hover:border-green-400/30 transition-all">
+                      <div className="flex items-start gap-4 mb-4">
+                        {getIcon('book')}
+                        <div>
+                          <h4 className="text-lg font-semibold text-white">{book.title}</h4>
+                          <p className="text-gray-400 text-sm">{book.author}</p>
+                        </div>
+                      </div>
+                      <p className="text-gray-300 text-sm mb-4">{book.description}</p>
+                      <a 
+                        href={book.link} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-block px-4 py-2 bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500/30 transition-colors"
+                      >
+                        View Book
+                      </a>
                     </div>
                   ))}
-                  <button className="w-full mt-3 p-2 text-gray-400 hover:text-purple-400 flex items-center gap-2">
-                    <PlusCircleIcon className="w-5 h-5" />
-                    Add to Folder
-                  </button>
                 </div>
-              ) : (
-                <div className="text-sm text-gray-400">
-                  <p>Uploaded: {resource.uploaded}</p>
-                  <p className="mt-2">Type: {resource.type}</p>
-                  <button className="w-full mt-4 py-2 bg-indigo-500/20 text-indigo-400 rounded-lg hover:bg-indigo-500/30 transition-colors">
-                    Download
-                  </button>
+              </div>
+            )}
+
+            {/* Videos Section */}
+            {foundResources.videos && foundResources.videos.length > 0 && (
+              <div>
+                <h3 className="text-2xl font-semibold text-white mb-4 flex items-center gap-2">
+                  <VideoCameraIcon className="w-6 h-6 text-blue-400" />
+                  Video Tutorials
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {foundResources.videos.map((video) => (
+                    <div key={video.id} className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50 hover:border-blue-400/30 transition-all">
+                      <div className="flex items-start gap-4 mb-4">
+                        {getIcon('video')}
+                        <div>
+                          <h4 className="text-lg font-semibold text-white">{video.title}</h4>
+                          <p className="text-gray-400 text-sm">{video.channel}</p>
+                          <p className="text-gray-500 text-xs">{video.duration}</p>
+                        </div>
+                      </div>
+                      <a 
+                        href={video.link} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-block px-4 py-2 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors"
+                      >
+                        Watch Video
+                      </a>
+                    </div>
+                  ))}
                 </div>
-              )}
-            </div>
-          ))}
+              </div>
+            )}
+
+            {/* Websites Section */}
+            {foundResources.websites && foundResources.websites.length > 0 && (
+              <div>
+                <h3 className="text-2xl font-semibold text-white mb-4 flex items-center gap-2">
+                  <LinkIcon className="w-6 h-6 text-indigo-400" />
+                  Useful Websites
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {foundResources.websites.map((site) => (
+                    <div key={site.id} className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50 hover:border-indigo-400/30 transition-all">
+                      <div className="flex items-start gap-4 mb-4">
+                        {getIcon('website')}
+                        <div>
+                          <h4 className="text-lg font-semibold text-white">{site.title}</h4>
+                        </div>
+                      </div>
+                      <p className="text-gray-300 text-sm mb-4">{site.description}</p>
+                      <a 
+                        href={site.link} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-block px-4 py-2 bg-indigo-500/20 text-indigo-400 rounded-lg hover:bg-indigo-500/30 transition-colors"
+                      >
+                        Visit Site
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Local Resources */}
+        <div className="mt-12">
+          <h3 className="text-2xl font-semibold text-white mb-6 flex items-center gap-2">
+            <FolderIcon className="w-6 h-6 text-amber-400" />
+            Your Local Resources
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {localResources.map((resource) => (
+              <div
+                key={resource.id}
+                className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50 hover:border-purple-400/30 transition-all"
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    {getIcon(resource.type)}
+                    <h3 className="text-lg font-semibold text-white">{resource.name}</h3>
+                  </div>
+                  <div className="flex gap-2">
+                    <button className="p-2 hover:bg-gray-700/50 rounded-lg">
+                      <ShareIcon className="w-5 h-5 text-gray-400" />
+                    </button>
+                    <button className="p-2 hover:bg-gray-700/50 rounded-lg">
+                      <TrashIcon className="w-5 h-5 text-red-400" />
+                    </button>
+                  </div>
+                </div>
+
+                {resource.type === 'folder' ? (
+                  <div className="space-y-2">
+                    {resource.items.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center gap-3 p-3 bg-gray-900/30 rounded-lg"
+                      >
+                        {getIcon(item.type)}
+                        <span className="text-gray-300 text-sm">{item.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-400">
+                    <p>Uploaded: {resource.uploaded}</p>
+                    <p className="mt-2">Type: {resource.type}</p>
+                    <button className="w-full mt-4 py-2 bg-indigo-500/20 text-indigo-400 rounded-lg hover:bg-indigo-500/30 transition-colors">
+                      Download
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       </main>
     </div>
