@@ -1,6 +1,6 @@
 import { useState } from 'react';
 // import { Link } from 'react-router';
-import { Link, useNavigate } from 'react-router-dom'; // Add useNavigate
+import { Link, useNavigate } from 'react-router'; // Add useNavigate
 import { useMediaQuery } from 'react-responsive';
 import {
   SparklesIcon,
@@ -158,6 +158,39 @@ const SimpleCalendar = () => {
     </div>
   );
 };
+// Profile Dropdown Component
+const ProfileDropdown = ({ role, onClose, handleLogout }) => {
+  return (
+    <div className="fixed bottom-16 right-4 w-48 bg-gray-800 rounded-lg shadow-xl border border-gray-700/50 z-50">
+      <div className="p-3 border-b border-gray-700/50">
+        <p className="text-white font-medium text-sm">John Doe</p>
+        <p className="text-xs text-gray-400">{role}@sparkiq.com</p>
+      </div>
+      <div className="p-2">
+        <Link
+          to="/profile"
+          onClick={onClose}
+          className="block p-2 text-gray-300 hover:bg-gray-700 rounded-md text-sm"
+        >
+          Profile
+        </Link>
+        <Link
+          to="/settings"
+          onClick={onClose}
+          className="block p-2 text-gray-300 hover:bg-gray-700 rounded-md text-sm"
+        >
+          Settings
+        </Link>
+        <button
+          onClick={handleLogout}
+          className="w-full text-left p-2 text-red-400 hover:bg-gray-700 rounded-md text-sm"
+        >
+          Logout
+        </button>
+      </div>
+    </div>
+  );
+};
 
 // Mobile Dashboard Component (Your Mobile-Optimized Version)
 const MobileDashboard = ({ role }) => {
@@ -245,6 +278,10 @@ const MobileDashboard = ({ role }) => {
         borderWidth: 1,
       },
     ],
+  };
+  const handleLogout = () => {
+    // Add actual logout logic here
+    navigate('/login');
   };
 
   const toggleTaskCompletion = (taskId) => {
@@ -589,20 +626,36 @@ const MobileDashboard = ({ role }) => {
             ))}
           </div>
         </div>
+        {/* Bottom Navigation */}
         <nav className="fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700/50 p-2 md:hidden">
           <div className="flex justify-around items-center">
             <button className="p-2 hover:bg-gray-700 rounded-full transition-colors">
               <ClipboardDocumentIcon className="w-6 h-6 text-gray-400" />
             </button>
-            <button className="p-2 hover:bg-gray-700 rounded-full transition-colors relative">
+            <button 
+              onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+              className="p-2 hover:bg-gray-700 rounded-full transition-colors relative"
+            >
               <BellIcon className="w-6 h-6 text-gray-400" />
               <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
             </button>
-            <button className="p-2 hover:bg-gray-700 rounded-full transition-colors">
+            <button 
+              onClick={() => setIsProfileOpen(!isProfileOpen)}
+              className="p-2 hover:bg-gray-700 rounded-full transition-colors"
+            >
               <UserCircleIcon className="w-6 h-6 text-gray-400" />
             </button>
           </div>
         </nav>
+
+        {/* Mobile Profile Dropdown */}
+        {isProfileOpen && (
+          <ProfileDropdown 
+            role={role}
+            onClose={() => setIsProfileOpen(false)}
+            handleLogout={handleLogout}
+          />
+        )}
       </main>
     </div>
   );
@@ -694,6 +747,10 @@ const DesktopDashboard = ({ role }) => {
         borderWidth: 1,
       },
     ],
+  };
+  const handleLogout = () => {
+    // Add actual logout logic here
+    navigate('/login');
   };
 
   const toggleTaskCompletion = (taskId) => {
