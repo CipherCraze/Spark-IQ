@@ -1,94 +1,128 @@
-# 🚀 SPARK IQ
+# Spark IQ
 
-Welcome to **SPARK IQ**, an AI-powered Teaching Assistant app designed to revolutionize the educational experience for both students and teachers. This repository serves as the central hub for development, documentation, and collaboration on this innovative project!
+### An AI-Powered Learning Management Platform
 
----
-
-## 🌟 Project Overview
-SPARK IQ is a comprehensive platform that leverages **Artificial Intelligence** to streamline educational processes. It aims to:
-
-- 📌 Automate grading for teachers, saving time and effort.
-- 📌 Provide personalized feedback to students for better learning outcomes.
-- 📌 Suggest relevant resources based on individual student performance.
-- 📌 Offer a chatbot for instant student queries and support.
-- 📌 Facilitate seamless homework and assignment submissions.
-- 📌 Enhance teaching effectiveness through actionable analytics.
+[Live Demo ▶️](https://spark-iq1.vercel.app/) | [Watch Demo Video 🎥](https://youtu.be/smi-9N_w-5I?si=OeB-ICf-35HRBv8O) | [GitHub Repo](https://github.com/CipherCraze/Spark-IQ)
 
 ---
 
-## 🛠 Tech Stack
-
-### **Frontend:**
-- React
-- React Router
-- Tailwind CSS
-- UI libraries
-
-### **Backend:**
-- Node.js
-- Firebase
-
-### **AI Integration:**
-- Gemini API
-- Vertex AI
-
-### **Authentication:**
-- JWT (JSON Web Tokens)
-
-### **Real-time Communication:**
-- WebSockets (for chatbot)
-
-### **Tools:**
-- Postman
-- Project IDX
-- GitHub
-- Vite (for frontend build)
+## 🚀 Overview
+Spark IQ is a smart, AI-driven Learning Management System (LMS) built to enhance teaching efficiency and student engagement. By automating grading, offering personalized feedback, and introducing gamified learning elements, Spark IQ reimagines the educational experience for the 21st century.
 
 ---
 
-## ✨ Key Features
-
-### **For Teachers:**
-- ✅ **Automated Grading**: AI-powered grading system for assignments and exams.
-- ✅ **Analytics Dashboard**: Visual insights into student performance and class trends.
-- ✅ **Assignment Management**: Easy creation, distribution, and tracking of assignments.
-- ✅ **Personalized Feedback**: AI-generated feedback for each student.
-
-### **For Students:**
-- 🎓 **Personalized Learning**: AI-curated study materials based on performance.
-- 🤖 **Chatbot Assistance**: 24/7 support for academic queries.
-- 📊 **Progress Tracking**: Visual progress bars and skill improvement graphs.
-- 📎 **Seamless Submissions**: Easy upload and tracking of assignments.
-
-### **For Both:**
-- 🏆 **Gamification**: Badges, achievements, and leaderboards to motivate learning.
-- 🔔 **Real-time Notifications**: Updates on grades, feedback, and deadlines.
-- 📱 **Cross-platform Access**: Responsive design for desktop and mobile.
+## 📈 Problem Statement
+**"Overburdened Teachers and the Need for Personalized Feedback"**  
+Spark IQ tackles the modern educational challenge of overwhelmed educators who lack time and tools to offer timely, personalized guidance to students.
 
 ---
 
-## 🎯 Project Goals
-- 🚀 **Enhance Teaching Efficiency**: Reduce the burden on educators by automating repetitive tasks.
-- 📈 **Improve Student Outcomes**: Provide personalized feedback and resources for better learning.
-- 🎮 **Promote Engagement**: Use gamification and real-time interactions to keep students motivated.
-- 🌍 **Ensure Accessibility**: Make education more inclusive and accessible through AI-driven tools.
+## 🚪 Core Features
+
+- **🔐 User Authentication:** Secure login system for students and teachers.
+- **📄 Assignment Management:** Seamless uploading, grading, and tracking of assignments.
+- **⚖️ Automated Grading:** AI evaluates textual and programming assignments with precision.
+- **💡 Personalized Feedback:** Actionable insights tailored for individual learning paths.
+- **📊 Dashboards:** Real-time progress tracking for both teachers and students.
+- **🏆 Gamification:** Badges, rewards, and leaderboards to promote engagement.
+- **💬 Real-time Chat:** Instant communication between teachers and students.
+- **🤖 Sparky - AI Chatbot:** LLM-powered bot to assist with academic doubts.
+- **🔍 AI Resource Finder:** Smart search tool for topic-based learning resources.
+- **💼 Profile Management:** Manage academic and personal data with ease.
 
 ---
 
-## 📌 Contributing
-We welcome contributions to improve SPARK IQ! Feel free to open issues, submit pull requests, or suggest new features.
+## 🌐 What Sets Spark IQ Apart?
+
+- ✨ **All-in-One Platform:** Integrates assignment workflows, grading, collaboration, and engagement.
+- 🤖 **AI-Powered Features:** Instant doubt clearing via chatbot & automatic question generation.
+- 📆 **Intelligent Feedback Loop:** Real-time suggestions and virtual meetings enhance learning.
+- 🏆 **Gamified Progress:** Makes learning fun with leaderboards and achievement rewards.
 
 ---
 
-## 📄 License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## 🛌 Tech Stack
+
+| Layer              | Technologies                                   |
+|--------------------|------------------------------------------------|
+| **Frontend**       | React.js, Vite                                 |
+| **Backend**        | Firebase (Realtime DB, Auth, Cloud Functions)  |
+| **AI Integration** | Gemini API, Vertex AI                          |
+| **Styling**        | Tailwind CSS                                   |
+| **Build Tool**     | Vite + Project IDX                             |
+| **Deployment**     | Vercel                                         |
 
 ---
 
-## 📞 Contact
-For any questions or collaboration inquiries, please reach out via GitHub Issues or email us at **support@sparkiq.com**.
+## 📓 Architecture Overview
+> **Coming Soon**: Visual diagrams for Spark IQ’s system and process flows.
 
 ---
 
-Happy Coding! 🚀
+## 📊 Future Development Goals
+- AI-generated quizzes and adaptive testing
+- Parent engagement and dashboard modules
+- Advanced learning analytics and insights
+- Multi-language support for global accessibility
+
+---
+
+## ✨ Future Enhancements
+
+- 🔐 Dark mode support
+- 📊 Leaderboards and performance analytics
+- 🌐 Multi-language and regional quiz support
+- 🤖 Voice command interface with AI
+- 📅 Scheduler for quizzes and meetings
+- 🧭 AI Learning Paths: Implement personalized learning journeys powered by AI to guide students effectively.
+- 🎮 Gamification System: Boost student engagement with badges, rewards, and levels.
+- 📈 Predictive Analytics: Use AI to detect learning trends and forecast student performance.
+- 🕶️ AR/VR Learning: Introduce immersive classrooms using Augmented and Virtual Reality.
+- 🛡️ Exam Proctoring: Ensure exam integrity with AI-based remote monitoring systems.
+- 🔗 Blockchain Verification: Secure academic records and certificates with blockchain.
+- 📌 Attendance Automation: Track attendance seamlessly using facial recognition and AI.
+- 🎙️ Smart Study Assistant: Enable hands-free, voice-based interaction for study help.
+- 📚 Content Recommendation: Suggest relevant materials dynamically based on progress.
+- 🌍 Multilingual Chatbot: Expand global accessibility with multi-language AI support.
+
+---
+
+## 🌟 MVP Highlights
+Check out our live platform and walkthrough video:
+- 🔗 [Live Platform](https://spark-iq1.vercel.app/)
+- 🎥 [Demo Video](https://youtu.be/smi-9N_w-5I?si=OeB-ICf-35HRBv8O)
+
+---
+
+## 👥 Team CodeSharks
+- **Team Leader:** Pranav C R
+- **Team Members:** Noel Manoj, Joswin M.J, Niranjan J Rajesh
+- **Institution:** Indian Institute of Information Technology (IIIT) Kottayam
+- **Contest:** Google Solutions Challenge
+
+---
+
+## 📂 Repository Info
+Clone the repo and run locally:
+```bash
+git clone https://github.com/CipherCraze/Spark-IQ.git
+cd Spark-IQ
+npm install
+npm run dev
+```
+> Ensure Firebase and Gemini API keys are correctly set in your environment.
+
+---
+
+## 🚀 Contribute
+We welcome PRs, ideas, and collaborations. Open an issue or fork the repo and build with us!
+
+---
+
+## 📚 License
+Licensed under the [MIT License](LICENSE).
+
+---
+
+*Spark IQ: Empowering Educators. Engaging Students. Enhancing Learning.*
 
