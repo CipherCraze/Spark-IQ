@@ -26,12 +26,11 @@ SPARK IQ is a comprehensive platform that leverages **Artificial Intelligence** 
 
 ### **Backend:**
 - Node.js
-- Express
-- MongoDB
+- Firebase
 
 ### **AI Integration:**
 - Gemini API
-- TensorFlow (for automated grading and feedback)
+- Vertex AI
 
 ### **Authentication:**
 - JWT (JSON Web Tokens)
@@ -41,6 +40,7 @@ SPARK IQ is a comprehensive platform that leverages **Artificial Intelligence** 
 
 ### **Tools:**
 - Postman
+- Project IDX
 - GitHub
 - Vite (for frontend build)
 
