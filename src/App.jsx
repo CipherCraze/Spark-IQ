@@ -1,39 +1,39 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router'; // Corrected import
-import Header from './components/Header';
-import Footer from './components/Footer';
-import Hero from './components/LandingPage/Hero';
-import CTA from './components/LandingPage/CTA';
-import Login from './components/Login';
-import HowItWorks from './components/HowItWorks';
-import Signup from './components/Signup';
-import Team from './components/Team';
-import Support from './components/Support';
-import Pricing from './components/Pricing';
-import Features from './components/LandingPage/Features';
-import Testimonials from './components/LandingPage/Testimonials';
-import Newsletter from './components/LandingPage/Newsletter';
-import Dashboard from './components/dashboard/Dashboard'; // Import the Dashboard component
-import ChatbotAccess from './components/Chatbot/Chatbot'; // Import the Chatbot component
-import AssignmentSubmission from './components/Features/AssignmentSubmission'; // Import the AssignmentSubmission component
-import ChatFunctionality from './components/Features/ChatFunctionality';
-import Meeting from './components/Features/Meetings';
-import AttendanceMonitoring from './components/Features/AttendanceMonitoring';
-import ResourceUtilization from './components/Features/ResourceUtilization';
-import Grades from './components/Features/GradingAccess';
-import AIGeneratedQuestions from './components/Features/AIGeneratedQuestions';
-import SuggestionsInbox from './components/Features/SuggestionsInbox';
-import PersonalizedFeedback from './components/Features/Personalized_feedback';
-import EducatorDashboard from './components/dashboard/EducatorDashboard';
-import AssignmentManagement from './components/Features/AssignmentManagement';
-import GradingSystem from './components/Features/GradingSytem';
-import EducationalNewsPage from './components/Features/EducationalNewsPage';
-import Profile from './components/Features/Profile'; // Import the Profile component
-import Settings from './components/Features/Settings'; // Import the Settings component
-import ArgueAI from './components/Features/ArgueAI';
-import SmartReview from './components/Features/SmartReview';
+import Header from './Components/Header';
+import Footer from './Components/Footer';
+import Hero from './Components/LandingPage/Hero';
+import CTA from './Components/LandingPage/CTA';
+import Login from './Components/Login';
+import HowItWorks from './Components/HowItWorks';
+import Signup from './Components/Signup';
+import Team from './Components/Team';
+import Support from './Components/Support';
+import Pricing from './Components/Pricing';
+import Features from './Components/LandingPage/Features';
+import Testimonials from './Components/LandingPage/Testimonials';
+import Newsletter from './Components/LandingPage/Newsletter';
+import Dashboard from './Components/dashboard/Dashboard'; // Import the Dashboard component
+import ChatbotAccess from './Components/Chatbot/Chatbot'; // Import the Chatbot component
+import AssignmentSubmission from './Components/Features/AssignmentSubmission'; // Import the AssignmentSubmission component
+import ChatFunctionality from './Components/Features/ChatFunctionality';
+import Meeting from './Components/Features/Meetings';
+import AttendanceMonitoring from './Components/Features/AttendanceMonitoring';
+import ResourceUtilization from './Components/Features/ResourceUtilization';
+import Grades from './Components/Features/GradingAccess';
+import AIGeneratedQuestions from './Components/Features/AIGeneratedQuestions';
+import SuggestionsInbox from './Components/Features/SuggestionsInbox';
+import PersonalizedFeedback from './Components/Features/Personalized_feedback';
+import NotFound from './Components/NotFound';
+import EducatorDashboard from './Components/dashboard/EducatorDashboard';
+import AssignmentManagement from './Components/Features/AssignmentManagement';
+import GradingSystem from './Components/Features/GradingSytem';
+import EducationalNewsPage from './Components/Features/EducationalNewsPage';
+import Profile from './Components/Features/Profile'; // Import the Profile component
+import Settings from './Components/Features/Settings'; // Import the Settings component
+import ArgueAI from './Components/Features/ArgueAI';
+import SmartReview from './Components/Features/SmartReview';
 import ResourceManagement from './components/Features/ResourceManagement';
 import AttendanceTracking from './components/Features/AttendanceTracking';
-
 
 const Layout = ({ children, showHeaderFooter = true }) => (
   <div className="flex flex-col min-h-screen">
@@ -130,12 +130,8 @@ function App() {
         {/* Attendance Tracking */}
         <Route
           path="/attendance-tracking"
-          element={
-            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
-              <AttendanceTracking />
-            </Layout>
-          }
-        />
+          element={<AttendanceTracking />}
+        />  
         {/* Grading System */}
         <Route
           path="/grading-system"
