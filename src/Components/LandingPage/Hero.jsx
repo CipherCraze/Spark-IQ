@@ -45,8 +45,10 @@ export default function Hero() {
               <div className="absolute inset-0 transition-opacity border rounded-lg opacity-0 border-indigo-300/30 group-hover:opacity-100"></div>
             </Link>
 
-            <Link
-              to="/demo"
+            <a
+              href="https://youtu.be/smi-9N_w-5I?si=PwAYqwKJs-ieGSnF"
+              target="_blank"
+              rel="noopener noreferrer"
               className="flex items-center justify-center gap-3 px-8 py-4 text-lg font-medium text-white transition-all border border-gray-600 rounded-lg bg-gray-800/50 backdrop-blur-lg hover:border-indigo-400 hover:bg-indigo-500/10"
             >
               <span>Watch Demo</span>
@@ -54,7 +56,7 @@ export default function Hero() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-            </Link>
+            </a>
           </div>
 
           {/* Trust Indicators */}
