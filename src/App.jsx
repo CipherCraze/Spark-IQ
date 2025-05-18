@@ -38,6 +38,7 @@ import FeedbackDashboard from './Components/Features/FeedbackDashboard';
 import SuggestionsToStudents from './Components/Features/SuggestionsToStudents';
 import MeetingHost from './Components/Features/MeetingHost';
 import CollaborationHub from './Components/Features/CollaborationHub';
+import AnnouncementsPage from './Components/Features/AnnouncementsPage';
 
 const Layout = ({ children, showHeaderFooter = true }) => (
   <div className="flex flex-col min-h-screen">
@@ -165,6 +166,15 @@ function App() {
           element={
             <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
               <CollaborationHub />
+            </Layout>
+          }
+        />
+        {/* Announcements Page */}
+        <Route
+          path="/announcements"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <AnnouncementsPage />
             </Layout>
           }
         />
