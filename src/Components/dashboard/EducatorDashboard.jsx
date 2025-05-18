@@ -23,6 +23,12 @@ import {
   ClockIcon,
   DocumentCheckIcon,
   UserCircleIcon,
+  UsersIcon,
+  FolderIcon,
+  
+  ChatBubbleLeftIcon,
+  ClipboardIcon,
+
   PuzzlePieceIcon,
   BookOpenIcon,
   PresentationChartLineIcon,
@@ -57,14 +63,17 @@ const EducatorDashboard = ({ role }) => {
   const educatorMenu = [
     { title: 'Assignment Management', Icon: ClipboardDocumentIcon, link: '/assignment-management' },
     { title: 'Grading System', Icon: AcademicCapIcon, link: '/grading-system' },
+    { title: 'Resource Management', Icon: FolderIcon, link: '/resource-management' },
     { title: 'Attendance Tracking', Icon: ChartBarIcon, link: '/attendance-tracking' },
     { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-access' },
     { title: 'Feedback Provision', Icon: LightBulbIcon, link: '/feedback-provision' },
-    { title: 'Question Generation', Icon: SparklesIcon, link: '/question-generation' },
+    { title: 'Question Generation', Icon: SparklesIcon, link: '/ai-generated-questions' },
+    { title: 'News', Icon: UsersIcon, link: '/educational-news' },
     { title: 'Suggestions to Students', Icon: EnvelopeIcon, link: '/suggestions-to-students' },
     { title: 'Meeting Hosting', Icon: VideoCameraIcon, link: '/meeting-hosting' },
     { title: 'Collaboration', Icon: UserGroupIcon, link: '/collaboration' },
     { title: 'Announcements', Icon: MegaphoneIcon, link: '/announcements' },
+    { title: 'Upgrade to Pro', Icon: SparklesIcon, link: '/pricing' },
   ];
 
   const performanceChartData = {
