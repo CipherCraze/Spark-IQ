@@ -34,7 +34,8 @@ import ArgueAI from './Components/Features/ArgueAI';
 import SmartReview from './Components/Features/SmartReview';
 import ResourceManagement from './Components/Features/ResourceManagement';
 import AttendanceTracking from './Components/Features/AttendanceTracking';
-import FeedbackDashboard from './components/Features/FeedbackDashboard';
+import FeedbackDashboard from './Components/Features/FeedbackDashboard';
+import SuggestionsToStudents from './Components/Features/SuggestionsToStudents';
 
 const Layout = ({ children, showHeaderFooter = true }) => (
   <div className="flex flex-col min-h-screen">
@@ -141,7 +142,12 @@ function App() {
               <FeedbackDashboard />
             </Layout>
           }
-        />  
+        /> 
+        {/* Suggestions to Students */}
+        <Route
+          path="/suggestions-to-students"
+          element={<SuggestionsToStudents />}
+        />
         {/* Grading System */}
         <Route
           path="/grading-system"
