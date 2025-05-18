@@ -30,6 +30,8 @@ import GradingSystem from './Components/Features/GradingSytem';
 import EducationalNewsPage from './Components/Features/EducationalNewsPage';
 import Profile from './Components/Features/Profile'; // Import the Profile component
 import Settings from './Components/Features/Settings'; // Import the Settings component
+import ArgueAI from './Components/Features/ArgueAI';
+import SmartReview from './Components/Features/SmartReview';
 
 const Layout = ({ children, showHeaderFooter = true }) => (
   <div className="flex flex-col min-h-screen">
@@ -123,6 +125,28 @@ function App() {
             </Layout>
           }
         />
+        {/* Smart Review */}
+        <Route
+          path="/smart-review"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <SmartReview />
+            </Layout>
+          }
+        />
+        {/* Argue AI */}
+        <Route
+
+          path="/argue-ai"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+
+              <ArgueAI />
+            </Layout>
+          }
+        />
+        
+        
         {/* Resource Utilization */}
         <Route
           path="/resource-utilization"
