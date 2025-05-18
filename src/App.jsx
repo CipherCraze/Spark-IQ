@@ -36,6 +36,7 @@ import ResourceManagement from './Components/Features/ResourceManagement';
 import AttendanceTracking from './Components/Features/AttendanceTracking';
 import FeedbackDashboard from './Components/Features/FeedbackDashboard';
 import SuggestionsToStudents from './Components/Features/SuggestionsToStudents';
+import MeetingHost from './Components/Features/MeetingHost';
 
 const Layout = ({ children, showHeaderFooter = true }) => (
   <div className="flex flex-col min-h-screen">
@@ -147,6 +148,15 @@ function App() {
         <Route
           path="/suggestions-to-students"
           element={<SuggestionsToStudents />}
+        />
+        {/* Meeting Host */}
+        <Route
+          path="/meeting-host"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <MeetingHost />
+            </Layout>
+          }
         />
         {/* Grading System */}
         <Route

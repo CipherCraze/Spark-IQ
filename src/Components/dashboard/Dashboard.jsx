@@ -264,7 +264,7 @@ const MobileDashboard = ({ role }) => {
     { title: 'Question Generation', Icon: SparklesIcon, link: '/ai-generated-questions' },
     { title: 'News', Icon: UsersIcon, link: '/educational-news' },
     { title: 'Suggestions to Students', Icon: EnvelopeIcon, link: '/suggestions-to-students' },
-    { title: 'Meeting Hosting', Icon: VideoCameraIcon, link: '/meeting-hosting' },
+    { title: 'Meeting Hosting', Icon: VideoCameraIcon, link: '/meeting-host' },
     { title: 'Collaboration', Icon: UserGroupIcon, link: '/collaboration' },
     { title: 'Announcements', Icon: MegaphoneIcon, link: '/announcements' },
     { title: 'Upgrade to Pro', Icon: SparklesIcon, link: '/pricing' },
