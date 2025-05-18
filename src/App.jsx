@@ -37,6 +37,7 @@ import AttendanceTracking from './Components/Features/AttendanceTracking';
 import FeedbackDashboard from './Components/Features/FeedbackDashboard';
 import SuggestionsToStudents from './Components/Features/SuggestionsToStudents';
 import MeetingHost from './Components/Features/MeetingHost';
+import CollaborationHub from './Components/Features/CollaborationHub';
 
 const Layout = ({ children, showHeaderFooter = true }) => (
   <div className="flex flex-col min-h-screen">
@@ -155,6 +156,15 @@ function App() {
           element={
             <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
               <MeetingHost />
+            </Layout>
+          }
+        />
+        {/* Collaboration Hub */}
+        <Route
+          path="/collaboration-hub"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <CollaborationHub />
             </Layout>
           }
         />

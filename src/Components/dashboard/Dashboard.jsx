@@ -265,7 +265,7 @@ const MobileDashboard = ({ role }) => {
     { title: 'News', Icon: UsersIcon, link: '/educational-news' },
     { title: 'Suggestions to Students', Icon: EnvelopeIcon, link: '/suggestions-to-students' },
     { title: 'Meeting Hosting', Icon: VideoCameraIcon, link: '/meeting-host' },
-    { title: 'Collaboration', Icon: UserGroupIcon, link: '/collaboration' },
+    { title: 'Collaboration', Icon: UserGroupIcon, link: '/collaboration-hub' },
     { title: 'Announcements', Icon: MegaphoneIcon, link: '/announcements' },
     { title: 'Upgrade to Pro', Icon: SparklesIcon, link: '/pricing' },
   ];
