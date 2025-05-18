@@ -32,8 +32,8 @@ import Profile from './Components/Features/Profile'; // Import the Profile compo
 import Settings from './Components/Features/Settings'; // Import the Settings component
 import ArgueAI from './Components/Features/ArgueAI';
 import SmartReview from './Components/Features/SmartReview';
-import ResourceManagement from './components/Features/ResourceManagement';
-import AttendanceTracking from './components/Features/AttendanceTracking';
+import ResourceManagement from './Components/Features/ResourceManagement';
+import AttendanceTracking from './Components/Features/AttendanceTracking';
 
 const Layout = ({ children, showHeaderFooter = true }) => (
   <div className="flex flex-col min-h-screen">
