@@ -260,7 +260,7 @@ const MobileDashboard = ({ role }) => {
     { title: 'Resource Management', Icon: FolderIcon, link: '/resource-management' },
     { title: 'Attendance Tracking', Icon: ChartBarIcon, link: '/attendance-tracking' },
     { title: 'Chatbot Interaction', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-access' },
-    { title: 'Feedback Provision', Icon: LightBulbIcon, link: '/feedback-provision' },
+    { title: 'Feedback Provision', Icon: LightBulbIcon, link: '/feedback-dashboard' },
     { title: 'Question Generation', Icon: SparklesIcon, link: '/ai-generated-questions' },
     { title: 'News', Icon: UsersIcon, link: '/educational-news' },
     { title: 'Suggestions to Students', Icon: EnvelopeIcon, link: '/suggestions-to-students' },
