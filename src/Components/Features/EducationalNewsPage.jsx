@@ -213,7 +213,7 @@ const EducationalNewsPage = () => {
     setIsGeneratingSummary(true);
     setAiSummary('');
     try {
-  const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
   
   const prompt = `You are an educational news analyst for K-12 and higher education. Analyze this article and:
   
