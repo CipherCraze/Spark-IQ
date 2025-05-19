@@ -61,17 +61,16 @@ const EducatorDashboard = ({ role }) => {
   });
 
   const educatorMenu = [
-    { title: 'Assignment Management', Icon: ClipboardDocumentIcon, link: '/assignment-management' },
-    { title: 'Grading System', Icon: AcademicCapIcon, link: '/grading-system' },
-    { title: 'Resource Management', Icon: FolderIcon, link: '/resource-management' },
-    { title: 'Attendance Tracking', Icon: ChartBarIcon, link: '/attendance-tracking' },
+    { title: 'Assignments', Icon: ClipboardDocumentIcon, link: '/assignment-management' },
+    { title: 'Grades', Icon: AcademicCapIcon, link: '/grading-system' },
+    { title: 'Resources', Icon: FolderIcon, link: '/resource-management' },
+    { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-tracking' },
     { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-access' },
-    { title: 'Feedback Provision', Icon: LightBulbIcon, link: '/feedback-dashboard' },
-    { title: 'Question Generation', Icon: SparklesIcon, link: '/ai-generated-questions' },
+    { title: 'Feedback', Icon: LightBulbIcon, link: '/feedback-dashboard' },
+    { title: 'Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
     { title: 'News', Icon: UsersIcon, link: '/educational-news' },
-    { title: 'Suggestions to Students', Icon: EnvelopeIcon, link: '/suggestions-to-students' },
-    { title: 'Meeting Hosting', Icon: VideoCameraIcon, link: '/meeting-host' },
-    { title: 'Collaboration', Icon: UserGroupIcon, link: '/collaboration-hub' },
+    { title: 'Suggestions', Icon: EnvelopeIcon, link: '/suggestions-to-students' },
+    { title: 'Meetings', Icon: VideoCameraIcon, link: '/meeting-host' },  
     { title: 'Announcements', Icon: MegaphoneIcon, link: '/announcements' },
     { title: 'Upgrade to Pro', Icon: SparklesIcon, link: '/pricing' },
   ];

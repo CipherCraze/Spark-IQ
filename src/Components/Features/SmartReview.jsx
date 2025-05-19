@@ -29,23 +29,64 @@ const SmartReview = () => {
     setFeedback('');
 
     try {
-      if (!apiKey) throw new Error('API key not configured');
+  if (!apiKey) throw new Error('API key not configured');
 
-      const contents = [{
-        parts: [{
-          text: `Provide detailed feedback on this text for clarity, grammar, and structure. 
-          Focus on:\n1. Grammar and spelling\n2. Clarity of ideas\n3. Logical flow\n4. Suggestions for improvement\n\nText:\n${inputText}`
-        }]
-      }];
+  // System prompt to establish the code review behavior
+  const systemPrompt = `You are an AI Code Review Assistant with the following responsibilities:
+  
+  1. CODE ANALYSIS:
+  - Identify syntax errors and potential bugs
+  - Detect code smells and anti-patterns
+  - Check for security vulnerabilities
+  - Verify adherence to best practices
 
-      const response = await axios.post(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent',
-        { contents },
-        {
-          params: { key: apiKey },
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
+  2. EDUCATIONAL FEEDBACK:
+  - Explain errors in simple terms
+  - Provide corrected code examples
+  - Suggest optimizations with rationale
+  - Offer learning resources for concepts
+
+
+  3. OUTPUT FORMAT RULES:
+  - Never use markdown symbols: **, ##, \`\`\`, or any other formatting
+  - Use plain text only
+  - Separate sections with simple line breaks
+  - Use CAPITAL LETTERS for section headers
+  - For code examples, indent with 4 spaces instead of code blocks 
+
+  4. REVIEW FORMAT:
+  - Categorize feedback (Critical, Warning, Suggestion)
+  - Use markdown formatting for code blocks
+  - Structure feedback as:
+    * Problem: [description]
+    * Why it matters: [impact]
+    * Solution: [corrected code]
+    * Resources: [links/docs]
+
+  5. RULES:
+  - Never write complete solutions for academic assignments
+  - Focus on teaching through examples
+  - Adapt explanations to beginner/intermediate level
+  - Highlight both errors and good practices`;
+
+  const contents = [{
+    parts: [{
+      text: `${systemPrompt}\n\nReview this code and provide detailed feedback:\n\n${inputText}\n\nRemember to:
+      - Use line numbers if possible
+      - Explain concepts clearly
+      - Provide actionable suggestions
+      - Praise good practices when found`
+    }]
+  }];
+
+  const response = await axios.post(
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
+    { contents },
+    {
+      params: { key: apiKey },
+      headers: { 'Content-Type': 'application/json' },
+    }
+  );
 
       const generatedText = response.data.candidates?.[0]?.content?.parts?.[0]?.text || 'No feedback generated';
       setFeedback(generatedText);

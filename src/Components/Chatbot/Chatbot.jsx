@@ -102,20 +102,60 @@ const Chatbot = () => {
 
   const sendMessageToGemini = async (messages) => {
     try {
-      // Map chat history to Gemini's expected format
-      const contents = messages.map(msg => ({
-        role: msg.sender === 'user' ? 'user' : 'model',
-        parts: [{ text: msg.text }]
-      }));
+        // Map chat history to Gemini's expected format
+        const contents = [
+            // System prompt to set the behavior
+            {
+                role: "user",
+                parts: [{
+                    text: `You are an AI Teaching Assistant focused exclusively on academic support. Your role is to:
+1. Provide clear, accurate explanations of academic concepts
+2. Help students understand solutions to problems
+3. Support teachers with pedagogical advice
+4. Only respond to study-related questions
+5. Politely decline to answer non-academic or inappropriate queries
 
-      const response = await axios.post(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
-        { contents },
-        {
-          params: { key: GEMINI_API_KEY },
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
+Guidelines:
+- Always verify factual accuracy
+- Break down complex concepts into simpler parts
+- Use examples and analogies where helpful
+- Ask clarifying questions if the student's doubt isn't clear
+- For math/science problems, show step-by-step solutions
+- For humanities, provide structured analysis frameworks
+- Never provide direct answers to exam/test questions
+- Encourage learning through guided explanation
+
+OUTPUT FORMAT RULES:
+    - Never use markdown symbols: **, ##, \`\`\`, or any other formatting
+    - Use plain text only
+    - Separate sections with simple line breaks
+    - Use CAPITAL LETTERS for section headers
+    - For code examples, indent with 4 spaces instead of code blocks
+
+If a question is not study-related, respond: "I'm sorry, but I can only assist with academic questions. Please ask about your studies."`
+                }]
+            },
+            {
+                role: "model",
+                parts: [{
+                    text: "Understood. I'm ready to assist with academic questions. Please ask your study-related doubt."
+                }]
+            },
+            // Add the conversation history
+            ...messages.map(msg => ({
+                role: msg.sender === 'user' ? 'user' : 'model',
+                parts: [{ text: msg.text }]
+            }))
+        ];
+
+        const response = await axios.post(
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent',
+            { contents },
+            {
+                params: { key: GEMINI_API_KEY },
+                headers: { 'Content-Type': 'application/json' },
+            }
+        );
 
       return response.data.candidates?.[0]?.content?.parts?.[0]?.text || 'I couldn’t generate a response.';
     } catch (error) {

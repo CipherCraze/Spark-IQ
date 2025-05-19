@@ -30,7 +30,6 @@ import GradingSystem from './Components/Features/GradingSytem';
 import EducationalNewsPage from './Components/Features/EducationalNewsPage';
 import Profile from './Components/Features/Profile'; // Import the Profile component
 import Settings from './Components/Features/Settings'; // Import the Settings component
-import ArgueAI from './Components/Features/ArgueAI';
 import SmartReview from './Components/Features/SmartReview';
 import ResourceManagement from './Components/Features/ResourceManagement';
 import AttendanceTracking from './Components/Features/AttendanceTracking';
@@ -196,17 +195,7 @@ function App() {
             </Layout>
           }
         />
-        {/* Argue AI */}
-        <Route
-
-          path="/argue-ai"
-          element={
-            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
-
-              <ArgueAI />
-            </Layout>
-          }
-        />
+    
         
         
         {/* Resource Utilization */}
