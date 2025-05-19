@@ -226,6 +226,7 @@ const EducationalNewsPage = () => {
       - Focus only on academic, pedagogical, or education technology aspects
       - Remove any politically charged or sensitive content
       - Reject summaries if the article is not education-related
+      - Do not include any personal opinions or biases
       - Reject any sexually or adult related content
       - Do not include any personal opinions or biases
       - Do not include any promotional or marketing language
