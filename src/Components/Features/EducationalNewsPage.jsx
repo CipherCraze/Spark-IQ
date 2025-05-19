@@ -43,7 +43,7 @@ function useLocalStorage(key, initialValue) {
       const item = window.localStorage.getItem(key);
       return item ? JSON.parse(item) : initialValue;
     } catch (error) {
-      console.error("Error reading localStorage key “" + key + "”:", error);
+      console.error("Error reading localStorage key '" + key + "':", error);
       return initialValue;
     }
   });
@@ -56,7 +56,7 @@ function useLocalStorage(key, initialValue) {
         window.localStorage.setItem(key, JSON.stringify(valueToStore));
       }
     } catch (error) {
-      console.error("Error setting localStorage key “" + key + "”:", error);
+      console.error("Error setting localStorage key '" + key + "':", error);
     }
   };
 
@@ -77,11 +77,10 @@ function useDebounce(value, delay) {
   return debouncedValue;
 }
 
-
 // --- Constants ---
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const NEWS_API_KEY = import.meta.env.VITE_NEWS_API_KEY;
-const NEWS_API_BASE_URL = 'https://newsapi.org/v2/everything';
+const NEWS_API_BASE_URL = 'https://gnews.io/api/v4/search';
 const DEFAULT_IMAGE_URL = 'https://images.unsplash.com/photo-1509062522246-3755977927d7?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1232&q=80'; // More relevant default
 
 // --- Initialize Gemini AI ---
@@ -90,13 +89,12 @@ if (GEMINI_API_KEY) {
   try {
     genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
   } catch (error) {
-     console.error("Failed to initialize GoogleGenerativeAI:", error);
-     // Handle initialization error, maybe disable AI features
+    console.error("Failed to initialize GoogleGenerativeAI:", error);
+    // Handle initialization error, maybe disable AI features
   }
 } else {
-    console.warn("VITE_GEMINI_API_KEY is not set. AI features will be disabled.");
+  console.warn("VITE_GEMINI_API_KEY is not set. AI features will be disabled.");
 }
-
 
 // --- Helper Functions ---
 const calculateReadTime = (content) => {
@@ -142,19 +140,25 @@ const EducationalNewsPage = () => {
         return;
       }
 
-      const url = `${NEWS_API_BASE_URL}?q=${encodeURIComponent(category)}&language=en&sortBy=publishedAt&apiKey=${NEWS_API_KEY}&pageSize=40`; // Fetch 40
+      const url = `${NEWS_API_BASE_URL}?q=${encodeURIComponent(category)}&lang=en&max=40&apikey=${NEWS_API_KEY}`;
 
       try {
         const response = await axios.get(url);
-        if (response.data.status === 'ok') {
+        if (response.data.articles) {
           // Filter out articles without essential info
           const validArticles = response.data.articles.filter(
-            article => article.title && article.title !== "[Removed]" && article.description && article.url && article.source?.name
+            article =>
+              article.title &&
+              article.title !== "[Removed]" &&
+              article.description &&
+              article.url &&
+              article.image &&
+              article.source?.name
           );
           setArticles(validArticles);
           extractTrendingTopics(validArticles);
         } else {
-            throw new Error(response.data.message || 'Failed to fetch news');
+          throw new Error(response.data.message || 'Failed to fetch news');
         }
       } catch (error) {
         console.error('Error fetching news:', error);
@@ -213,54 +217,54 @@ const EducationalNewsPage = () => {
     setIsGeneratingSummary(true);
     setAiSummary('');
     try {
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-  
-  const prompt = `You are an educational news analyst for K-12 and higher education. Analyze this article and:
-  
-  1. CONTENT RULES:
-  - Filter out any non-educational or adult content
-  - Focus only on academic, pedagogical, or education technology aspects
-  - Remove any politically charged or sensitive content
-  - Reject summaries if the article is not education-related
-  - Reject any sexually or adult related content
-  - Do not include any personal opinions or biases
-  - Do not include any promotional or marketing language
+      const model = genAI.getGenerativeModel({ model: "models/gemini-1.5-flash" });
+      
+      const prompt = `You are an educational news analyst for K-12 and higher education. Analyze this article and:
+      
+      1. CONTENT RULES:
+      - Filter out any non-educational or adult content
+      - Focus only on academic, pedagogical, or education technology aspects
+      - Remove any politically charged or sensitive content
+      - Reject summaries if the article is not education-related
+      - Reject any sexually or adult related content
+      - Do not include any personal opinions or biases
+      - Do not include any promotional or marketing language
 
-  2. SUMMARY REQUIREMENTS:
-  - 3 concise bullet points (40 words max each)
-  - Focus on classroom implications
-  - Highlight technology integration if relevant
-  - Use neutral, factual language
-  - Include practical applications
+      2. SUMMARY REQUIREMENTS:
+      - 3 concise bullet points (40 words max each)
+      - Focus on classroom implications
+      - Highlight technology integration if relevant
+      - Use neutral, factual language
+      - Include practical applications
 
-  3. SAFETY CHECKS:
-  - If article contains inappropriate content, respond: "This content is not suitable for educational analysis"
-  - For non-education topics: "This article falls outside our educational scope"
+      3. SAFETY CHECKS:
+      - If article contains inappropriate content, respond: "This content is not suitable for educational analysis"
+      - For non-education topics: "This article falls outside our educational scope"
 
-  Article Title: ${article.title}
-  Article Content: ${article.content || article.description}
+      Article Title: ${article.title}
+      Article Content: ${article.content || article.description}
 
-  Provide either:
-  A) 3 educational bullet points OR
-  B) One rejection reason as specified above.`;
+      Provide either:
+      A) 3 educational bullet points OR
+      B) One rejection reason as specified above.`;
 
-  const result = await model.generateContent(prompt);
-  const response = result.response;
-  let text = response.text();
+      const result = await model.generateContent(prompt);
+      const response = result.response;
+      let text = response.text();
 
-  // Additional client-side filtering
-  const blockedTerms = ["adult", "violent", "political", "sensitive", "inappropriate"];
-  if (blockedTerms.some(term => text.toLowerCase().includes(term))) {
-    text = "Content filtered for educational suitability";
-  }
+      // Additional client-side filtering
+      const blockedTerms = ["adult", "violent", "political", "sensitive", "inappropriate"];
+      if (blockedTerms.some(term => text.toLowerCase().includes(term))) {
+        text = "Content filtered for educational suitability";
+      }
 
-  setAiSummary(text);
-} catch (error) {
-  console.error("AI summary error:", error);
-  setAiSummary("Error: Could not generate educational summary. Please try another article.");
-} finally {
-  setIsGeneratingSummary(false);
-}
+      setAiSummary(text);
+    } catch (error) {
+      console.error("AI summary error:", error);
+      setAiSummary("Error: Could not generate educational summary. Please try another article.");
+    } finally {
+      setIsGeneratingSummary(false);
+    }
   }, [isGeneratingSummary]);
 
   const translateArticle = useCallback(async (article, language = 'Spanish') => {
@@ -269,7 +273,7 @@ const EducationalNewsPage = () => {
     setIsGeneratingTranslation(true);
     setAiTranslation('');
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+      const model = genAI.getGenerativeModel({ model: "models/gemini-1.5-flash" });
       const prompt = `Translate the core information of the following educational news article into ${language}. Focus on clarity and accuracy, preserving the original meaning and tone.
 
       Article Title: ${article.title}
@@ -289,7 +293,7 @@ const EducationalNewsPage = () => {
     }
   }, [isGeneratingTranslation]);
 
-   // --- Filtered Articles ---
+  // --- Filtered Articles ---
   const filteredArticles = useMemo(() => {
     if (!debouncedSearchQuery) return articles;
     return articles.filter(article =>
@@ -319,7 +323,7 @@ const EducationalNewsPage = () => {
 
   // Article Card Component
   const ArticleCard = ({ article, onReadMore, onBookmarkToggle, isBookmarked }) => (
-     <motion.div
+    <motion.div
       layout
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -345,7 +349,7 @@ const EducationalNewsPage = () => {
 
       <div className="h-48 overflow-hidden">
         <img
-          src={article.urlToImage || DEFAULT_IMAGE_URL}
+          src={article.image || DEFAULT_IMAGE_URL}
           alt={article.title}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           onError={(e) => { e.target.src = DEFAULT_IMAGE_URL; }}
@@ -398,7 +402,7 @@ const EducationalNewsPage = () => {
   );
 
   const MobileNavItem = ({ label, icon: Icon, categoryName, currentCategory, onClick }) => (
-     <button
+    <button
       onClick={() => { onClick(categoryName); setMobileMenuOpen(false); }}
       className={`w-full flex items-center px-3 py-2.5 rounded-md text-base font-medium transition-all duration-200 ${
         currentCategory === categoryName
@@ -425,7 +429,7 @@ const EducationalNewsPage = () => {
                 className="inline-flex items-center justify-center p-2 rounded-md text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none lg:hidden mr-2"
                 aria-label="Toggle mobile menu"
               >
-                 {mobileMenuOpen ? <XMarkIcon className="block h-6 w-6" /> : <Bars3Icon className="block h-6 w-6" />}
+                {mobileMenuOpen ? <XMarkIcon className="block h-6 w-6" /> : <Bars3Icon className="block h-6 w-6" />}
               </button>
               <div className="flex-shrink-0 flex items-center">
                 <AcademicCapIcon className="h-8 w-auto text-purple-600 dark:text-purple-400" />
@@ -434,10 +438,10 @@ const EducationalNewsPage = () => {
                 </span>
               </div>
               <nav className="hidden lg:ml-10 lg:flex lg:space-x-4">
-                 <NavItem label="Home" icon={HomeIcon} categoryName="education" currentCategory={category} onClick={setCategory} />
-                 <NavItem label="EdTech" icon={ComputerDesktopIcon} categoryName="technology" currentCategory={category} onClick={setCategory} />
-                 <NavItem label="Research" icon={BeakerIcon} categoryName="research" currentCategory={category} onClick={setCategory} />
-                 <NavItem label="Policy" icon={BuildingLibraryIcon} categoryName="policy" currentCategory={category} onClick={setCategory} />
+                <NavItem label="Home" icon={HomeIcon} categoryName="education" currentCategory={category} onClick={setCategory} />
+                <NavItem label="EdTech" icon={ComputerDesktopIcon} categoryName="technology" currentCategory={category} onClick={setCategory} />
+                <NavItem label="Research" icon={BeakerIcon} categoryName="research" currentCategory={category} onClick={setCategory} />
+                <NavItem label="Policy" icon={BuildingLibraryIcon} categoryName="policy" currentCategory={category} onClick={setCategory} />
               </nav>
             </div>
 
@@ -456,20 +460,20 @@ const EducationalNewsPage = () => {
                 />
               </div>
               <div className="flex items-center space-x-2 sm:space-x-3">
-                 <motion.button
-                    whileTap={{ scale: 0.9, rotate: 15 }}
-                    onClick={() => setDarkMode(!darkMode)}
-                    className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none"
-                    aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-                  >
-                    {darkMode ? <SunIcon className="h-5 w-5 text-yellow-400" /> : <MoonIcon className="h-5 w-5 text-indigo-500" />}
-                  </motion.button>
-                 <button className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none relative" aria-label="Notifications">
-                    <BellIcon className="h-5 w-5" />
-                    <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 flex items-center justify-center text-[6px] text-white">
-                      {/* Notification count could go here */}
-                    </span>
-                 </button>
+                <motion.button
+                  whileTap={{ scale: 0.9, rotate: 15 }}
+                  onClick={() => setDarkMode(!darkMode)}
+                  className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none"
+                  aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+                >
+                  {darkMode ? <SunIcon className="h-5 w-5 text-yellow-400" /> : <MoonIcon className="h-5 w-5 text-indigo-500" />}
+                </motion.button>
+                <button className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none relative" aria-label="Notifications">
+                  <BellIcon className="h-5 w-5" />
+                  <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 flex items-center justify-center text-[6px] text-white">
+                    {/* Notification count could go here */}
+                  </span>
+                </button>
                 <div className="relative">
                   <motion.button
                     whileTap={{ scale: 0.95 }}
@@ -523,10 +527,10 @@ const EducationalNewsPage = () => {
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
                 </div>
-                 <MobileNavItem label="Home" icon={HomeIcon} categoryName="education" currentCategory={category} onClick={setCategory} />
-                 <MobileNavItem label="EdTech" icon={ComputerDesktopIcon} categoryName="technology" currentCategory={category} onClick={setCategory} />
-                 <MobileNavItem label="Research" icon={BeakerIcon} categoryName="research" currentCategory={category} onClick={setCategory} />
-                 <MobileNavItem label="Policy" icon={BuildingLibraryIcon} categoryName="policy" currentCategory={category} onClick={setCategory} />
+                <MobileNavItem label="Home" icon={HomeIcon} categoryName="education" currentCategory={category} onClick={setCategory} />
+                <MobileNavItem label="EdTech" icon={ComputerDesktopIcon} categoryName="technology" currentCategory={category} onClick={setCategory} />
+                <MobileNavItem label="Research" icon={BeakerIcon} categoryName="research" currentCategory={category} onClick={setCategory} />
+                <MobileNavItem label="Policy" icon={BuildingLibraryIcon} categoryName="policy" currentCategory={category} onClick={setCategory} />
               </div>
             </motion.div>
           )}
@@ -537,8 +541,8 @@ const EducationalNewsPage = () => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Category Filters */}
         <div className="mb-8">
-           <h2 className="text-base font-semibold text-gray-500 dark:text-gray-400 mb-3 uppercase tracking-wider">Explore Topics</h2>
-           <div className="flex flex-wrap gap-2">
+          <h2 className="text-base font-semibold text-gray-500 dark:text-gray-400 mb-3 uppercase tracking-wider">Explore Topics</h2>
+          <div className="flex flex-wrap gap-2">
             {['Education', 'Technology', 'Research', 'Policy', 'Innovation', 'Science', 'Global', 'Higher Ed', 'K-12', 'Funding', 'AI in Education'].map((cat) => (
               <motion.button
                 key={cat}
@@ -581,11 +585,11 @@ const EducationalNewsPage = () => {
 
         {/* Loading/Error/Content */}
         {error && (
-            <div className="text-center py-10 px-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                <ExclamationTriangleIcon className="mx-auto h-12 w-12 text-red-400" />
-                <h3 className="mt-2 text-lg font-medium text-red-800 dark:text-red-300">Failed to Load News</h3>
-                <p className="mt-1 text-sm text-red-700 dark:text-red-400">{error}</p>
-            </div>
+          <div className="text-center py-10 px-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <ExclamationTriangleIcon className="mx-auto h-12 w-12 text-red-400" />
+            <h3 className="mt-2 text-lg font-medium text-red-800 dark:text-red-300">Failed to Load News</h3>
+            <p className="mt-1 text-sm text-red-700 dark:text-red-400">{error}</p>
+          </div>
         )}
 
         {!error && (
@@ -595,29 +599,29 @@ const EducationalNewsPage = () => {
             </div>
           ) : (
             filteredArticles.length > 0 ? (
-               <motion.div
+              <motion.div
                 layout // Animate layout changes when filtering
                 className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-               >
-                  {filteredArticles.map((article) => (
-                    <ArticleCard
-                      key={article.url} // Use URL as key
-                      article={article}
-                      onReadMore={setSelectedArticle}
-                      onBookmarkToggle={toggleBookmark}
-                      isBookmarked={bookmarks.some(b => b.url === article.url)}
-                    />
-                  ))}
+              >
+                {filteredArticles.map((article) => (
+                  <ArticleCard
+                    key={article.url} // Use URL as key
+                    article={article}
+                    onReadMore={setSelectedArticle}
+                    onBookmarkToggle={toggleBookmark}
+                    isBookmarked={bookmarks.some(b => b.url === article.url)}
+                  />
+                ))}
               </motion.div>
             ) : (
-                 <div className="text-center py-10 px-4 bg-gray-50 dark:bg-gray-800/30 rounded-lg">
-                    <MagnifyingGlassIcon className="mx-auto h-12 w-12 text-gray-400" />
-                    <h3 className="mt-2 text-lg font-medium text-gray-900 dark:text-gray-200">No Articles Found</h3>
-                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                      {debouncedSearchQuery ? `No results for "${debouncedSearchQuery}". ` : ''}
-                      Try adjusting your search or selecting a different category.
-                    </p>
-                 </div>
+              <div className="text-center py-10 px-4 bg-gray-50 dark:bg-gray-800/30 rounded-lg">
+                <MagnifyingGlassIcon className="mx-auto h-12 w-12 text-gray-400" />
+                <h3 className="mt-2 text-lg font-medium text-gray-900 dark:text-gray-200">No Articles Found</h3>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  {debouncedSearchQuery ? `No results for "${debouncedSearchQuery}". ` : ''}
+                  Try adjusting your search or selecting a different category.
+                </p>
+              </div>
             )
           )
         )}
@@ -718,7 +722,7 @@ const EducationalNewsPage = () => {
                          )}
                         Summarize Key Points
                       </button>
-                      {['Spanish', 'French', 'German'].map(lang => (
+                      {['Spanish', 'French', 'German','Hindi', 'Chinese', 'Arabic','Malayalam'].map(lang => (
                          <button
                             key={lang}
                             onClick={() => translateArticle(selectedArticle, lang)}
