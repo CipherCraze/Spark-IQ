@@ -213,24 +213,51 @@ const EducationalNewsPage = () => {
     setIsGeneratingSummary(true);
     setAiSummary('');
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-      const prompt = `You are an educational news analyst. Summarize the key findings and implications of this article in 3 concise bullet points for educators and policymakers. Maintain a neutral and factual tone.
+  const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+  
+  const prompt = `You are an educational news analyst for K-12 and higher education. Analyze this article and:
+  
+  1. CONTENT RULES:
+  - Filter out any non-educational or adult content
+  - Focus only on academic, pedagogical, or education technology aspects
+  - Remove any politically charged or sensitive content
+  - Reject summaries if the article is not education-related
 
-      Article Title: ${article.title}
-      Article Description/Content: ${article.content || article.description}
+  2. SUMMARY REQUIREMENTS:
+  - 3 concise bullet points (40 words max each)
+  - Focus on classroom implications
+  - Highlight technology integration if relevant
+  - Use neutral, factual language
+  - Include practical applications
 
-      Provide only the 3 bullet points.`;
+  3. SAFETY CHECKS:
+  - If article contains inappropriate content, respond: "This content is not suitable for educational analysis"
+  - For non-education topics: "This article falls outside our educational scope"
 
-      const result = await model.generateContent(prompt);
-      const response = result.response; // No need for await here
-      const text = response.text();
-      setAiSummary(text);
-    } catch (error) {
-      console.error("AI summary error:", error);
-      setAiSummary("Error: Could not generate summary. The content might be inaccessible or the service unavailable.");
-    } finally {
-      setIsGeneratingSummary(false);
-    }
+  Article Title: ${article.title}
+  Article Content: ${article.content || article.description}
+
+  Provide either:
+  A) 3 educational bullet points OR
+  B) One rejection reason as specified above.`;
+
+  const result = await model.generateContent(prompt);
+  const response = result.response;
+  let text = response.text();
+
+  // Additional client-side filtering
+  const blockedTerms = ["adult", "violent", "political", "sensitive", "inappropriate"];
+  if (blockedTerms.some(term => text.toLowerCase().includes(term))) {
+    text = "Content filtered for educational suitability";
+  }
+
+  setAiSummary(text);
+} catch (error) {
+  console.error("AI summary error:", error);
+  setAiSummary("Error: Could not generate educational summary. Please try another article.");
+} finally {
+  setIsGeneratingSummary(false);
+}
   }, [isGeneratingSummary]);
 
   const translateArticle = useCallback(async (article, language = 'Spanish') => {
