@@ -37,7 +37,7 @@ import ResourceManagement from './Components/Features/ResourceManagement';
 import AttendanceTracking from './Components/Features/AttendanceTracking';
 import FeedbackDashboard from './Components/Features/FeedbackDashboard';
 import SuggestionsToStudents from './Components/Features/SuggestionsToStudents';
-import MeetingHost from './components/MeetingHost';
+import MeetingHost from './Components/MeetingHost';
 import CollaborationHub from './Components/Features/CollaborationHub';
 import AnnouncementsPage from './Components/Features/AnnouncementsPage';
 import Meeting from './Components/Meetings';
