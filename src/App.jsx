@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router'; // Corrected import
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'; // Fix the import
 import Header from './Components/Header';
 import Footer from './Components/Footer';
 import Hero from './Components/LandingPage/Hero';
@@ -35,9 +35,10 @@ import ResourceManagement from './Components/Features/ResourceManagement';
 import AttendanceTracking from './Components/Features/AttendanceTracking';
 import FeedbackDashboard from './Components/Features/FeedbackDashboard';
 import SuggestionsToStudents from './Components/Features/SuggestionsToStudents';
-import MeetingHost from './Components/Features/MeetingHost';
+import MeetingHost from './components/MeetingHost';
 import CollaborationHub from './Components/Features/CollaborationHub';
 import AnnouncementsPage from './Components/Features/AnnouncementsPage';
+import Meetings from './components/Meetings';
 
 const Layout = ({ children, showHeaderFooter = true }) => (
   <div className="flex flex-col min-h-screen">
@@ -305,6 +306,23 @@ function App() {
           element={
             <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
               <EducationalNewsPage />
+            </Layout>
+          }
+        />
+        {/* Meeting Routes */}
+        <Route
+          path="/meetings"
+          element={
+            <Layout showHeaderFooter={false}>
+              <Meetings />
+            </Layout>
+          }
+        />
+        <Route
+          path="/host"
+          element={
+            <Layout showHeaderFooter={false}>
+              <MeetingHost />
             </Layout>
           }
         />
