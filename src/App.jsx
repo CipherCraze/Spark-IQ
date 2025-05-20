@@ -14,9 +14,11 @@ import Testimonials from './Components/LandingPage/Testimonials';
 import Newsletter from './Components/LandingPage/Newsletter';
 import Dashboard from './Components/dashboard/Dashboard'; // Import the Dashboard component
 import ChatbotAccess from './Components/Chatbot/Chatbot'; // Import the Chatbot component
+import ChatbotEducation from './Components/Chatbot/Chatbot-Educator'; // Import the ChatbotEducation component
 import AssignmentSubmission from './Components/Features/AssignmentSubmission'; // Import the AssignmentSubmission component
 import ChatFunctionality from './Components/Features/ChatFunctionality';
-import Meeting from './Components/Features/Meetings';
+
+
 import AttendanceMonitoring from './Components/Features/AttendanceMonitoring';
 import ResourceUtilization from './Components/Features/ResourceUtilization';
 import Grades from './Components/Features/GradingAccess';
@@ -38,7 +40,8 @@ import SuggestionsToStudents from './Components/Features/SuggestionsToStudents';
 import MeetingHost from './components/MeetingHost';
 import CollaborationHub from './Components/Features/CollaborationHub';
 import AnnouncementsPage from './Components/Features/AnnouncementsPage';
-import Meetings from './components/Meetings';
+import Meeting from './Components/Meetings';
+import Meetings from './Components/Meetings';
 
 const Layout = ({ children, showHeaderFooter = true }) => (
   <div className="flex flex-col min-h-screen">
@@ -223,6 +226,15 @@ function App() {
           element={
             <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
               <ChatbotAccess />
+            </Layout>
+          }
+        />
+        {/* Chatbot Education */}
+        <Route
+          path="/chatbot-education"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <ChatbotEducation />
             </Layout>
           }
         />

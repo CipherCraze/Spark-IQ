@@ -65,7 +65,7 @@ const EducatorDashboard = ({ role }) => {
     { title: 'Grades', Icon: AcademicCapIcon, link: '/grading-system' },
     { title: 'Resources', Icon: FolderIcon, link: '/resource-management' },
     { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-tracking' },
-    { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-access' },
+    { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
     { title: 'Feedback', Icon: LightBulbIcon, link: '/feedback-dashboard' },
     { title: 'Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
     { title: 'News', Icon: UsersIcon, link: '/educational-news' },
