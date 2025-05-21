@@ -8,7 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "start": "vite"
+    "start": "vite",
+    "generate-icons": "node scripts/generate-icons.js"
   },
   "dependencies": {
     "@fortawesome/free-solid-svg-icons": "^6.7.2",
@@ -64,7 +65,9 @@
     "eslint-plugin-react-refresh": "^0.4.16",
     "globals": "^15.14.0",
     "postcss": "^8.5.1",
+    "sharp": "^0.33.5",
     "tailwindcss": "^3.4.17",
-    "vite": "^6.0.5"
+    "vite": "^5.0.0",
+    "vite-plugin-pwa": "^0.17.4"
   }
 }
