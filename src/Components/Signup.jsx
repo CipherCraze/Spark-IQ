@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { LockClosedIcon, UserCircleIcon, SparklesIcon, AcademicCapIcon, BookOpenIcon, EyeIcon, EyeSlashIcon, CalendarIcon } from '@heroicons/react/24/outline';
 import { useState } from 'react';
-import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
+import { getAuth, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { getFirestore, doc, setDoc } from 'firebase/firestore';
 import { app } from '../firebase/firebaseConfig';
 
@@ -37,17 +37,28 @@ export default function Signup() {
     }
 
     try {
+      // Clear any existing avatar data from localStorage
+      localStorage.removeItem('profileAvatar');
+
       // 1. Create user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // 2. Prepare user data for Firestore
+      // 2. Set the display name in Firebase Auth
+      await updateProfile(user, {
+        displayName: name,
+        photoURL: null // Explicitly set photoURL to null for new accounts
+      });
+      console.log('After setting displayName:', auth.currentUser.displayName);
+
+      // 3. Prepare user data for Firestore
       const userData = {
         uid: user.uid,
         email: user.email,
         name: name,
         role: role,
         createdAt: new Date(),
+        avatar: null // Explicitly set avatar to null for new accounts
       };
 
       // Add role-specific fields
@@ -58,10 +69,10 @@ export default function Signup() {
         userData.subjects = subjects.split(',').map(s => s.trim());
       }
 
-      // 3. Store user data in Firestore
+      // 4. Store user data in Firestore
       await setDoc(doc(db, role === 'student' ? 'students' : 'teachers', user.uid), userData);
 
-      // 4. Redirect based on role
+      // 5. Redirect based on role
       if (role === 'student') {
         navigate('/dashboard');
       } else if (role === 'educator') {

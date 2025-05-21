@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
+import { auth } from '../../firebase/firebaseConfig';
+import { onAuthStateChanged, updateProfile } from 'firebase/auth';
+import { getUserProfile, updateUserProfile, uploadProfilePicture } from '../../firebase/userOperations';
 import {
   UserCircleIcon,
   EnvelopeIcon,
@@ -38,44 +41,83 @@ const ALL_COURSES = [
   { id: 'web501', name: 'Web Development', icon: GlobeAltIcon }
 ];
 
+const Toast = ({ message, type, onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onClose();
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  const bgColor = type === 'success' ? 'bg-green-500' : 'bg-red-500';
+
+  return (
+    <div className={`fixed bottom-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50 flex items-center gap-2`}>
+      {type === 'success' ? (
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+        </svg>
+      ) : (
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      )}
+      <span>{message}</span>
+    </div>
+  );
+};
+
 const ProfilePage = () => {
   const { userId } = useParams();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('about');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [toast, setToast] = useState(null);
   
   const [user, setUser] = useState({
-    id: userId || '123',
-    name: 'Alex Johnson',
-    role: 'student',
-    email: 'alex.johnson@example.com',
-    phone: '+1 (555) 123-4567',
+    id: '',
+    name: '',
+    email: '',
+    phone: '',
+    bio: '',
+    education: '',
+    location: '',
     avatar: null,
-    bio: 'AI & Machine Learning Enthusiast | Building the future with neural networks',
-    courses: [
-      { id: 'cs101', name: 'Neural Networks', progress: 85, icon: CodeBracketIcon },
-      { id: 'math202', name: 'Advanced Calculus', progress: 72, icon: ChartBarIcon },
-      { id: 'ai301', name: 'Deep Learning', progress: 68, icon: SparklesIcon }
-    ],
-    skills: ['Python', 'TensorFlow', 'PyTorch', 'Data Analysis', 'Neural Architecture'],
-    education: 'B.Sc. Computer Science, University of Tech',
-    location: 'San Francisco, CA',
-    joinDate: '2023-01-15',
-    isVerified: true,
+    courses: [],
+    skills: [],
+    isVerified: false,
+    role: '',
+    joinDate: '',
     social: {
-      github: 'github.com/ai-alex',
-      linkedin: 'linkedin.com/in/ai-alex',
-      twitter: '@ai_alex'
+      github: '',
+      linkedin: '',
+      twitter: ''
     },
     stats: {
-      points: 2450,
-      streak: 28,
-      rank: 42
+      points: 0,
+      streak: 0,
+      rank: 0
+    },
+    settings: {
+      accentColor: '#8B5CF6',
+      darkMode: true,
+      density: 'Normal',
+      fontSize: 'Medium',
+      language: 'en',
+      emailNotifications: true,
+      pushNotifications: true,
+      notificationsEnabled: true
     }
   });
 
   const [isEditing, setIsEditing] = useState(false);
+  const [isEditingSkills, setIsEditingSkills] = useState(false);
+  const [isEditingSocial, setIsEditingSocial] = useState(false);
   const [editData, setEditData] = useState({ ...user });
   const [avatarFile, setAvatarFile] = useState(null);
-  const [avatarUrl, setAvatarUrl] = useState(() => localStorage.getItem('profileAvatar') || null);
+  const [avatarUrl, setAvatarUrl] = useState(null);
   const [newSkill, setNewSkill] = useState('');
   const [showCourseModal, setShowCourseModal] = useState(false);
   const [selectedCourseId, setSelectedCourseId] = useState('');
@@ -84,45 +126,186 @@ const ProfilePage = () => {
   // Defensive helpers to avoid undefined errors
   const safeSkills = (isEditing ? editData.skills : user.skills) ?? [];
   const safeCourses = (isEditing ? editData.courses : user.courses) ?? [];
-  const safeSocial = (isEditing ? editData.social : user.social) ?? {};
+  const safeSocial = (isEditingSocial ? editData.social : user.social) || {};
 
-  // Load user data and avatar from localStorage if available
+  // Check authentication state
   useEffect(() => {
-    const savedUser = localStorage.getItem('profileUser');
-    if (savedUser) setUser(JSON.parse(savedUser));
-    const savedAvatar = localStorage.getItem('profileAvatar');
-    if (savedAvatar) setAvatarUrl(savedAvatar);
-  }, []);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      console.log('Auth state changed:', user ? 'User logged in' : 'No user');
+      console.log('Current user displayName:', user?.displayName);
+      setAuthChecked(true);
+      if (!user) {
+        console.log('No authenticated user, redirecting to login');
+        navigate('/login');
+      }
+    });
 
-  // Avatar upload handler (local only)
-  const handleAvatarUpload = (e) => {
+    // Cleanup subscription
+    return () => unsubscribe();
+  }, [navigate]);
+
+  // Load user settings from Firebase
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        setIsLoading(true);
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+          console.log('No authenticated user found in loadUserProfile');
+          return;
+        }
+
+        console.log('Loading profile for user:', currentUser.uid);
+        console.log('Current auth displayName:', currentUser.displayName);
+        const profileData = await getUserProfile(currentUser.uid);
+        console.log('Loaded profile data:', profileData);
+
+        // Clear any existing avatar from localStorage for new profiles
+        if (!profileData?.avatar) {
+          localStorage.removeItem('profileAvatar');
+        }
+
+        // Create initial user data from Firebase auth if no profile exists
+        const initialUserData = {
+          name: currentUser.displayName || '',
+          email: currentUser.email || '',
+          phone: '',
+          location: '',
+          bio: '',
+          education: '',
+          avatar: null,
+          skills: [],
+          courses: [],
+          social: {},
+          stats: {
+            points: 0,
+            streak: 0,
+            rank: 0
+          }
+        };
+
+        if (profileData) {
+          // Merge auth data with profile data, prioritizing auth data for name and email
+          const mergedData = {
+            ...initialUserData,
+            ...profileData,
+            // Always use auth data for name and email
+            name: currentUser.displayName || profileData.name,
+            email: currentUser.email
+          };
+          console.log('Setting user data with name:', mergedData.name);
+          setUser(mergedData);
+          setEditData(mergedData);
+          
+          if (mergedData.avatar) {
+            setAvatarUrl(mergedData.avatar);
+            localStorage.setItem('profileAvatar', mergedData.avatar);
+          } else {
+            setAvatarUrl(null);
+            localStorage.removeItem('profileAvatar');
+          }
+        } else {
+          // If no profile data exists, use initial data from auth
+          console.log('No profile data, using auth data with name:', initialUserData.name);
+          setUser(initialUserData);
+          setEditData(initialUserData);
+          setAvatarUrl(null);
+          localStorage.removeItem('profileAvatar');
+          
+          // Save this initial data to Firebase
+          await updateUserProfile(currentUser.uid, initialUserData);
+        }
+      } catch (err) {
+        console.error('Error loading profile:', err);
+        setError(err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (authChecked && auth.currentUser) {
+      loadUserProfile();
+    }
+  }, [authChecked, navigate]);
+
+  // Modified avatar upload handler
+  const handleAvatarUpload = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      const url = URL.createObjectURL(file);
-      setAvatarFile(file);
-      setAvatarUrl(url);
-      setEditData(prev => ({ ...prev, avatar: url }));
-      localStorage.setItem('profileAvatar', url);
-      setUser(prev => ({ ...prev, avatar: url }));
+      try {
+        setIsLoading(true);
+        const currentUser = auth.currentUser;
+        if (!currentUser) throw new Error('No authenticated user found');
+
+        console.log('Uploading avatar...');
+        const downloadURL = await uploadProfilePicture(currentUser.uid, file);
+        console.log('Avatar uploaded, URL:', downloadURL);
+
+        setAvatarUrl(downloadURL);
+        setEditData(prev => ({ ...prev, avatar: downloadURL }));
+        setUser(prev => ({ ...prev, avatar: downloadURL }));
+        
+        showToast('Profile picture updated successfully!', 'success');
+      } catch (err) {
+        console.error('Error uploading avatar:', err);
+        showToast('Error uploading profile picture. Please try again.', 'error');
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
-  // Skill handlers
+  // Modified handleAddSkill function
   const handleAddSkill = () => {
-    if (newSkill.trim() && !safeSkills.includes(newSkill.trim())) {
-      setEditData(prev => ({ ...prev, skills: [...safeSkills, newSkill.trim()] }));
+    if (newSkill.trim() && !editData.skills?.includes(newSkill.trim())) {
+      const updatedSkills = [...(editData.skills || []), newSkill.trim()];
+      setEditData(prev => ({
+        ...prev,
+        skills: updatedSkills
+      }));
       setNewSkill('');
     }
   };
-  const handleRemoveSkill = (skill) => {
-    setEditData(prev => ({ ...prev, skills: safeSkills.filter(s => s !== skill) }));
+
+  // Modified handleRemoveSkill function
+  const handleRemoveSkill = (skillToRemove) => {
+    const updatedSkills = editData.skills.filter(skill => skill !== skillToRemove);
+    setEditData(prev => ({
+      ...prev,
+      skills: updatedSkills
+    }));
   };
 
-  // Social media handlers
+  // Modified handleSaveSkills function
+  const handleSaveSkills = async () => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('No authenticated user found');
+
+      await updateUserProfile(currentUser.uid, {
+        skills: editData.skills || []
+      });
+
+      setUser(prev => ({
+        ...prev,
+        skills: editData.skills || []
+      }));
+      setIsEditingSkills(false);
+      showToast('Skills updated successfully!', 'success');
+    } catch (err) {
+      console.error('Error saving skills:', err);
+      showToast('Error updating skills. Please try again.', 'error');
+    }
+  };
+
+  // Modified handleSocialChange function
   const handleSocialChange = (platform, value) => {
     setEditData(prev => ({
       ...prev,
-      social: { ...safeSocial, [platform]: value }
+      social: {
+        ...(prev.social || {}),
+        [platform]: value
+      }
     }));
   };
 
@@ -139,16 +322,217 @@ const ProfilePage = () => {
     }
   };
 
-  // Save profile (including avatar)
-  const saveProfile = () => {
-    setUser(editData);
-    setIsEditing(false);
-    localStorage.setItem('profileUser', JSON.stringify(editData));
-    if (avatarUrl) localStorage.setItem('profileAvatar', avatarUrl);
+  // Modified saveProfile function
+  const saveProfile = async () => {
+    try {
+      setIsLoading(true);
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('No authenticated user found');
+
+      // Update displayName in Firebase Auth
+      await updateProfile(currentUser, {
+        displayName: editData.name
+      });
+      console.log('Updated auth displayName to:', editData.name);
+
+      // Format data according to the new structure
+      const dataToSave = {
+        name: editData.name || '',
+        email: editData.email || currentUser.email,
+        phone: editData.phone || '',
+        bio: editData.bio || '',
+        education: editData.education || '',
+        location: editData.location || '',
+        social: editData.social || {},
+        skills: editData.skills || [],
+        courses: editData.courses || [],
+        lastUpdated: new Date().toISOString()
+      };
+
+      console.log('Saving profile data:', dataToSave);
+      await updateUserProfile(currentUser.uid, dataToSave);
+
+      // Update local state
+      setUser(prev => ({
+        ...prev,
+        ...dataToSave
+      }));
+      
+      setIsLoading(false);
+      setIsEditing(false);
+      showToast('Profile updated successfully!', 'success');
+    } catch (err) {
+      console.error('Error saving profile:', err);
+      setError(err.message);
+      showToast('Error updating profile. Please try again.', 'error');
+      setIsLoading(false);
+    }
   };
+
+  // Modified handleSaveSocial function
+  const handleSaveSocial = async () => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('No authenticated user found');
+
+      await updateUserProfile(currentUser.uid, {
+        social: editData.social || {}
+      });
+
+      setUser(prev => ({
+        ...prev,
+        social: editData.social || {}
+      }));
+      setIsEditingSocial(false);
+      showToast('Social links updated successfully!', 'success');
+    } catch (err) {
+      console.error('Error saving social links:', err);
+      showToast('Error updating social links. Please try again.', 'error');
+    }
+  };
+
+  const handleEditClick = () => {
+    setEditData({ ...user });
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setEditData({ ...user });
+    setIsEditing(false);
+  };
+
+  const handleInputChange = (field, value) => {
+    setEditData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const renderField = (icon, value, editValue, onChange, type = "text", placeholder = "") => {
+    const Icon = icon;
+    return (
+      <div className="flex items-center gap-4">
+        <Icon className="h-5 w-5 text-gray-400 flex-shrink-0" />
+        <div className="text-gray-300">{value || 'Not set'}</div>
+      </div>
+    );
+  };
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+  };
+
+  const renderTechnicalSkills = () => (
+    <div className="bg-gray-800/50 p-6 rounded-2xl border border-gray-700/30">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+          <CodeBracketIcon className="h-6 w-6 text-purple-400" />
+          Technical Skills
+        </h3>
+        {!isEditingSkills ? (
+          <button
+            onClick={() => setIsEditingSkills(true)}
+            className="px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            Edit Skills
+          </button>
+        ) : (
+          <div className="flex gap-2">
+            <button
+              onClick={() => setIsEditingSkills(false)}
+              className="px-3 py-1.5 text-sm font-medium text-gray-300 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSaveSkills}
+              className="px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
+            >
+              Save Skills
+            </button>
+          </div>
+        )}
+      </div>
+      <div className="space-y-4">
+        <div className="flex flex-wrap gap-2">
+          {(editData.skills || []).map((skill, index) => (
+            <div
+              key={index}
+              className="px-3 py-1.5 bg-indigo-500/20 text-indigo-300 rounded-full text-sm flex items-center gap-2"
+            >
+              {skill}
+              {isEditingSkills && (
+                <button
+                  onClick={() => handleRemoveSkill(skill)}
+                  className="hover:text-red-400 transition-colors"
+                  title="Remove skill"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          ))}
+          {(!editData.skills || editData.skills.length === 0) && (
+            <div className="text-gray-400">No skills added yet</div>
+          )}
+        </div>
+        {isEditingSkills && (
+          <div className="flex gap-2 mt-4">
+            <input
+              type="text"
+              value={newSkill}
+              onChange={(e) => setNewSkill(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddSkill();
+                }
+              }}
+              placeholder="Add a new skill"
+              className="flex-1 px-3 py-2 rounded bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <button
+              onClick={handleAddSkill}
+              disabled={!newSkill.trim()}
+              className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Add Skill
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  if (!authChecked || isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+        <div className="text-white">Loading...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+        <div className="text-red-400">Error: {error}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+      {/* Toast notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
       {/* Header */}
       <header className="bg-gradient-to-r from-indigo-600 to-purple-600 shadow-xl">
         <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 flex items-center justify-between">
@@ -188,9 +572,9 @@ const ProfilePage = () => {
                     onClick={() => fileInputRef.current && fileInputRef.current.click()}
                     title="Change avatar"
                   >
-                    {avatarUrl || user.avatar ? (
+                    {avatarUrl ? (
                       <img
-                        src={avatarUrl || user.avatar}
+                        src={avatarUrl}
                         alt={user.name}
                         className="h-32 w-32 rounded-full border-4 border-gray-900 bg-gray-900 z-10 relative object-cover"
                       />
@@ -308,109 +692,61 @@ const ProfilePage = () => {
           {activeTab === 'about' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Personal Info */}
-              <div className="bg-gray-800/50 p-6 rounded-2xl border border-gray-700/30">
-                <h3 className="text-xl font-semibold text-white mb-6 flex items-center gap-2">
-                  <UserCircleIcon className="h-6 w-6 text-indigo-400" />
-                  Personal Information
-                </h3>
+              <div className="bg-gray-800/50 p-6 rounded-2xl border border-gray-700">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+                    <UserCircleIcon className="h-6 w-6 text-indigo-400" />
+                    Personal Information
+                  </h3>
+                </div>
                 <div className="space-y-4">
-                  <div className="flex items-center gap-4">
-                    <EnvelopeIcon className="h-5 w-5 text-gray-400 flex-shrink-0" />
-                    <div className="text-gray-300">{user.email}</div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <PhoneIcon className="h-5 w-5 text-gray-400 flex-shrink-0" />
-                    <div className="text-gray-300">{user.phone}</div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <MapPinIcon className="h-5 w-5 text-gray-400 flex-shrink-0" />
-                    <div className="text-gray-300">{user.location}</div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <AcademicCapIcon className="h-5 w-5 text-gray-400 flex-shrink-0" />
-                    <div className="text-gray-300">{user.education}</div>
-                  </div>
+                  {renderField(
+                    UserCircleIcon,
+                    user.name,
+                    editData.name,
+                    (value) => setEditData({ ...editData, name: value }),
+                    "text",
+                    "Enter your name"
+                  )}
+                  {renderField(
+                    EnvelopeIcon,
+                    user.email,
+                    editData.email,
+                    (value) => setEditData({ ...editData, email: value }),
+                    "email",
+                    "Enter your email"
+                  )}
+                  {renderField(
+                    PhoneIcon,
+                    user.phone,
+                    editData.phone,
+                    (value) => setEditData({ ...editData, phone: value }),
+                    "tel",
+                    "Enter your phone number"
+                  )}
+                  {renderField(
+                    MapPinIcon,
+                    user.location,
+                    editData.location,
+                    (value) => setEditData({ ...editData, location: value }),
+                    "text",
+                    "Enter your location"
+                  )}
+                  {renderField(
+                    AcademicCapIcon,
+                    user.education,
+                    editData.education,
+                    (value) => setEditData({ ...editData, education: value }),
+                    "text",
+                    "Enter your education"
+                  )}
                 </div>
               </div>
 
               {/* Skills & Social */}
               <div className="space-y-6">
-                {/* Skills Section */}
-                <div className="bg-gray-800/50 p-6 rounded-2xl border border-gray-700/30">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-                      <CodeBracketIcon className="h-6 w-6 text-purple-400" />
-                      Technical Skills
-                    </h3>
-                    {!isEditing ? (
-                      <button
-                        className="text-xs px-3 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-700"
-                        onClick={() => {
-                          setEditData({ ...user });
-                          setIsEditing(true);
-                        }}
-                      >
-                        Edit
-                      </button>
-                    ) : (
-                      <button
-                        className="text-xs px-3 py-1 rounded bg-gray-700 text-gray-200 hover:bg-gray-600"
-                        onClick={() => setIsEditing(false)}
-                      >
-                        Done
-                      </button>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-3 mb-3">
-                    {safeSkills.map((skill, index) => (
-                      <div key={index} className="px-3 py-1.5 bg-indigo-500/20 text-indigo-300 rounded-full text-sm flex items-center gap-2">
-                        {isEditing ? (
-                          <>
-                            <input
-                              type="text"
-                              value={skill}
-                              onChange={e => {
-                                const updatedSkills = [...safeSkills];
-                                updatedSkills[index] = e.target.value;
-                                setEditData(prev => ({ ...prev, skills: updatedSkills }));
-                              }}
-                              className="bg-transparent border-none text-indigo-300 focus:outline-none w-20"
-                            />
-                            <button
-                              type="button"
-                              className="ml-1 text-red-400 hover:text-red-200"
-                              onClick={() => handleRemoveSkill(skill)}
-                              title="Remove"
-                            >
-                              ×
-                            </button>
-                          </>
-                        ) : (
-                          skill
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  {isEditing && (
-                    <div className="flex gap-2 mt-2">
-                      <input
-                        type="text"
-                        value={newSkill}
-                        onChange={e => setNewSkill(e.target.value)}
-                        placeholder="Add skill"
-                        className="px-3 py-1 rounded bg-gray-700 text-white border border-gray-600 focus:outline-none"
-                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddSkill(); } }}
-                      />
-                      <button
-                        type="button"
-                        className="px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700"
-                        onClick={handleAddSkill}
-                      >
-                        Add
-                      </button>
-                    </div>
-                  )}
-                </div>
+                {/* Technical Skills Section */}
+                {renderTechnicalSkills()}
 
                 {/* Social Connections Section */}
                 <div className="bg-gray-800/50 p-6 rounded-2xl border border-gray-700/30">
@@ -419,30 +755,35 @@ const ProfilePage = () => {
                       <GlobeAltIcon className="h-6 w-6 text-green-400" />
                       Social Connections
                     </h3>
-                    {!isEditing ? (
+                    {!isEditingSocial ? (
                       <button
-                        className="text-xs px-3 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-700"
-                        onClick={() => {
-                          setEditData({ ...user });
-                          setIsEditing(true);
-                        }}
+                        onClick={() => setIsEditingSocial(true)}
+                        className="px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
                       >
-                        Edit
+                        Edit Social Links
                       </button>
                     ) : (
-                      <button
-                        className="text-xs px-3 py-1 rounded bg-gray-700 text-gray-200 hover:bg-gray-600"
-                        onClick={() => setIsEditing(false)}
-                      >
-                        Done
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setIsEditingSocial(false)}
+                          className="px-3 py-1.5 text-sm font-medium text-gray-300 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleSaveSocial}
+                          className="px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
+                        >
+                          Save Links
+                        </button>
+                      </div>
                     )}
                   </div>
                   <div className="space-y-3">
                     {SOCIAL_PLATFORMS.map(({ key, label, prefix }) => (
                       <div key={key} className="flex items-center gap-3 text-gray-300">
                         <div className="w-24 text-indigo-300">{label}</div>
-                        {isEditing ? (
+                        {isEditingSocial ? (
                           <input
                             type="text"
                             value={safeSocial[key] || ''}
@@ -451,18 +792,20 @@ const ProfilePage = () => {
                             className="flex-1 px-3 py-1 rounded bg-gray-700 text-white border border-gray-600 focus:outline-none"
                           />
                         ) : (
-                          safeSocial[key] ? (
-                            <a
-                              href={safeSocial[key].startsWith('http') ? safeSocial[key] : prefix + safeSocial[key].replace(/^@/, '')}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex-1 font-mono text-purple-300 hover:underline"
-                            >
-                              {safeSocial[key]}
-                            </a>
-                          ) : (
-                            <span className="flex-1 font-mono text-gray-400">Not connected</span>
-                          )
+                          <div className="flex-1">
+                            {safeSocial[key] ? (
+                              <a
+                                href={safeSocial[key].startsWith('http') ? safeSocial[key] : prefix + safeSocial[key].replace(/^@/, '')}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-purple-300 hover:underline"
+                              >
+                                {safeSocial[key]}
+                              </a>
+                            ) : (
+                              <span className="text-gray-500">Not connected</span>
+                            )}
+                          </div>
                         )}
                       </div>
                     ))}

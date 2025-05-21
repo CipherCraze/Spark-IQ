@@ -7,6 +7,10 @@ import {
 } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { auth } from '../../firebase/firebaseConfig';
+import { getUserSettings, updateUserSettings } from '../../firebase/userOperations';
+import { updateUserProfile, uploadProfilePicture } from '../../firebase/userOperations';
+import { updateProfile } from 'firebase/auth';
 
 const ACCENT_COLORS = ['#8B5CF6', '#7C3AED', '#6D28D9', '#9333EA', '#A855F7'];
 const FONT_SIZES = ['Small', 'Medium', 'Large'];
@@ -18,6 +22,8 @@ const SettingsPage = () => {
   const queryParams = new URLSearchParams(search);
   const initialTab = queryParams.get('tab') || 'account';
   const [activeTab, setActiveTab] = useState(initialTab);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [darkMode, setDarkMode] = useState(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
@@ -126,6 +132,77 @@ const SettingsPage = () => {
     if (tab && tab !== activeTab) setActiveTab(tab);
   }, [search]);
 
+  // Load user settings from Firebase
+  useEffect(() => {
+    const loadUserSettings = async () => {
+      try {
+        setIsLoading(true);
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+          throw new Error('No authenticated user found');
+        }
+
+        const settings = await getUserSettings(currentUser.uid);
+        if (settings) {
+          // Update all settings states with the fetched data
+          setDarkMode(settings.darkMode ?? true);
+          setNotificationsEnabled(settings.notificationsEnabled ?? true);
+          setEmailNotifications(settings.emailNotifications ?? true);
+          setPushNotifications(settings.pushNotifications ?? true);
+          setLanguage(settings.language ?? 'en');
+          setAccentColor(settings.accentColor ?? '#8B5CF6');
+          setFontSize(settings.fontSize ?? 'Medium');
+          setDensity(settings.density ?? 'Normal');
+          // Update user data if available
+          if (settings.userData) {
+            setUser(settings.userData);
+          }
+        }
+      } catch (err) {
+        console.error('Error loading settings:', err);
+        setError(err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadUserSettings();
+  }, []);
+
+  // Save settings to Firebase whenever they change
+  useEffect(() => {
+    const saveSettings = async () => {
+      try {
+        const currentUser = auth.currentUser;
+        if (!currentUser) return;
+
+        const settings = {
+          darkMode,
+          notificationsEnabled,
+          emailNotifications,
+          pushNotifications,
+          language,
+          accentColor,
+          fontSize,
+          density,
+          userData: user,
+          lastUpdated: new Date().toISOString()
+        };
+
+        await updateUserSettings(currentUser.uid, settings);
+      } catch (err) {
+        console.error('Error saving settings:', err);
+        // Handle error (show notification to user)
+      }
+    };
+
+    // Don't save during initial load
+    if (!isLoading) {
+      saveSettings();
+    }
+  }, [darkMode, notificationsEnabled, emailNotifications, pushNotifications, 
+      language, accentColor, fontSize, density, user]);
+
   const toggleSection = (section) => {
     setExpandedSections(prev => ({
       ...prev,
@@ -133,7 +210,7 @@ const SettingsPage = () => {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const errors = validateAccountForm();
     setFormErrors(errors);
@@ -141,12 +218,55 @@ const SettingsPage = () => {
       showToast('Please fix the errors in the form.', 'error');
       return;
     }
-    localStorage.setItem('profileUser', JSON.stringify(user));
-    if (avatarUrl) localStorage.setItem('profileAvatar', avatarUrl);
-    showToast('Settings saved successfully!', 'success');
+
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('No authenticated user found');
+
+      // First update Firebase Auth displayName
+      await updateProfile(currentUser, {
+        displayName: user.name
+      });
+      console.log('Updated auth displayName to:', user.name);
+
+      // Then update user data in Firestore with explicit name field
+      await updateUserProfile(currentUser.uid, {
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        location: user.location,
+        bio: user.bio,
+        education: user.education,
+        lastUpdated: new Date().toISOString()
+      });
+
+      // Finally update settings
+      await updateUserSettings(currentUser.uid, {
+        settings: {
+          accentColor,
+          darkMode,
+          density,
+          fontSize,
+          language,
+          emailNotifications,
+          pushNotifications,
+          notificationsEnabled
+        }
+      });
+
+      showToast('Settings saved successfully!', 'success');
+      
+      // Navigate back to profile page after successful save
+      setTimeout(() => {
+        navigate('/profile');
+      }, 1500); // Short delay to show the success message
+    } catch (err) {
+      console.error('Error saving settings:', err);
+      showToast('Error saving settings. Please try again.', 'error');
+    }
   };
 
-  const handlePasswordSubmit = (e) => {
+  const handlePasswordSubmit = async (e) => {
     e.preventDefault();
     const pwdError = validatePassword(newPassword);
     setPasswordError(pwdError);
@@ -155,31 +275,68 @@ const SettingsPage = () => {
       setPasswordError('Passwords do not match!');
       return;
     }
-    showToast('Password changed successfully!', 'success');
-    setShowPasswordForm(false);
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-    setPasswordError('');
+
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('No authenticated user found');
+
+      // Update password using Firebase Auth
+      await updatePassword(currentUser, newPassword);
+
+      showToast('Password changed successfully!', 'success');
+      setShowPasswordForm(false);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setPasswordError('');
+    } catch (err) {
+      console.error('Error changing password:', err);
+      setPasswordError(err.message);
+    }
   };
 
-  const handleAvatarChange = (e) => {
+  const handleAvatarChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      let progress = 0;
-      const interval = setInterval(() => {
-        progress += 10;
-        setUploadProgress(progress);
-        if (progress >= 100) {
-          clearInterval(interval);
-          // NOTE: This does NOT upload to a server, just creates a local URL and stores in localStorage
-          const url = URL.createObjectURL(file);
-          setAvatar(url);
-          setAvatarUrl(url);
-          localStorage.setItem('profileAvatar', url);
-          showToast('Profile picture updated!', 'success');
-        }
-      }, 100);
+      try {
+        setUploadProgress(0);
+        const currentUser = auth.currentUser;
+        if (!currentUser) throw new Error('No authenticated user found');
+
+        // Start upload progress simulation
+        const progressInterval = setInterval(() => {
+          setUploadProgress(prev => {
+            if (prev >= 90) {
+              clearInterval(progressInterval);
+              return prev;
+            }
+            return prev + 10;
+          });
+        }, 100);
+
+        // Upload to Firebase Storage
+        const downloadURL = await uploadProfilePicture(currentUser.uid, file);
+        
+        // Update local state and localStorage
+        setAvatarUrl(downloadURL);
+        localStorage.setItem('profileAvatar', downloadURL);
+        
+        // Update user settings in Firebase
+        await updateUserSettings(currentUser.uid, {
+          avatar: downloadURL,
+          lastUpdated: new Date().toISOString()
+        });
+
+        // Complete progress bar
+        setUploadProgress(100);
+        setTimeout(() => setUploadProgress(0), 500);
+        
+        showToast('Profile picture updated successfully!', 'success');
+      } catch (err) {
+        console.error('Error uploading profile picture:', err);
+        showToast('Error uploading profile picture. Please try again.', 'error');
+        setUploadProgress(0);
+      }
     }
   };
 
@@ -197,6 +354,22 @@ const SettingsPage = () => {
     { id: 'billing', icon: FiCreditCard, label: 'Billing' },
     { id: 'help', icon: FiHelpCircle, label: 'Help' },
   ];
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+        <div className="text-white">Loading settings...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+        <div className="text-red-400">Error: {error}</div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen flex flex-col ${darkMode ? 'dark' : ''}`}>
@@ -351,12 +524,6 @@ const SettingsPage = () => {
               >
                 <div className="flex items-center justify-between">
                   <h2 className="text-2xl font-bold text-white">Account Information</h2>
-                  <button
-                    onClick={handleSubmit}
-                    className="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors"
-                  >
-                    Save Changes
-                  </button>
                 </div>
                 
                 {/* Avatar Upload */}
