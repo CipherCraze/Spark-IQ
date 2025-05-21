@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   UserCircleIcon,
@@ -23,6 +23,20 @@ import {
   SparklesIcon,
   ChatBubbleLeftRightIcon
 } from '@heroicons/react/24/outline';
+
+const SOCIAL_PLATFORMS = [
+  { key: 'github', label: 'GitHub', prefix: 'https://', icon: null },
+  { key: 'linkedin', label: 'LinkedIn', prefix: 'https://', icon: null },
+  { key: 'twitter', label: 'Twitter', prefix: 'https://twitter.com/', icon: null }
+];
+
+const ALL_COURSES = [
+  { id: 'cs101', name: 'Neural Networks', icon: CodeBracketIcon },
+  { id: 'math202', name: 'Advanced Calculus', icon: ChartBarIcon },
+  { id: 'ai301', name: 'Deep Learning', icon: SparklesIcon },
+  { id: 'ds401', name: 'Data Science', icon: BookOpenIcon },
+  { id: 'web501', name: 'Web Development', icon: GlobeAltIcon }
+];
 
 const ProfilePage = () => {
   const { userId } = useParams();
@@ -60,15 +74,77 @@ const ProfilePage = () => {
 
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({ ...user });
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarUrl, setAvatarUrl] = useState(() => localStorage.getItem('profileAvatar') || null);
+  const [newSkill, setNewSkill] = useState('');
+  const [showCourseModal, setShowCourseModal] = useState(false);
+  const [selectedCourseId, setSelectedCourseId] = useState('');
+  const fileInputRef = useRef();
 
-  const handleEditChange = (e) => {
-    const { name, value } = e.target;
-    setEditData({ ...editData, [name]: value });
+  // Defensive helpers to avoid undefined errors
+  const safeSkills = (isEditing ? editData.skills : user.skills) ?? [];
+  const safeCourses = (isEditing ? editData.courses : user.courses) ?? [];
+  const safeSocial = (isEditing ? editData.social : user.social) ?? {};
+
+  // Load user data and avatar from localStorage if available
+  useEffect(() => {
+    const savedUser = localStorage.getItem('profileUser');
+    if (savedUser) setUser(JSON.parse(savedUser));
+    const savedAvatar = localStorage.getItem('profileAvatar');
+    if (savedAvatar) setAvatarUrl(savedAvatar);
+  }, []);
+
+  // Avatar upload handler (local only)
+  const handleAvatarUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setAvatarFile(file);
+      setAvatarUrl(url);
+      setEditData(prev => ({ ...prev, avatar: url }));
+      localStorage.setItem('profileAvatar', url);
+      setUser(prev => ({ ...prev, avatar: url }));
+    }
   };
 
+  // Skill handlers
+  const handleAddSkill = () => {
+    if (newSkill.trim() && !safeSkills.includes(newSkill.trim())) {
+      setEditData(prev => ({ ...prev, skills: [...safeSkills, newSkill.trim()] }));
+      setNewSkill('');
+    }
+  };
+  const handleRemoveSkill = (skill) => {
+    setEditData(prev => ({ ...prev, skills: safeSkills.filter(s => s !== skill) }));
+  };
+
+  // Social media handlers
+  const handleSocialChange = (platform, value) => {
+    setEditData(prev => ({
+      ...prev,
+      social: { ...safeSocial, [platform]: value }
+    }));
+  };
+
+  // Course enrollment
+  const handleEnrollCourse = () => {
+    const course = ALL_COURSES.find(c => c.id === selectedCourseId);
+    if (course && !safeCourses.some(c => c.id === course.id)) {
+      setEditData(prev => ({
+        ...prev,
+        courses: [...safeCourses, { ...course, progress: 0 }]
+      }));
+      setShowCourseModal(false);
+      setSelectedCourseId('');
+    }
+  };
+
+  // Save profile (including avatar)
   const saveProfile = () => {
     setUser(editData);
     setIsEditing(false);
+    localStorage.setItem('profileUser', JSON.stringify(editData));
+    if (avatarUrl) localStorage.setItem('profileAvatar', avatarUrl);
   };
 
   return (
@@ -81,7 +157,9 @@ const ProfilePage = () => {
             <span className="text-indigo-100 font-medium">Back to Dashboard</span>
           </Link>
           <button className="p-2 rounded-full hover:bg-purple-700/30 transition-all">
-            <Cog6ToothIcon className="h-6 w-6 text-indigo-200" />
+            <Link to="/settings" className="flex items-center gap-2 text-indigo-200">
+              <Cog6ToothIcon className="h-6 w-6 text-indigo-200" />
+            </Link>
           </button>
         </div>
       </header>
@@ -93,23 +171,35 @@ const ProfilePage = () => {
           <div className="relative h-48 bg-gradient-to-r from-indigo-500/20 to-purple-500/20">
             <div className="absolute inset-0 bg-gradient-to-t from-gray-900/80 via-transparent to-transparent" />
           </div>
-          
           <div className="px-6 pb-6 -mt-16 relative">
             <div className="flex flex-col md:flex-row md:items-end md:justify-between">
               <div className="flex items-end gap-6">
                 <div className="relative group">
                   <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-full blur opacity-30 group-hover:opacity-50 transition duration-1000"></div>
-                  {user.avatar ? (
-                    <img 
-                      src={user.avatar} 
-                      alt={user.name}
-                      className="h-32 w-32 rounded-full border-4 border-gray-900 bg-gray-900 z-10 relative"
-                    />
-                  ) : (
-                    <div className="h-32 w-32 rounded-full border-4 border-gray-900 bg-gray-800 flex items-center justify-center z-10 relative">
-                      <UserCircleIcon className="h-20 w-20 text-gray-400" />
-                    </div>
-                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    ref={fileInputRef}
+                    style={{ display: 'none' }}
+                    onChange={handleAvatarUpload}
+                  />
+                  <div
+                    className="cursor-pointer"
+                    onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                    title="Change avatar"
+                  >
+                    {avatarUrl || user.avatar ? (
+                      <img
+                        src={avatarUrl || user.avatar}
+                        alt={user.name}
+                        className="h-32 w-32 rounded-full border-4 border-gray-900 bg-gray-900 z-10 relative object-cover"
+                      />
+                    ) : (
+                      <div className="h-32 w-32 rounded-full border-4 border-gray-900 bg-gray-800 flex items-center justify-center z-10 relative">
+                        <UserCircleIcon className="h-20 w-20 text-gray-400" />
+                      </div>
+                    )}
+                  </div>
                   {user.isVerified && (
                     <div className="absolute bottom-2 right-2 bg-blue-500 rounded-full p-1.5 shadow-lg">
                       <ShieldCheckIcon className="h-5 w-5 text-white" />
@@ -126,17 +216,16 @@ const ProfilePage = () => {
                   <p className="text-gray-300 max-w-2xl">{user.bio}</p>
                 </div>
               </div>
-              
               <div className="mt-4 md:mt-0 flex gap-3">
                 {isEditing ? (
                   <div className="flex gap-3">
-                    <button 
+                    <button
                       onClick={() => setIsEditing(false)}
                       className="px-4 py-2 border border-gray-600 rounded-xl text-gray-300 hover:bg-gray-700/50 transition-all"
                     >
                       Cancel
                     </button>
-                    <button 
+                    <button
                       onClick={saveProfile}
                       className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl text-white hover:scale-[1.02] transition-transform"
                     >
@@ -144,12 +233,19 @@ const ProfilePage = () => {
                     </button>
                   </div>
                 ) : (
-                  <button 
+                  <button
                     onClick={() => setIsEditing(true)}
                     className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-500/80 to-purple-500/80 rounded-xl text-white hover:scale-[1.02] transition-transform"
                   >
-                    <PencilSquareIcon className="h-5 w-5" />
-                    Edit Profile
+                    <div className="mt-4 md:mt-0 flex gap-3">
+                      <Link
+                        to="/settings?tab=account"
+                        className="flex items-center gap-2 text-white"
+                      >
+                        <PencilSquareIcon className="h-5 w-5" />
+                        Edit Profile
+                      </Link>
+                    </div>
                   </button>
                 )}
               </div>
@@ -163,7 +259,7 @@ const ProfilePage = () => {
             <div className="flex items-center gap-4">
               <TrophyIcon className="h-8 w-8 text-purple-400" />
               <div>
-                <div className="text-2xl font-bold text-white">{user.stats.points}</div>
+                <div className="text-2xl font-bold text-white">{user.stats?.points ?? 0}</div>
                 <div className="text-gray-400">Learning Points</div>
               </div>
             </div>
@@ -172,7 +268,7 @@ const ProfilePage = () => {
             <div className="flex items-center gap-4">
               <SparklesIcon className="h-8 w-8 text-indigo-400" />
               <div>
-                <div className="text-2xl font-bold text-white">{user.stats.streak} Days</div>
+                <div className="text-2xl font-bold text-white">{user.stats?.streak ?? 0} Days</div>
                 <div className="text-gray-400">Learning Streak</div>
               </div>
             </div>
@@ -181,7 +277,7 @@ const ProfilePage = () => {
             <div className="flex items-center gap-4">
               <StarIcon className="h-8 w-8 text-amber-400" />
               <div>
-                <div className="text-2xl font-bold text-white">#{user.stats.rank}</div>
+                <div className="text-2xl font-bold text-white">#{user.stats?.rank ?? 0}</div>
                 <div className="text-gray-400">Global Rank</div>
               </div>
             </div>
@@ -239,30 +335,135 @@ const ProfilePage = () => {
 
               {/* Skills & Social */}
               <div className="space-y-6">
+                {/* Skills Section */}
                 <div className="bg-gray-800/50 p-6 rounded-2xl border border-gray-700/30">
-                  <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                    <CodeBracketIcon className="h-6 w-6 text-purple-400" />
-                    Technical Skills
-                  </h3>
-                  <div className="flex flex-wrap gap-3">
-                    {user.skills.map((skill, index) => (
-                      <div key={index} className="px-3 py-1.5 bg-indigo-500/20 text-indigo-300 rounded-full text-sm">
-                        {skill}
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+                      <CodeBracketIcon className="h-6 w-6 text-purple-400" />
+                      Technical Skills
+                    </h3>
+                    {!isEditing ? (
+                      <button
+                        className="text-xs px-3 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-700"
+                        onClick={() => {
+                          setEditData({ ...user });
+                          setIsEditing(true);
+                        }}
+                      >
+                        Edit
+                      </button>
+                    ) : (
+                      <button
+                        className="text-xs px-3 py-1 rounded bg-gray-700 text-gray-200 hover:bg-gray-600"
+                        onClick={() => setIsEditing(false)}
+                      >
+                        Done
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-3 mb-3">
+                    {safeSkills.map((skill, index) => (
+                      <div key={index} className="px-3 py-1.5 bg-indigo-500/20 text-indigo-300 rounded-full text-sm flex items-center gap-2">
+                        {isEditing ? (
+                          <>
+                            <input
+                              type="text"
+                              value={skill}
+                              onChange={e => {
+                                const updatedSkills = [...safeSkills];
+                                updatedSkills[index] = e.target.value;
+                                setEditData(prev => ({ ...prev, skills: updatedSkills }));
+                              }}
+                              className="bg-transparent border-none text-indigo-300 focus:outline-none w-20"
+                            />
+                            <button
+                              type="button"
+                              className="ml-1 text-red-400 hover:text-red-200"
+                              onClick={() => handleRemoveSkill(skill)}
+                              title="Remove"
+                            >
+                              ×
+                            </button>
+                          </>
+                        ) : (
+                          skill
+                        )}
                       </div>
                     ))}
                   </div>
+                  {isEditing && (
+                    <div className="flex gap-2 mt-2">
+                      <input
+                        type="text"
+                        value={newSkill}
+                        onChange={e => setNewSkill(e.target.value)}
+                        placeholder="Add skill"
+                        className="px-3 py-1 rounded bg-gray-700 text-white border border-gray-600 focus:outline-none"
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddSkill(); } }}
+                      />
+                      <button
+                        type="button"
+                        className="px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                        onClick={handleAddSkill}
+                      >
+                        Add
+                      </button>
+                    </div>
+                  )}
                 </div>
 
+                {/* Social Connections Section */}
                 <div className="bg-gray-800/50 p-6 rounded-2xl border border-gray-700/30">
-                  <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                    <GlobeAltIcon className="h-6 w-6 text-green-400" />
-                    Social Connections
-                  </h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+                      <GlobeAltIcon className="h-6 w-6 text-green-400" />
+                      Social Connections
+                    </h3>
+                    {!isEditing ? (
+                      <button
+                        className="text-xs px-3 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-700"
+                        onClick={() => {
+                          setEditData({ ...user });
+                          setIsEditing(true);
+                        }}
+                      >
+                        Edit
+                      </button>
+                    ) : (
+                      <button
+                        className="text-xs px-3 py-1 rounded bg-gray-700 text-gray-200 hover:bg-gray-600"
+                        onClick={() => setIsEditing(false)}
+                      >
+                        Done
+                      </button>
+                    )}
+                  </div>
                   <div className="space-y-3">
-                    {Object.entries(user.social).map(([platform, value]) => (
-                      <div key={platform} className="flex items-center gap-3 text-gray-300">
-                        <div className="w-24 text-indigo-300">{platform}</div>
-                        <div className="flex-1 font-mono text-purple-300">{value}</div>
+                    {SOCIAL_PLATFORMS.map(({ key, label, prefix }) => (
+                      <div key={key} className="flex items-center gap-3 text-gray-300">
+                        <div className="w-24 text-indigo-300">{label}</div>
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={safeSocial[key] || ''}
+                            onChange={e => handleSocialChange(key, e.target.value)}
+                            placeholder={`Enter ${label} URL or handle`}
+                            className="flex-1 px-3 py-1 rounded bg-gray-700 text-white border border-gray-600 focus:outline-none"
+                          />
+                        ) : (
+                          safeSocial[key] ? (
+                            <a
+                              href={safeSocial[key].startsWith('http') ? safeSocial[key] : prefix + safeSocial[key].replace(/^@/, '')}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex-1 font-mono text-purple-300 hover:underline"
+                            >
+                              {safeSocial[key]}
+                            </a>
+                          ) : (
+                            <span className="flex-1 font-mono text-gray-400">Not connected</span>
+                          )
+                        )}
                       </div>
                     ))}
                   </div>
@@ -272,40 +473,100 @@ const ProfilePage = () => {
           )}
 
           {activeTab === 'courses' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {user.courses.map((course) => (
-                <div key={course.id} className="bg-gray-800/50 p-6 rounded-2xl border border-gray-700/30 hover:border-indigo-500/30 transition-all group">
-                  <div className="flex items-center gap-4 mb-4">
-                    <course.icon className="h-8 w-8 text-indigo-400" />
-                    <h3 className="text-xl font-semibold text-white">{course.name}</h3>
-                  </div>
-                  <div className="space-y-4">
-                    <div className="relative pt-1">
-                      <div className="flex mb-2 items-center justify-between">
-                        <div>
-                          <span className="text-xs font-semibold inline-block text-indigo-400">
-                            Progress
-                          </span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-xs font-semibold inline-block text-indigo-400">
-                            {course.progress}%
-                          </span>
-                        </div>
-                      </div>
-                      <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-gray-700">
-                        <div
-                          style={{ width: `${course.progress}%` }}
-                          className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-gradient-to-r from-indigo-500 to-purple-500"
-                        />
-                      </div>
+            <div>
+              <div className="flex justify-end mb-4">
+                {isEditing && (
+                  <button
+                    className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                    onClick={() => setShowCourseModal(true)}
+                  >
+                    Enroll in New Course
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {safeCourses.map((course) => (
+                  <div key={course.id} className="bg-gray-800/50 p-6 rounded-2xl border border-gray-700/30 hover:border-indigo-500/30 transition-all group">
+                    <div className="flex items-center gap-4 mb-4">
+                      <course.icon className="h-8 w-8 text-indigo-400" />
+                      <h3 className="text-xl font-semibold text-white">{course.name}</h3>
                     </div>
-                    <button className="w-full py-2.5 bg-indigo-500/20 text-indigo-300 rounded-lg hover:bg-indigo-500/30 transition-colors">
-                      Continue Learning
-                    </button>
+                    <div className="space-y-4">
+                      <div className="relative pt-1">
+                        <div className="flex mb-2 items-center justify-between">
+                          <div>
+                            <span className="text-xs font-semibold inline-block text-indigo-400">
+                              Progress
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-xs font-semibold inline-block text-indigo-400">
+                              {course.progress}%
+                            </span>
+                          </div>
+                        </div>
+                        <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-gray-700">
+                          <div
+                            style={{ width: `${course.progress}%` }}
+                            className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-gradient-to-r from-indigo-500 to-purple-500"
+                          />
+                        </div>
+                      </div>
+                      {isEditing && (
+                        <button
+                          className="w-full py-2.5 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 transition-colors"
+                          onClick={() =>
+                            setEditData(prev => ({
+                              ...prev,
+                              courses: safeCourses.filter(c => c.id !== course.id)
+                            }))
+                          }
+                        >
+                          Remove Course
+                        </button>
+                      )}
+                      {!isEditing && (
+                        <button className="w-full py-2.5 bg-indigo-500/20 text-indigo-300 rounded-lg hover:bg-indigo-500/30 transition-colors">
+                          Continue Learning
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {/* Enroll Modal */}
+              {showCourseModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+                  <div className="bg-gray-900 rounded-xl p-8 w-full max-w-md shadow-2xl border border-gray-700">
+                    <h2 className="text-xl font-bold text-white mb-4">Enroll in a New Course</h2>
+                    <select
+                      className="w-full px-4 py-2 mb-4 rounded bg-gray-700 text-white border border-gray-600"
+                      value={selectedCourseId}
+                      onChange={e => setSelectedCourseId(e.target.value)}
+                    >
+                      <option value="">Select a course</option>
+                      {ALL_COURSES.filter(c => !safeCourses.some(ec => ec.id === c.id)).map(course => (
+                        <option key={course.id} value={course.id}>{course.name}</option>
+                      ))}
+                    </select>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600"
+                        onClick={() => setShowCourseModal(false)}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                        onClick={handleEnrollCourse}
+                        disabled={!selectedCourseId}
+                      >
+                        Enroll
+                      </button>
+                    </div>
                   </div>
                 </div>
-              ))}
+              )}
             </div>
           )}
 
@@ -344,7 +605,11 @@ const ProfilePage = () => {
 
         {/* Floating Action Button */}
         <div className="fixed bottom-8 right-8">
-          <button className="p-4 bg-indigo-600 rounded-full shadow-xl hover:bg-indigo-700 transition-colors animate-bounce-slow">
+          <button
+            className="p-4 bg-indigo-600 rounded-full shadow-xl hover:bg-indigo-700 transition-colors animate-bounce-slow"
+            title="Upload new avatar"
+            onClick={() => fileInputRef.current && fileInputRef.current.click()}
+          >
             <CloudArrowUpIcon className="h-6 w-6 text-white" />
           </button>
         </div>

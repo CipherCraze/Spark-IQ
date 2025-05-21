@@ -6,9 +6,18 @@ import {
   FiChevronDown, FiMenu, FiX as FiClose, FiChevronRight
 } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLocation, useNavigate } from 'react-router-dom';
+
+const ACCENT_COLORS = ['#8B5CF6', '#7C3AED', '#6D28D9', '#9333EA', '#A855F7'];
+const FONT_SIZES = ['Small', 'Medium', 'Large'];
+const DENSITIES = ['Compact', 'Normal', 'Comfortable'];
 
 const SettingsPage = () => {
-  const [activeTab, setActiveTab] = useState('account');
+  const { search } = useLocation();
+  const navigate = useNavigate();
+  const queryParams = new URLSearchParams(search);
+  const initialTab = queryParams.get('tab') || 'account';
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [darkMode, setDarkMode] = useState(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
@@ -29,6 +38,56 @@ const SettingsPage = () => {
     notifications: true,
     appearance: true
   });
+  const [user, setUser] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    location: '',
+    bio: '',
+    education: '',
+  });
+  const [avatarUrl, setAvatarUrl] = useState(() => localStorage.getItem('profileAvatar') || null);
+  const [formErrors, setFormErrors] = useState({});
+  const [passwordError, setPasswordError] = useState('');
+  const [accentColor, setAccentColor] = useState(() => localStorage.getItem('accentColor') || '#8B5CF6');
+  const [fontSize, setFontSize] = useState(() => localStorage.getItem('fontSize') || 'Medium');
+  const [density, setDensity] = useState(() => localStorage.getItem('density') || 'Normal');
+
+  const handleEditChange = (e) => {
+    const { name, value } = e.target;
+    setUser((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const validateAccountForm = () => {
+    const errors = {};
+    if (!user.name.trim()) errors.name = 'Full name is required';
+    if (!user.email.trim()) errors.email = 'Email is required';
+    else if (!/^[\w-.]+@([\w-]+\.)+[\w-]{2,}$/.test(user.email)) errors.email = 'Invalid email address';
+    if (!user.phone.trim()) errors.phone = 'Phone number is required';
+    if (!user.location.trim()) errors.location = 'Location is required';
+    if (!user.education.trim()) errors.education = 'Education is required';
+    return errors;
+  };
+
+  const getPasswordStrength = (pwd) => {
+    let score = 0;
+    if (pwd.length >= 6) score++;
+    if (/[A-Z]/.test(pwd)) score++;
+    if (/[0-9]/.test(pwd)) score++;
+    if (/[^A-Za-z0-9]/.test(pwd)) score++;
+    return score;
+  };
+
+  const validatePassword = (pwd) => {
+    if (pwd.length < 8) return 'Password must be at least 8 characters';
+    if (!/[A-Z]/.test(pwd)) return 'Password must contain an uppercase letter';
+    if (!/[0-9]/.test(pwd)) return 'Password must contain a number';
+    if (!/[^A-Za-z0-9]/.test(pwd)) return 'Password must contain a special character';
+    return '';
+  };
 
   useEffect(() => {
     // Check user's preferred color scheme
@@ -45,6 +104,28 @@ const SettingsPage = () => {
     }
   }, [darkMode]);
 
+  useEffect(() => {
+    document.documentElement.style.setProperty('--accent-color', accentColor);
+    localStorage.setItem('accentColor', accentColor);
+  }, [accentColor]);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-font-size', fontSize);
+    localStorage.setItem('fontSize', fontSize);
+  }, [fontSize]);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-density', density);
+    localStorage.setItem('density', density);
+  }, [density]);
+
+  // Update activeTab if URL changes (for SPA navigation)
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    const tab = params.get('tab');
+    if (tab && tab !== activeTab) setActiveTab(tab);
+  }, [search]);
+
   const toggleSection = (section) => {
     setExpandedSections(prev => ({
       ...prev,
@@ -54,13 +135,24 @@ const SettingsPage = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const errors = validateAccountForm();
+    setFormErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      showToast('Please fix the errors in the form.', 'error');
+      return;
+    }
+    localStorage.setItem('profileUser', JSON.stringify(user));
+    if (avatarUrl) localStorage.setItem('profileAvatar', avatarUrl);
     showToast('Settings saved successfully!', 'success');
   };
 
   const handlePasswordSubmit = (e) => {
     e.preventDefault();
+    const pwdError = validatePassword(newPassword);
+    setPasswordError(pwdError);
+    if (pwdError) return;
     if (newPassword !== confirmPassword) {
-      showToast('Passwords do not match!', 'error');
+      setPasswordError('Passwords do not match!');
       return;
     }
     showToast('Password changed successfully!', 'success');
@@ -68,6 +160,7 @@ const SettingsPage = () => {
     setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
+    setPasswordError('');
   };
 
   const handleAvatarChange = (e) => {
@@ -79,7 +172,11 @@ const SettingsPage = () => {
         setUploadProgress(progress);
         if (progress >= 100) {
           clearInterval(interval);
-          setAvatar(URL.createObjectURL(file));
+          // NOTE: This does NOT upload to a server, just creates a local URL and stores in localStorage
+          const url = URL.createObjectURL(file);
+          setAvatar(url);
+          setAvatarUrl(url);
+          localStorage.setItem('profileAvatar', url);
           showToast('Profile picture updated!', 'success');
         }
       }, 100);
@@ -110,6 +207,17 @@ const SettingsPage = () => {
       <header className="sticky top-0 z-40 bg-gray-900/80 backdrop-blur-md border-b border-gray-800 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
+            {/* Back button */}
+            <button
+              onClick={() => navigate('/profile')}
+              className="text-gray-400 hover:text-white mr-2"
+              title="Back to Profile"
+            >
+              {/* Simple left arrow SVG */}
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
             <button 
               onClick={() => setMobileMenuOpen(true)}
               className="md:hidden text-gray-400 hover:text-white"
@@ -256,8 +364,8 @@ const SettingsPage = () => {
                   <div className="flex items-center space-x-6">
                     <div className="relative">
                       <div className="w-24 h-24 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden border-2 border-purple-500/30">
-                        {avatar ? (
-                          <img src={avatar} alt="Profile" className="w-full h-full object-cover" />
+                        {avatarUrl ? (
+                          <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
                         ) : (
                           <FiUser className="w-10 h-10 text-gray-500" />
                         )}
@@ -288,7 +396,7 @@ const SettingsPage = () => {
                 </div>
                 
                 {/* Account Form */}
-                <form className="space-y-4">
+                <form className="space-y-4" onSubmit={handleSubmit}>
                   <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
                     <h3 className="text-lg font-medium text-white mb-4">Personal Information</h3>
                     
@@ -300,10 +408,13 @@ const SettingsPage = () => {
                         <input
                           type="text"
                           id="name"
-                          defaultValue="John Doe"
+                          name="name"
+                          value={user.name}
+                          onChange={handleEditChange}
                           placeholder="Enter your full name"
-                          className="w-full px-4 py-2 text-white bg-gray-700 border border-gray-600 rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-colors placeholder-gray-500"
+                          className={`w-full px-4 py-2 text-white bg-gray-700 border ${formErrors.name ? 'border-red-500' : 'border-gray-600'} rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-colors placeholder-gray-500`}
                         />
+                        {formErrors.name && <div className="text-red-400 text-xs mt-1">{formErrors.name}</div>}
                       </div>
                       
                       <div>
@@ -313,10 +424,13 @@ const SettingsPage = () => {
                         <input
                           type="email"
                           id="email"
-                          defaultValue="john.doe@example.com"
+                          name="email"
+                          value={user.email}
+                          onChange={handleEditChange}
                           placeholder="Enter your email"
-                          className="w-full px-4 py-2 text-white bg-gray-700 border border-gray-600 rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-colors placeholder-gray-500"
+                          className={`w-full px-4 py-2 text-white bg-gray-700 border ${formErrors.email ? 'border-red-500' : 'border-gray-600'} rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-colors placeholder-gray-500`}
                         />
+                        {formErrors.email && <div className="text-red-400 text-xs mt-1">{formErrors.email}</div>}
                       </div>
                       
                       <div>
@@ -326,10 +440,29 @@ const SettingsPage = () => {
                         <input
                           type="tel"
                           id="phone"
-                          defaultValue="+1 (555) 123-4567"
+                          name="phone"
+                          value={user.phone}
+                          onChange={handleEditChange}
                           placeholder="Enter your phone number"
-                          className="w-full px-4 py-2 text-white bg-gray-700 border border-gray-600 rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-colors placeholder-gray-500"
+                          className={`w-full px-4 py-2 text-white bg-gray-700 border ${formErrors.phone ? 'border-red-500' : 'border-gray-600'} rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-colors placeholder-gray-500`}
                         />
+                        {formErrors.phone && <div className="text-red-400 text-xs mt-1">{formErrors.phone}</div>}
+                      </div>
+
+                      <div>
+                        <label htmlFor="location" className="block text-sm font-medium text-gray-400 mb-1">
+                          Location
+                        </label>
+                        <input
+                          type="text"
+                          id="location"
+                          name="location"
+                          value={user.location}
+                          onChange={handleEditChange}
+                          placeholder="Enter your location"
+                          className={`w-full px-4 py-2 text-white bg-gray-700 border ${formErrors.location ? 'border-red-500' : 'border-gray-600'} rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-colors placeholder-gray-500`}
+                        />
+                        {formErrors.location && <div className="text-red-400 text-xs mt-1">{formErrors.location}</div>}
                       </div>
                     </div>
                     
@@ -339,12 +472,38 @@ const SettingsPage = () => {
                       </label>
                       <textarea
                         id="bio"
+                        name="bio"
                         rows={4}
+                        value={user.bio}
+                        onChange={handleEditChange}
                         placeholder="Tell us about yourself..."
-                        defaultValue="Mathematics teacher with 5 years of experience"
                         className="w-full px-4 py-2 text-white bg-gray-700 border border-gray-600 rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-colors placeholder-gray-500"
                       ></textarea>
                     </div>
+
+                    <div className="mt-4">
+                      <label htmlFor="education" className="block text-sm font-medium text-gray-400 mb-1">
+                        Education
+                      </label>
+                      <input
+                        type="text"
+                        id="education"
+                        name="education"
+                        value={user.education}
+                        onChange={handleEditChange}
+                        placeholder="Enter your education"
+                        className={`w-full px-4 py-2 text-white bg-gray-700 border ${formErrors.education ? 'border-red-500' : 'border-gray-600'} rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-colors placeholder-gray-500`}
+                      />
+                      {formErrors.education && <div className="text-red-400 text-xs mt-1">{formErrors.education}</div>}
+                    </div>
+                  </div>
+                  <div className="flex justify-end mt-4">
+                    <button
+                      type="submit"
+                      className="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors"
+                    >
+                      Save Changes
+                    </button>
                   </div>
                 </form>
               </motion.div>
@@ -460,16 +619,17 @@ const SettingsPage = () => {
                             
                             <div className="flex items-center space-x-2 pt-2">
                               <div className="flex-1 flex space-x-1">
-                                <div className={`h-1 flex-1 rounded-full ${newPassword.length > 0 ? 'bg-red-500' : 'bg-gray-600'}`}></div>
-                                <div className={`h-1 flex-1 rounded-full ${newPassword.length >= 6 ? 'bg-yellow-500' : 'bg-gray-600'}`}></div>
-                                <div className={`h-1 flex-1 rounded-full ${newPassword.length >= 10 ? 'bg-green-500' : 'bg-gray-600'}`}></div>
+                                <div className={`h-1 flex-1 rounded-full ${getPasswordStrength(newPassword) > 0 ? 'bg-red-500' : 'bg-gray-600'}`}></div>
+                                <div className={`h-1 flex-1 rounded-full ${getPasswordStrength(newPassword) > 2 ? 'bg-yellow-500' : 'bg-gray-600'}`}></div>
+                                <div className={`h-1 flex-1 rounded-full ${getPasswordStrength(newPassword) > 3 ? 'bg-green-500' : 'bg-gray-600'}`}></div>
                               </div>
                               <span className="text-xs text-gray-400">
                                 {newPassword.length === 0 ? '' : 
-                                 newPassword.length < 6 ? 'Weak' : 
-                                 newPassword.length < 10 ? 'Medium' : 'Strong'}
+                                  getPasswordStrength(newPassword) <= 1 ? 'Weak' : 
+                                  getPasswordStrength(newPassword) === 2 ? 'Medium' : 'Strong'}
                               </span>
                             </div>
+                            {passwordError && <div className="text-red-400 text-xs">{passwordError}</div>}
                             
                             <div className="flex justify-end space-x-3 pt-4">
                               <button
@@ -805,14 +965,15 @@ const SettingsPage = () => {
                           <h4 className="text-md font-medium text-white mb-4">Accent Color</h4>
                           
                           <div className="flex flex-wrap gap-3">
-                            {['#8B5CF6', '#7C3AED', '#6D28D9', '#9333EA', '#A855F7'].map((color) => (
+                            {ACCENT_COLORS.map((color) => (
                               <div 
                                 key={color}
-                                className="w-10 h-10 rounded-full cursor-pointer border-2 border-transparent hover:border-white/20 flex items-center justify-center transition-colors"
+                                className={`w-10 h-10 rounded-full cursor-pointer border-2 flex items-center justify-center transition-colors
+                                  ${accentColor === color ? 'border-white' : 'border-transparent hover:border-white/20'}`}
                                 style={{ backgroundColor: color }}
-                                onClick={() => showToast(`Accent color changed to ${color}`, 'success')}
+                                onClick={() => setAccentColor(color)}
                               >
-                                {color === '#8B5CF6' && <FiCheck className="w-4 h-4 text-white" />}
+                                {accentColor === color && <FiCheck className="w-4 h-4 text-white" />}
                               </div>
                             ))}
                           </div>
@@ -823,11 +984,12 @@ const SettingsPage = () => {
                           <h4 className="text-md font-medium text-white mb-4">Font Size</h4>
                           
                           <div className="flex flex-wrap gap-3">
-                            {['Small', 'Medium', 'Large'].map((size) => (
+                            {FONT_SIZES.map((size) => (
                               <button
                                 key={size}
+                                onClick={() => setFontSize(size)}
                                 className={`px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${
-                                  size === 'Medium'
+                                  fontSize === size
                                     ? 'bg-purple-600 text-white border-purple-600'
                                     : 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600'
                                 }`}
@@ -843,23 +1005,27 @@ const SettingsPage = () => {
                           <h4 className="text-md font-medium text-white mb-4">Density</h4>
                           
                           <div className="flex flex-wrap gap-3">
-                            {['Compact', 'Normal', 'Comfortable'].map((density) => (
+                            {DENSITIES.map((d) => (
                               <button
-                                key={density}
+                                key={d}
+                                onClick={() => setDensity(d)}
                                 className={`px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${
-                                  density === 'Normal'
+                                  density === d
                                     ? 'bg-purple-600 text-white border-purple-600'
                                     : 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600'
                                 }`}
                               >
-                                {density}
+                                {d}
                               </button>
                             ))}
                           </div>
                         </div>
                         
                         <div className="flex justify-end pt-2">
-                          <button className="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors">
+                          <button
+                            className="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors"
+                            onClick={() => showToast('Appearance settings applied!', 'success')}
+                          >
                             Apply Changes
                           </button>
                         </div>
