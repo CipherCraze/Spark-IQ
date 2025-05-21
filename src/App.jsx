@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router'; // Corrected import
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'; // Fix the import
 import Header from './Components/Header';
 import Footer from './Components/Footer';
 import Hero from './Components/LandingPage/Hero';
@@ -14,9 +14,11 @@ import Testimonials from './Components/LandingPage/Testimonials';
 import Newsletter from './Components/LandingPage/Newsletter';
 import Dashboard from './Components/dashboard/Dashboard'; // Import the Dashboard component
 import ChatbotAccess from './Components/Chatbot/Chatbot'; // Import the Chatbot component
+import ChatbotEducation from './Components/Chatbot/Chatbot-Educator'; // Import the ChatbotEducation component
 import AssignmentSubmission from './Components/Features/AssignmentSubmission'; // Import the AssignmentSubmission component
 import ChatFunctionality from './Components/Features/ChatFunctionality';
-import Meeting from './Components/Features/Meetings';
+
+
 import AttendanceMonitoring from './Components/Features/AttendanceMonitoring';
 import ResourceUtilization from './Components/Features/ResourceUtilization';
 import Grades from './Components/Features/GradingAccess';
@@ -35,9 +37,11 @@ import ResourceManagement from './Components/Features/ResourceManagement';
 import AttendanceTracking from './Components/Features/AttendanceTracking';
 import FeedbackDashboard from './Components/Features/FeedbackDashboard';
 import SuggestionsToStudents from './Components/Features/SuggestionsToStudents';
-import MeetingHost from './Components/Features/MeetingHost';
+import MeetingHost from './Components/MeetingHost';
 import CollaborationHub from './Components/Features/CollaborationHub';
 import AnnouncementsPage from './Components/Features/AnnouncementsPage';
+import Meeting from './Components/Meetings';
+import Meetings from './Components/Meetings';
 
 const Layout = ({ children, showHeaderFooter = true }) => (
   <div className="flex flex-col min-h-screen">
@@ -225,6 +229,15 @@ function App() {
             </Layout>
           }
         />
+        {/* Chatbot Education */}
+        <Route
+          path="/chatbot-education"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <ChatbotEducation />
+            </Layout>
+          }
+        />
         {/* Grades Route */}
         <Route
           path="/grading-access"
@@ -305,6 +318,23 @@ function App() {
           element={
             <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
               <EducationalNewsPage />
+            </Layout>
+          }
+        />
+        {/* Meeting Routes */}
+        <Route
+          path="/meetings"
+          element={
+            <Layout showHeaderFooter={false}>
+              <Meetings />
+            </Layout>
+          }
+        />
+        <Route
+          path="/host"
+          element={
+            <Layout showHeaderFooter={false}>
+              <MeetingHost />
             </Layout>
           }
         />

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FileUpload } from '../FileUpload.jsx';
+import { evaluateAssignment } from '../../services/geminiService';
 import {
   ClipboardDocumentIcon,
   DocumentTextIcon,
@@ -12,7 +13,8 @@ import {
   ExclamationCircleIcon,
   ArrowUpTrayIcon,
   ChartBarIcon,
-  FolderIcon
+  FolderIcon,
+  SparklesIcon
 } from '@heroicons/react/24/outline';
 
 const AssignmentSubmission = () => {
@@ -20,6 +22,9 @@ const AssignmentSubmission = () => {
   const [file, setFile] = useState(null);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [activeTab, setActiveTab] = useState('current');
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [evaluationResult, setEvaluationResult] = useState(null);
+  const [error, setError] = useState(null);
 
   const submissionHistory = [
     {
@@ -72,16 +77,66 @@ const AssignmentSubmission = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  useEffect(() => {
+    // Check if API key is configured
+    console.log('Gemini API Key configured:', !!import.meta.env.VITE_GEMINI_API_KEY);
+  }, []);
+
   const handleFileChange = (selectedFile) => {
     setFile(selectedFile);
   };
 
-  const handleSubmit = () => {
-    if (file) {
-      alert(`${file.name} submitted successfully!`);
-      setFile(null);
-    } else {
+  const handleSubmit = async () => {
+    if (!file) {
       alert('Please select a file to submit.');
+      return;
+    }
+
+    try {
+      setIsEvaluating(true);
+      setError(null);
+
+      // Read file content
+      const content = await file.text();
+      
+      // Get assignment type from the current assignment
+      const currentAssignment = submissionHistory.find(a => a.status === 'Submitted');
+      const assignmentType = currentAssignment?.assignment || 'General Assignment';
+
+      // Evaluate the assignment
+      const result = await evaluateAssignment(content, assignmentType);
+      setEvaluationResult(result);
+
+      // Update submission history with evaluation results
+      const updatedHistory = submissionHistory.map(sub => {
+        if (sub.status === 'Submitted') {
+          return {
+            ...sub,
+            status: 'Graded',
+            grade: result.grade,
+            feedback: result.feedback,
+            evaluatedAt: result.timestamp
+          };
+        }
+        return sub;
+      });
+
+      // Update the submission history (in a real app, this would be an API call)
+      // setSubmissionHistory(updatedHistory);
+
+      alert('Assignment submitted and evaluated successfully!');
+      setFile(null);
+    } catch (err) {
+      const errorMessage = err.message || 'Failed to evaluate assignment. Please try again.';
+      setError(errorMessage);
+      console.error('Evaluation error:', err);
+      
+      // If it's a rate limit error, show a more user-friendly message
+      if (errorMessage.includes('Rate limit exceeded')) {
+        alert('The system is currently busy. Please try again in a few minutes.');
+      }
+    } finally {
+      setIsEvaluating(false);
     }
   };
 
@@ -223,7 +278,7 @@ const AssignmentSubmission = () => {
 
           {/* Current Assignments */}
           {activeTab === 'current' && (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {currentAssignments.length > 0 ? (
                 currentAssignments.map((assignment) => (
                   <div key={assignment.id} className="bg-gray-800/50 rounded-xl border border-gray-700/50 overflow-hidden hover:shadow-lg transition-shadow">
@@ -265,9 +320,54 @@ const AssignmentSubmission = () => {
                               onFileChange={handleFileChange}
                               onSubmit={handleSubmit}
                               file={file}
+                              isEvaluating={isEvaluating}
                             />
                           </div>
                         </div>
+
+                        {isEvaluating && (
+                          <div className="mt-4 p-4 bg-blue-500/10 rounded-lg flex items-center gap-3">
+                            <SparklesIcon className="w-5 h-5 text-blue-400 animate-pulse" />
+                            <p className="text-blue-400">Evaluating your submission...</p>
+                          </div>
+                        )}
+
+                        {error && (
+                          <div className="mt-4 p-4 bg-red-500/10 rounded-lg flex items-center gap-3">
+                            <ExclamationCircleIcon className="w-5 h-5 text-red-400" />
+                            <p className="text-red-400">{error}</p>
+                          </div>
+                        )}
+
+                        {evaluationResult && (
+                          <div className="mt-4 p-6 bg-gray-900/30 rounded-lg border border-gray-700/50">
+                            <h4 className="text-xl font-semibold text-white mb-4">Evaluation Results</h4>
+                            <div className="space-y-6">
+                              <div className="flex items-center justify-between bg-gray-800/50 p-4 rounded-lg">
+                                <span className="text-gray-300">Grade:</span>
+                                <span className="text-2xl font-bold text-white">{evaluationResult.grade}%</span>
+                              </div>
+                              
+                              <div className="space-y-4">
+                                <h5 className="text-lg font-medium text-white">Feedback:</h5>
+                                <div className="prose prose-invert max-w-none">
+                                  {evaluationResult.feedback.split('\n').map((paragraph, index) => (
+                                    paragraph.trim() ? (
+                                      <p key={index} className="text-white mb-3 leading-relaxed">
+                                        {paragraph}
+                                      </p>
+                                    ) : null
+                                  ))}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2 text-sm text-gray-400">
+                                <ClockIcon className="w-4 h-4" />
+                                <span>Evaluated on: {new Date(evaluationResult.timestamp).toLocaleString()}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -14,6 +14,9 @@ import {
   EllipsisVerticalIcon,
   EyeIcon,
   ShareIcon,
+  UsersIcon,
+  
+  DocumentTextIcon,
   BookOpenIcon,
   ClockIcon,
   UserGroupIcon,
@@ -69,15 +72,16 @@ const ResourceManagement = () => {
   const fileInputRef = useRef(null);
 
   const educatorMenu = [
-    { title: 'Dashboard', Icon: ClipboardDocumentIcon, link: '/educator-dashboard' },
-    { title: 'Grading System', Icon: AcademicCapIcon, link: '/grading-system' },
-    { title: 'Attendance Tracking', Icon: ChartBarIcon, link: '/attendance-tracking' },
-    { title: 'Chatbot Interaction', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-interaction' },
-    { title: 'Feedback Provision', Icon: LightBulbIcon, link: '/feedback-provision' },
-    { title: 'Question Generation', Icon: SparklesIcon, link: '/question-generation' },
-    { title: 'Suggestions to Students', Icon: EnvelopeIcon, link: '/suggestions-to-students' },
-    { title: 'Meeting Hosting', Icon: VideoCameraIcon, link: '/meeting-hosting' },
-    { title: 'Collaboration', Icon: UserGroupIcon, link: '/collaboration' },
+    { title: 'Dashboard', Icon: AcademicCapIcon, link: '/educator-dashboard' },
+    { title : 'Grades', Icon: DocumentTextIcon, link: '/grading-system' },
+    { title: 'Assignments', Icon: FunnelIcon, link: '/assignment-management' },
+    { title: 'Attendance', Icon: UserGroupIcon, link: '/attendance-tracking' },
+    { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
+    { title: 'Feedback', Icon: LightBulbIcon, link: '/feedback-dashboard' },
+    { title: 'Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
+    { title: 'News', Icon: UsersIcon, link: '/educational-news' },
+    { title: 'Suggestions', Icon: EnvelopeIcon, link: '/suggestions-to-students' },
+    { title: 'Meetings', Icon: VideoCameraIcon, link: '/meeting-host' },  
     { title: 'Announcements', Icon: MegaphoneIcon, link: '/announcements' },
   ];
 
