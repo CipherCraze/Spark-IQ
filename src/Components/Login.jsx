@@ -1,27 +1,117 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router';
+import { useNavigate, Link } from 'react-router-dom';
 import { LockClosedIcon, UserCircleIcon, SparklesIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
-import { auth, googleProvider } from '../firebase/firebaceConfig';
-import { signInWithPopup } from 'firebase/auth';
+import { getAuth, signInWithPopup, signInWithEmailAndPassword } from 'firebase/auth';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { app, googleProvider } from '../firebase/firebaseConfig';
 
 export default function Login() {
   const navigate = useNavigate();
   const [error, setError] = useState('');
-  const [showPassword, setShowPassword] = useState(false); // Add state for password visibility
+  const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const auth = getAuth(app);
+  const db = getFirestore(app);
 
   const handleGoogleSignIn = async () => {
     try {
+      setLoading(true);
+      setError('');
       const result = await signInWithPopup(auth, googleProvider);
-      navigate('/dashboard');
+      const user = result.user;
+      
+      // Check if user exists in Firestore and redirect to appropriate dashboard
+      await checkUserRoleAndRedirect(user.uid);
+      
     } catch (error) {
-      setError(error.message);
       console.error(error.message);
+      if (error.code === 'auth/account-exists-with-different-credential') {
+        setError('An account already exists with the same email address but different sign-in credentials.');
+      } else {
+        setError('Failed to sign in with Google. Please try again.');
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleSubmit = (e) => {
+  // Function to check user role and redirect to appropriate dashboard
+  const checkUserRoleAndRedirect = async (userId) => {
+    try {
+      // Check if user is a student
+      const studentRef = doc(db, 'students', userId);
+      const studentDoc = await getDoc(studentRef);
+      
+      if (studentDoc.exists()) {
+        navigate('/dashboard');
+        return;
+      }
+      
+      // Check if user is a teacher
+      const teacherRef = doc(db, 'teachers', userId);
+      const teacherDoc = await getDoc(teacherRef);
+      
+      if (teacherDoc.exists()) {
+        navigate('/educator-dashboard');
+        return;
+      }
+      
+      // If we get here, the user doesn't exist in either collection
+      setError('User account not found. Please sign up first.');
+      
+    } catch (error) {
+      console.error('Error checking user role:', error);
+      setError('Failed to retrieve your account information. Please try again.');
+    }
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    navigate('/dashboard');
+    if (!email || !password) {
+      setError('Please enter both email and password');
+      return;
+    }
+
+    try {
+      setError('');
+      setLoading(true);
+      
+      // Use Firebase's built-in email/password authentication
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      
+      // Check if user exists in Firestore and redirect to appropriate dashboard
+      await checkUserRoleAndRedirect(user.uid);
+      
+    } catch (error) {
+      console.error('Login error:', error.message);
+      
+      // Handle specific error codes with user-friendly messages
+      switch (error.code) {
+        case 'auth/user-not-found':
+          setError('No account found with this email. Please sign up first.');
+          break;
+        case 'auth/wrong-password':
+          setError('Incorrect password. Please try again.');
+          break;
+        case 'auth/invalid-email':
+          setError('Invalid email address format.');
+          break;
+        case 'auth/too-many-requests':
+          setError('Too many failed login attempts. Please try again later.');
+          break;
+        case 'auth/user-disabled':
+          setError('This account has been disabled. Please contact support.');
+          break;
+        default:
+          setError('Login failed. Please check your credentials and try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const togglePasswordVisibility = () => {
@@ -59,7 +149,8 @@ export default function Login() {
         <div className="space-y-4">
           <button
             onClick={handleGoogleSignIn}
-            className="w-full flex items-center justify-center gap-3 py-3.5 px-6 bg-white/5 hover:bg-white/10 text-gray-200 font-medium rounded-lg border border-white/10 transition-all duration-300 hover:border-white/20 group hover:shadow-glow"
+            disabled={loading}
+            className={`w-full flex items-center justify-center gap-3 py-3.5 px-6 bg-white/5 hover:bg-white/10 text-gray-200 font-medium rounded-lg border border-white/10 transition-all duration-300 hover:border-white/20 group hover:shadow-glow ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
           >
             <svg className="w-6 h-6 group-hover:scale-110 transition-transform" viewBox="0 0 24 24">
               <path
@@ -79,7 +170,9 @@ export default function Login() {
                 fill="#EA4335"
               />
             </svg>
-            <span className="group-hover:text-white transition-colors">Continue with Google</span>
+            <span className="group-hover:text-white transition-colors">
+              {loading ? 'Signing in...' : 'Continue with Google'}
+            </span>
           </button>
         </div>
 
@@ -107,6 +200,8 @@ export default function Login() {
                   name="email"
                   type="email"
                   required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@university.edu"
                   className="w-full px-4 py-3.5 text-gray-100 bg-gray-800/60 border border-gray-700 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 group-hover:border-gray-600 placeholder-gray-500"
                 />
@@ -125,6 +220,8 @@ export default function Login() {
                   name="password"
                   type={showPassword ? "text" : "password"}
                   required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   className="w-full px-4 py-3.5 text-gray-100 bg-gray-800/60 border border-gray-700 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 group-hover:border-gray-600 placeholder-gray-500"
                 />
@@ -146,9 +243,12 @@ export default function Login() {
           {/* Submit Button */}
           <button
             type="submit"
-            className="w-full py-4 px-6 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-purple-500/20 relative overflow-hidden group"
+            disabled={loading}
+            className={`w-full py-4 px-6 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-purple-500/20 relative overflow-hidden group ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
           >
-            <span className="relative z-10">Sign in to Dashboard</span>
+            <span className="relative z-10">
+              {loading ? 'Signing in...' : 'Sign in to Dashboard'}
+            </span>
             <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
           </button>
 

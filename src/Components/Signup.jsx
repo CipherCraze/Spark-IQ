@@ -1,6 +1,9 @@
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router-dom';
 import { LockClosedIcon, UserCircleIcon, SparklesIcon, AcademicCapIcon, BookOpenIcon, EyeIcon, EyeSlashIcon, CalendarIcon } from '@heroicons/react/24/outline';
 import { useState } from 'react';
+import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
+import { getFirestore, doc, setDoc } from 'firebase/firestore';
+import { app } from '../firebase/firebaseConfig';
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -10,19 +13,64 @@ export default function Signup() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [selectedBatch, setSelectedBatch] = useState('');
   const [selectedYear, setSelectedYear] = useState('');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [subjects, setSubjects] = useState('');
 
   // Generate year options from 2024 to 2044
   const yearOptions = Array.from({ length: 21 }, (_, i) => 2024 + i);
   const batchOptions = ['Batch 1', 'Batch 2', 'Batch 3', 'Batch 4'];
 
-  const handleSubmit = (e) => {
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Handle signup logic
-    if (role === 'student') {
-      navigate('/dashboard');
-    } else if (role === 'educator') {
-      navigate('/educator-dashboard');
+    setError('');
+
+    // Validate passwords match
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    try {
+      // 1. Create user in Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // 2. Prepare user data for Firestore
+      const userData = {
+        uid: user.uid,
+        email: user.email,
+        name: name,
+        role: role,
+        createdAt: new Date(),
+      };
+
+      // Add role-specific fields
+      if (role === 'student') {
+        userData.batch = selectedBatch;
+        userData.year = selectedYear;
+      } else if (role === 'educator') {
+        userData.subjects = subjects.split(',').map(s => s.trim());
+      }
+
+      // 3. Store user data in Firestore
+      await setDoc(doc(db, role === 'student' ? 'students' : 'teachers', user.uid), userData);
+
+      // 4. Redirect based on role
+      if (role === 'student') {
+        navigate('/dashboard');
+      } else if (role === 'educator') {
+        navigate('/educator-dashboard');
+      }
+
+    } catch (error) {
+      console.error('Signup error:', error);
+      setError(error.message.replace('Firebase: ', ''));
     }
   };
 
@@ -66,7 +114,9 @@ export default function Signup() {
                   name="name"
                   type="text"
                   required
-                  placeholder="John Doe"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Name"
                   className="w-full px-4 py-3.5 text-gray-100 bg-gray-800/60 border border-gray-700 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 group-hover:border-gray-600 placeholder-gray-500"
                 />
                 <UserCircleIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-purple-400 transition-colors" />
@@ -84,7 +134,9 @@ export default function Signup() {
                   name="email"
                   type="email"
                   required
-                  placeholder="name@university.edu"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="insitution@gmail.com"
                   className="w-full px-4 py-3.5 text-gray-100 bg-gray-800/60 border border-gray-700 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 group-hover:border-gray-600 placeholder-gray-500"
                 />
                 <UserCircleIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-purple-400 transition-colors" />
@@ -102,6 +154,8 @@ export default function Signup() {
                   name="password"
                   type={showPassword ? 'text' : 'password'}
                   required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   className="w-full px-4 py-3.5 text-gray-100 bg-gray-800/60 border border-gray-700 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 group-hover:border-gray-600 placeholder-gray-500"
                 />
@@ -130,6 +184,8 @@ export default function Signup() {
                   name="confirmPassword"
                   type={showConfirmPassword ? 'text' : 'password'}
                   required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="••••••••"
                   className="w-full px-4 py-3.5 text-gray-100 bg-gray-800/60 border border-gray-700 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 group-hover:border-gray-600 placeholder-gray-500"
                 />
@@ -248,6 +304,8 @@ export default function Signup() {
                       name="subjects"
                       type="text"
                       required
+                      value={subjects}
+                      onChange={(e) => setSubjects(e.target.value)}
                       placeholder="Mathematics, Physics"
                       className="w-full px-4 py-3.5 text-gray-100 bg-gray-800/60 border border-gray-700 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 group-hover:border-gray-600 placeholder-gray-500"
                     />
