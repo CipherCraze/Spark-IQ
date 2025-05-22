@@ -42,6 +42,8 @@ import CollaborationHub from './Components/Features/CollaborationHub';
 import AnnouncementsPage from './Components/Features/AnnouncementsPage';
 import Meeting from './Components/Meetings';
 import Meetings from './Components/Meetings';
+import EducatorProfilePage from './Components/Features/EducatorProfilePage';
+import EducatorSettings from './Components/Features/EducatorSettings';
 
 const Layout = ({ children, showHeaderFooter = true }) => (
   <div className="flex flex-col min-h-screen">
@@ -116,7 +118,25 @@ function App() {
               <Settings />
             </Layout>
           }
-        />  
+        /> 
+        {/* Educator Profile Page */}
+        <Route
+          path="/educator-profile"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <EducatorProfilePage />
+            </Layout>
+          }
+        />
+        {/* Educator Settings */}
+        <Route
+          path="/educator-settings"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <EducatorSettings />
+            </Layout>
+          }
+        />
         {/* Assignment Management */}
         <Route
           path="/assignment-management"
