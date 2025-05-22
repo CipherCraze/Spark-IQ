@@ -42,3 +42,6 @@ import { collection } from 'firebase/firestore';
 export const usersCollection = collection(db, 'users');
 export const studentsCollection = collection(db, 'students');
 export const teachersCollection = collection(db, 'teachers');
+export const connectionsCollection = collection(db, 'connections');
+export const chatsCollection = collection(db, 'chats');
+export const messagesCollection = collection(db, 'messages');

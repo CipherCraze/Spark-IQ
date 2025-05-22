@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { auth } from '../../firebase/firebaseConfig';
 import { onAuthStateChanged, updateProfile } from 'firebase/auth';
 import { getUserProfile, updateUserProfile, uploadProfilePicture } from '../../firebase/userOperations';
@@ -70,11 +70,14 @@ const Toast = ({ message, type, onClose }) => {
 const ProfilePage = () => {
   const { userId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [navigationSource, setNavigationSource] = useState('dashboard');
   const [activeTab, setActiveTab] = useState('about');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [toast, setToast] = useState(null);
+  const [isOwnProfile, setIsOwnProfile] = useState(false);
   
   const [user, setUser] = useState({
     id: '',
@@ -132,101 +135,73 @@ const ProfilePage = () => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       console.log('Auth state changed:', user ? 'User logged in' : 'No user');
-      console.log('Current user displayName:', user?.displayName);
       setAuthChecked(true);
       if (!user) {
         console.log('No authenticated user, redirecting to login');
         navigate('/login');
+        return;
       }
+      
+      // Determine if this is the user's own profile
+      setIsOwnProfile(!userId || userId === user.uid);
+      
+      // Load the appropriate profile
+      loadUserProfile(userId || user.uid);
     });
 
-    // Cleanup subscription
     return () => unsubscribe();
-  }, [navigate]);
+  }, [userId, navigate]);
 
-  // Load user settings from Firebase
-  useEffect(() => {
-    const loadUserProfile = async () => {
-      try {
-        setIsLoading(true);
-        const currentUser = auth.currentUser;
-        if (!currentUser) {
-          console.log('No authenticated user found in loadUserProfile');
-          return;
-        }
+  // Load user profile data
+  const loadUserProfile = async (targetUserId) => {
+    try {
+      setIsLoading(true);
+      setError(null);
 
-        console.log('Loading profile for user:', currentUser.uid);
-        console.log('Current auth displayName:', currentUser.displayName);
-        const profileData = await getUserProfile(currentUser.uid);
-        console.log('Loaded profile data:', profileData);
+      const profileData = await getUserProfile(targetUserId);
+      console.log('Loaded profile data:', profileData);
 
-        // Clear any existing avatar from localStorage for new profiles
-        if (!profileData?.avatar) {
-          localStorage.removeItem('profileAvatar');
-        }
-
-        // Create initial user data from Firebase auth if no profile exists
-        const initialUserData = {
-          name: currentUser.displayName || '',
-          email: currentUser.email || '',
-          phone: '',
-          location: '',
-          bio: '',
-          education: '',
-          avatar: null,
-          skills: [],
-          courses: [],
-          social: {},
-          stats: {
-            points: 0,
-            streak: 0,
-            rank: 0
-          }
-        };
-
-        if (profileData) {
-          // Merge auth data with profile data, prioritizing auth data for name and email
-          const mergedData = {
-            ...initialUserData,
-            ...profileData,
-            // Always use auth data for name and email
-            name: currentUser.displayName || profileData.name,
-            email: currentUser.email
-          };
-          console.log('Setting user data with name:', mergedData.name);
-          setUser(mergedData);
-          setEditData(mergedData);
-          
-          if (mergedData.avatar) {
-            setAvatarUrl(mergedData.avatar);
-            localStorage.setItem('profileAvatar', mergedData.avatar);
-          } else {
-            setAvatarUrl(null);
-            localStorage.removeItem('profileAvatar');
-          }
-        } else {
-          // If no profile data exists, use initial data from auth
-          console.log('No profile data, using auth data with name:', initialUserData.name);
-          setUser(initialUserData);
-          setEditData(initialUserData);
-          setAvatarUrl(null);
-          localStorage.removeItem('profileAvatar');
-          
-          // Save this initial data to Firebase
-          await updateUserProfile(currentUser.uid, initialUserData);
-        }
-      } catch (err) {
-        console.error('Error loading profile:', err);
-        setError(err.message);
-      } finally {
-        setIsLoading(false);
+      if (!profileData) {
+        setError('Profile not found');
+        return;
       }
-    };
 
-    if (authChecked && auth.currentUser) {
-      loadUserProfile();
+      // Create merged data
+      const mergedData = {
+        id: targetUserId,
+        name: profileData.name || 'Unknown User',
+        email: profileData.email || '',
+        phone: profileData.phone || '',
+        location: profileData.location || '',
+        bio: profileData.bio || '',
+        education: profileData.education || '',
+        avatar: profileData.avatar || null,
+        skills: profileData.skills || [],
+        courses: profileData.courses || [],
+        social: profileData.social || {},
+        stats: profileData.stats || {
+          points: 0,
+          streak: 0,
+          rank: 0
+        },
+        isVerified: profileData.isVerified || false,
+        role: profileData.role || '',
+        joinDate: profileData.joinDate || ''
+      };
+
+      setUser(mergedData);
+      setEditData(mergedData);
+      
+      if (mergedData.avatar) {
+        setAvatarUrl(mergedData.avatar);
+      }
+    } catch (err) {
+      console.error('Error loading profile:', err);
+      setError('Failed to load profile. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
-  }, [authChecked, navigate]);
+  };
 
   // Modified avatar upload handler
   const handleAvatarUpload = async (e) => {
@@ -506,6 +481,21 @@ const ProfilePage = () => {
     </div>
   );
 
+  // Add this near the other useEffect hooks
+  useEffect(() => {
+    // Get the source from the state passed during navigation
+    const source = location.state?.from || 'dashboard';
+    setNavigationSource(source);
+  }, [location]);
+
+  const handleBackNavigation = () => {
+    if (navigationSource === 'chat') {
+      navigate('/chat-functionality');
+    } else {
+      navigate('/dashboard');
+    }
+  };
+
   if (!authChecked || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
@@ -536,10 +526,12 @@ const ProfilePage = () => {
       {/* Header */}
       <header className="bg-gradient-to-r from-indigo-600 to-purple-600 shadow-xl">
         <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 flex items-center justify-between">
-          <Link to="/dashboard" className="flex items-center gap-2 hover:text-indigo-200 transition-colors">
+          <button onClick={handleBackNavigation} className="flex items-center gap-2 hover:text-indigo-200 transition-colors">
             <ArrowLeftIcon className="h-6 w-6 text-indigo-200" />
-            <span className="text-indigo-100 font-medium">Back to Dashboard</span>
-          </Link>
+            <span className="text-indigo-100 font-medium">
+              {navigationSource === 'chat' ? 'Back to Chat' : 'Back to Dashboard'}
+            </span>
+          </button>
           <button className="p-2 rounded-full hover:bg-purple-700/30 transition-all">
             <Link to="/settings" className="flex items-center gap-2 text-indigo-200">
               <Cog6ToothIcon className="h-6 w-6 text-indigo-200" />
