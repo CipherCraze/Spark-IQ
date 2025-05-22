@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FolderIcon,
@@ -29,10 +29,117 @@ import {
   EnvelopeIcon,
   MegaphoneIcon,
   XMarkIcon,
-  PlusIcon
+  PlusIcon,
+  ArrowUpTrayIcon,
+  DocumentMagnifyingGlassIcon
 } from '@heroicons/react/24/outline';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 import { motion } from 'framer-motion';
+
+// Function to get icon based on resource type
+const getIcon = (type) => {
+  switch (type) {
+    case 'video':
+      return <VideoCameraIcon className="w-6 h-6 text-red-400" />;
+    case 'book':
+      return <BookOpenIcon className="w-6 h-6 text-green-400" />;
+    case 'website':
+      return <LinkIcon className="w-6 h-6 text-blue-400" />;
+    case 'lesson_plan':
+      return <DocumentIcon className="w-6 h-6 text-purple-400" />;
+    case 'worksheet':
+      return <DocumentMagnifyingGlassIcon className="w-6 h-6 text-amber-400" />;
+    case 'professional_dev':
+      return <AcademicCapIcon className="w-6 h-6 text-indigo-400" />;
+    default:
+      return <DocumentIcon className="w-6 h-6 text-gray-400" />;
+  }
+};
+
+// Function to call Gemini API
+const fetchResourcesFromLLM = async (query) => {
+  try {
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) {
+      console.error('Gemini API key is missing');
+      throw new Error('API key not found');
+    }
+
+    console.log('Using API Key:', apiKey.substring(0, 5) + '...'); // Log first 5 chars for debugging
+
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: `Find teaching resources for educators about "${query}". Include:
+            1. Lesson plans and teaching guides
+            2. Educational videos and tutorials
+            3. Teaching books and e-books
+            4. Educational websites and platforms
+            5. Worksheets and assessment materials
+            6. Professional development resources
+            
+            Return ONLY a JSON object with these categories, no markdown formatting:
+            {
+              "lesson_plans": [{ "title": "", "link": "", "description": "", "grade_level": "" }],
+              "videos": [{ "title": "", "channel": "", "link": "", "duration": "", "grade_level": "" }],
+              "books": [{ "title": "", "author": "", "link": "", "description": "", "grade_level": "" }],
+              "websites": [{ "title": "", "link": "", "description": "", "grade_level": "" }],
+              "worksheets": [{ "title": "", "link": "", "description": "", "grade_level": "" }],
+              "professional_dev": [{ "title": "", "link": "", "description": "", "type": "" }]
+            }`
+          }]
+        }]
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      console.error('API Error Response:', errorData);
+      throw new Error(`HTTP error! status: ${response.status} - ${errorData?.error?.message || 'Unknown error'}`);
+    }
+
+    const data = await response.json();
+    console.log('Gemini API Response:', data);
+
+    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+      throw new Error('Invalid response format from Gemini API');
+    }
+
+    const responseText = data.candidates[0].content.parts[0].text;
+    console.log('Response Text:', responseText);
+
+    // Clean the response text by removing any markdown formatting
+    const cleanedText = responseText
+      .replace(/```json\s*/g, '')
+      .replace(/```\s*/g, '')
+      .trim();
+
+    try {
+      const resources = JSON.parse(cleanedText);
+      console.log('Parsed Resources:', resources);
+      return resources;
+    } catch (parseError) {
+      console.error('Error parsing JSON:', parseError);
+      throw new Error('Failed to parse resource data');
+    }
+  } catch (error) {
+    console.error('Error fetching resources:', error);
+    return {
+      lesson_plans: [],
+      videos: [],
+      books: [],
+      websites: [],
+      worksheets: [],
+      professional_dev: []
+    };
+  }
+};
 
 const ResourceManagement = () => {
   const [resources, setResources] = useState([
@@ -70,6 +177,8 @@ const ResourceManagement = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [foundResources, setFoundResources] = useState(null);
 
   const educatorMenu = [
     { title: 'Dashboard', Icon: AcademicCapIcon, link: '/educator-dashboard' },
@@ -160,6 +269,30 @@ const ResourceManagement = () => {
     setShowUploadModal(false);
     setUploadProgress(0);
   };
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+    
+    setIsSearching(true);
+    try {
+      const resources = await fetchResourcesFromLLM(searchQuery);
+      setFoundResources(resources);
+    } catch (error) {
+      console.error('Error fetching resources:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchQuery.trim()) {
+        handleSearch();
+      }
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const ResourceCard = ({ resource }) => (
     <motion.div 
@@ -386,6 +519,96 @@ const ResourceManagement = () => {
             </button>
           </div>
         </header>
+
+        {/* Search Section */}
+        <div className="mb-8">
+          <div className="relative max-w-2xl flex gap-2">
+            <div className="relative flex-1">
+              <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-3" />
+              <input
+                type="text"
+                placeholder="Enter topic to search (e.g. Teaching Algebra, Classroom Management)"
+                className="w-full pl-10 pr-4 py-3 bg-gray-700/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSearch();
+                  }
+                }}
+              />
+              {isSearching && (
+                <div className="absolute right-3 top-3">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-400"></div>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={handleSearch}
+              disabled={isSearching || !searchQuery.trim()}
+              className="px-6 py-3 bg-indigo-500 hover:bg-indigo-600 disabled:bg-indigo-500/50 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center gap-2"
+            >
+              <span>Search</span>
+              <ArrowUpTrayIcon className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Search Results */}
+        {foundResources && (
+          <div className="space-y-8 mb-12">
+            {Object.entries(foundResources).map(([category, resources]) => (
+              resources.length > 0 && (
+                <div key={category}>
+                  <h3 className="text-xl font-semibold text-white mb-4 capitalize">
+                    {category.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {resources.map((resource, index) => (
+                      <div key={`${category}-${index}`} className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4 hover:shadow-xl transition-all">
+                        <div className="flex items-start gap-4">
+                          <div className="p-2 bg-gray-700/50 rounded-lg">
+                            {getIcon(category)}
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="text-lg font-semibold text-white mb-2">{resource.title}</h3>
+                            {resource.description && (
+                              <p className="text-gray-400 text-sm mb-3">{resource.description}</p>
+                            )}
+                            {resource.channel && (
+                              <p className="text-gray-400 text-sm mb-2">Channel: {resource.channel}</p>
+                            )}
+                            {resource.duration && (
+                              <p className="text-gray-400 text-sm mb-2">Duration: {resource.duration}</p>
+                            )}
+                            {resource.author && (
+                              <p className="text-gray-400 text-sm mb-2">Author: {resource.author}</p>
+                            )}
+                            {resource.grade_level && (
+                              <p className="text-gray-400 text-sm mb-2">Grade Level: {resource.grade_level}</p>
+                            )}
+                            {resource.type && (
+                              <p className="text-gray-400 text-sm mb-2">Type: {resource.type}</p>
+                            )}
+                            <a
+                              href={resource.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 text-indigo-400 hover:text-indigo-300 transition-colors"
+                            >
+                              <LinkIcon className="w-4 h-4" />
+                              <span>Visit Resource</span>
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            ))}
+          </div>
+        )}
 
         {/* Stats & Filters */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
