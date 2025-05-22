@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMediaQuery } from 'react-responsive';
 import { auth } from '../../firebase/firebaseConfig';
+import { signOut } from 'firebase/auth';
 import { getUserProfile } from '../../firebase/userOperations';
 import {
   SparklesIcon,
@@ -162,6 +163,18 @@ const SimpleCalendar = () => {
 };
 // Profile Dropdown Component
 const ProfileDropdown = ({ role, onClose, handleLogout }) => {
+  const navigate = useNavigate();
+
+  const handleLogoutClick = async () => {
+    try {
+      await signOut(auth);
+      onClose();
+      navigate('/login');
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
+  };
+
   return (
     <div className="fixed bottom-16 right-4 w-48 bg-gray-800 rounded-lg shadow-xl border border-gray-700/50 z-50">
       <div className="p-3 border-b border-gray-700/50">
@@ -184,7 +197,7 @@ const ProfileDropdown = ({ role, onClose, handleLogout }) => {
           Settings
         </Link>
         <button
-          onClick={handleLogout}
+          onClick={handleLogoutClick}
           className="w-full text-left p-2 text-red-400 hover:bg-gray-700 rounded-md text-sm"
         >
           Logout
