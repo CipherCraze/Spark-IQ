@@ -618,18 +618,11 @@ const ProfilePage = () => {
                   </div>
                 ) : (
                   <button
-                    onClick={() => setIsEditing(true)}
+                    onClick={() => navigate('/settings?tab=account')}
                     className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-500/80 to-purple-500/80 rounded-xl text-white hover:scale-[1.02] transition-transform"
                   >
-                    <div className="mt-4 md:mt-0 flex gap-3">
-                      <Link
-                        to="/settings?tab=account"
-                        className="flex items-center gap-2 text-white"
-                      >
-                        <PencilSquareIcon className="h-5 w-5" />
-                        Edit Profile
-                      </Link>
-                    </div>
+                    <PencilSquareIcon className="h-5 w-5" />
+                    Edit Profile
                   </button>
                 )}
               </div>
