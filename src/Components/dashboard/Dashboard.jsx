@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 // import { Link } from 'react-router';
-import { Link, useNavigate } from 'react-router'; // Add useNavigate
+import { Link, useNavigate } from 'react-router-dom';
 import { useMediaQuery } from 'react-responsive';
+import { auth } from '../../firebase/firebaseConfig';
+import { getUserProfile } from '../../firebase/userOperations';
 import {
   SparklesIcon,
   AcademicCapIcon,
@@ -197,6 +199,8 @@ const MobileDashboard = ({ role }) => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [user, setUser] = useState(null);
+  const navigate = useNavigate();
   const [tasks, setTasks] = useState([
     { id: 1, title: 'Complete Math Assignment', dueDate: '2023-10-20', completed: false },
     { id: 2, title: 'Prepare for Science Quiz', dueDate: '2023-10-22', completed: true },
@@ -284,9 +288,37 @@ const MobileDashboard = ({ role }) => {
       },
     ],
   };
-  const handleLogout = () => {
-    // Add actual logout logic here
-    navigate('/login');
+
+  // Fetch user profile data
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+          console.log('No authenticated user found');
+          navigate('/login');
+          return;
+        }
+
+        const profileData = await getUserProfile(currentUser.uid);
+        if (profileData) {
+          setUser(profileData);
+        }
+      } catch (err) {
+        console.error('Error loading profile:', err);
+      }
+    };
+
+    loadUserProfile();
+  }, [navigate]);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate('/login');
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
   };
 
   const toggleTaskCompletion = (taskId) => {
@@ -368,7 +400,7 @@ const MobileDashboard = ({ role }) => {
                 Welcome Back,
               </span>
               <br />
-              {role === 'student' ? 'Future Innovator' : 'Mentor Extraordinaire'}!
+              {user?.name || (role === 'student' ? 'Future Innovator' : 'Mentor Extraordinaire')}!
             </h2>
           </div>
           <div className="hidden md:flex items-center gap-4">
@@ -394,23 +426,40 @@ const MobileDashboard = ({ role }) => {
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
                 className="flex items-center gap-2 hover:bg-gray-800 p-2 rounded-full transition-colors"
               >
-                <UserCircleIcon className="w-7 sm:w-8 h-7 sm:h-8 text-gray-400" />
+                {user?.avatar ? (
+                  <img
+                    src={user.avatar}
+                    alt={user.name}
+                    className="w-7 sm:w-8 h-7 sm:h-8 rounded-full object-cover"
+                  />
+                ) : (
+                  <UserCircleIcon className="w-7 sm:w-8 h-7 sm:h-8 text-gray-400" />
+                )}
                 <ChevronDownIcon className="w-3 sm:w-4 h-3 sm:h-4 text-gray-400" />
               </button>
               {isProfileOpen && (
                 <div className="absolute right-0 mt-2 w-40 sm:w-48 bg-gray-800 rounded-lg shadow-xl border border-gray-700 z-50">
                   <div className="p-3 sm:p-4 border-b border-gray-700">
-                    <p className="text-white font-medium text-sm sm:text-base">John Doe</p>
-                    <p className="text-xs sm:text-sm text-gray-400">{role}@sparkiq.com</p>
+                    <p className="text-white font-medium text-sm sm:text-base">{user?.name || 'User'}</p>
+                    <p className="text-xs sm:text-sm text-gray-400">{user?.email || `${role}@sparkiq.com`}</p>
                   </div>
                   <div className="p-2">
-                    <button className="w-full text-left p-2 text-gray-300 hover:bg-gray-700 rounded-md text-sm sm:text-base">
+                    <Link
+                      to="/profile"
+                      className="w-full text-left p-2 text-gray-300 hover:bg-gray-700 rounded-md text-sm sm:text-base block"
+                    >
                       Profile
-                    </button>
-                    <button className="w-full text-left p-2 text-gray-300 hover:bg-gray-700 rounded-md text-sm sm:text-base">
+                    </Link>
+                    <Link
+                      to="/settings"
+                      className="w-full text-left p-2 text-gray-300 hover:bg-gray-700 rounded-md text-sm sm:text-base block"
+                    >
                       Settings
-                    </button>
-                    <button className="w-full text-left p-2 text-red-400 hover:bg-gray-700 rounded-md text-sm sm:text-base">
+                    </Link>
+                    <button 
+                      onClick={handleLogout}
+                      className="w-full text-left p-2 text-red-400 hover:bg-gray-700 rounded-md text-sm sm:text-base"
+                    >
                       Logout
                     </button>
                   </div>
@@ -652,15 +701,6 @@ const MobileDashboard = ({ role }) => {
             </button>
           </div>
         </nav>
-
-        {/* Mobile Profile Dropdown */}
-        {isProfileOpen && (
-          <ProfileDropdown 
-            role={role}
-            onClose={() => setIsProfileOpen(false)}
-            handleLogout={handleLogout}
-          />
-        )}
       </main>
     </div>
   );
@@ -671,6 +711,8 @@ const DesktopDashboard = ({ role }) => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [user, setUser] = useState(null);
+  const navigate = useNavigate();
   const [tasks, setTasks] = useState([
     { id: 1, title: 'Complete Math Assignment', dueDate: '2023-10-20', completed: false },
     { id: 2, title: 'Prepare for Science Quiz', dueDate: '2023-10-22', completed: true },
@@ -754,9 +796,37 @@ const DesktopDashboard = ({ role }) => {
       },
     ],
   };
-  const handleLogout = () => {
-    // Add actual logout logic here
-    navigate('/login');
+
+  // Fetch user profile data
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+          console.log('No authenticated user found');
+          navigate('/login');
+          return;
+        }
+
+        const profileData = await getUserProfile(currentUser.uid);
+        if (profileData) {
+          setUser(profileData);
+        }
+      } catch (err) {
+        console.error('Error loading profile:', err);
+      }
+    };
+
+    loadUserProfile();
+  }, [navigate]);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate('/login');
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
   };
 
   const toggleTaskCompletion = (taskId) => {
@@ -853,29 +923,40 @@ const DesktopDashboard = ({ role }) => {
               onClick={() => setIsProfileOpen(!isProfileOpen)}
               className="flex items-center gap-2 hover:bg-gray-800 p-2 rounded-full transition-colors"
             >
-              <UserCircleIcon className="w-8 h-8 text-gray-400" />
-              <ChevronDownIcon className="w-4 h-4 text-gray-400" />
+              {user?.avatar ? (
+                <img
+                  src={user.avatar}
+                  alt={user.name}
+                  className="w-7 sm:w-8 h-7 sm:h-8 rounded-full object-cover"
+                />
+              ) : (
+                <UserCircleIcon className="w-7 sm:w-8 h-7 sm:h-8 text-gray-400" />
+              )}
+              <ChevronDownIcon className="w-3 sm:w-4 h-3 sm:h-4 text-gray-400" />
             </button>
             {isProfileOpen && (
               <div className="absolute right-0 mt-2 w-48 bg-gray-800 rounded-lg shadow-xl border border-gray-700 z-50">
                 <div className="p-4 border-b border-gray-700">
-                  <p className="text-white font-medium">John Doe</p>
-                  <p className="text-sm text-gray-400">{role}@sparkiq.com</p>
+                  <p className="text-white font-medium text-sm sm:text-base">{user?.name || 'User'}</p>
+                  <p className="text-xs sm:text-sm text-gray-400">{user?.email || `${role}@sparkiq.com`}</p>
                 </div>
                 <div className="p-2">
                   <Link
                     to="/profile"
-                    className="w-full text-left p-2 text-gray-300 hover:bg-gray-700 rounded-md block"
+                    className="w-full text-left p-2 text-gray-300 hover:bg-gray-700 rounded-md text-sm sm:text-base block"
                   >
                     Profile
                   </Link>
                   <Link
                     to="/settings"
-                    className="w-full text-left p-2 text-gray-300 hover:bg-gray-700 rounded-md block"
+                    className="w-full text-left p-2 text-gray-300 hover:bg-gray-700 rounded-md text-sm sm:text-base block"
                   >
                     Settings
                   </Link>
-                  <button className="w-full text-left p-2 text-red-400 hover:bg-gray-700 rounded-md">
+                  <button 
+                    onClick={handleLogout}
+                    className="w-full text-left p-2 text-red-400 hover:bg-gray-700 rounded-md text-sm sm:text-base"
+                  >
                     Logout
                   </button>
                 </div>
@@ -889,7 +970,7 @@ const DesktopDashboard = ({ role }) => {
               Welcome Back,
             </span>
             <br />
-            {role === 'student' ? 'Future Innovator' : 'Mentor Extraordinaire'}!
+            {user?.name || (role === 'student' ? 'Future Innovator' : 'Mentor Extraordinaire')}!
           </h2>
           <p className="text-gray-400 text-lg">
             {role === 'student'
