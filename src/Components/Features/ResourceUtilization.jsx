@@ -17,64 +17,97 @@ import {
   ArrowUpTrayIcon,
   MagnifyingGlassIcon,
   LinkIcon,
+  PlayIcon,
+  DocumentIcon,
 } from '@heroicons/react/24/outline';
 
-// Mock function to simulate LLM API call
+// Function to call Gemini API
 const fetchResourcesFromLLM = async (query) => {
-  // In a real app, you would call your backend API which uses an LLM
-  // to find resources. Here's a mock implementation:
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const mockResources = {
-        books: [
-          {
-            id: `book-${Date.now()}-1`,
-            title: `Introduction to ${query}`,
-            author: 'Expert Author',
-            link: 'https://example.com/book1',
-            type: 'book',
-            description: `A comprehensive guide to ${query} covering all fundamental concepts.`
-          },
-          {
-            id: `book-${Date.now()}-2`,
-            title: `Advanced ${query} Techniques`,
-            author: 'Professional Educator',
-            link: 'https://example.com/book2',
-            type: 'book',
-            description: `Deep dive into advanced topics of ${query} with practical examples.`
-          }
-        ],
-        videos: [
-          {
-            id: `video-${Date.now()}-1`,
-            title: `${query} Crash Course`,
-            channel: 'Education Channel',
-            link: 'https://youtube.com/watch?v=123',
-            type: 'video',
-            duration: '15:30'
-          },
-          {
-            id: `video-${Date.now()}-2`,
-            title: `Mastering ${query}`,
-            channel: 'Tech Tutorials',
-            link: 'https://youtube.com/watch?v=456',
-            type: 'video',
-            duration: '45:20'
-          }
-        ],
-        websites: [
-          {
-            id: `web-${Date.now()}-1`,
-            title: `Official ${query} Documentation`,
-            link: 'https://docs.example.com',
-            type: 'website',
-            description: `Official documentation and reference materials for ${query}.`
-          }
-        ]
-      };
-      resolve(mockResources);
-    }, 1000);
-  });
+  try {
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) {
+      console.error('Gemini API key is missing');
+      throw new Error('API key not found');
+    }
+
+    console.log('Using API Key:', apiKey.substring(0, 5) + '...'); // Log first 5 chars for debugging
+
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: `Find educational resources for learning about "${query}". Include:
+            1. Online courses and tutorials
+            2. YouTube videos
+            3. Books and e-books
+            4. Documentation and websites
+            5. Practice exercises and worksheets
+            
+            Format the response as a JSON object with these categories:
+            {
+              "courses": [{ "title": "", "link": "", "description": "" }],
+              "videos": [{ "title": "", "channel": "", "link": "", "duration": "" }],
+              "books": [{ "title": "", "author": "", "link": "", "description": "" }],
+              "websites": [{ "title": "", "link": "", "description": "" }],
+              "exercises": [{ "title": "", "link": "", "description": "" }]
+            }`
+          }]
+        }]
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      console.error('API Error Response:', errorData);
+      throw new Error(`HTTP error! status: ${response.status} - ${errorData?.error?.message || 'Unknown error'}`);
+    }
+
+    const data = await response.json();
+    console.log('Gemini API Response:', data); // Debug log
+
+    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+      throw new Error('Invalid response format from Gemini API');
+    }
+
+    const responseText = data.candidates[0].content.parts[0].text;
+    console.log('Response Text:', responseText); // Debug log
+
+    try {
+      const resources = JSON.parse(responseText);
+      console.log('Parsed Resources:', resources); // Debug log
+      return resources;
+    } catch (parseError) {
+      console.error('Error parsing JSON:', parseError);
+      // If JSON parsing fails, try to extract JSON from the text
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          const resources = JSON.parse(jsonMatch[0]);
+          console.log('Extracted Resources:', resources); // Debug log
+          return resources;
+        } catch (extractError) {
+          console.error('Error parsing extracted JSON:', extractError);
+          throw new Error('Failed to parse resource data');
+        }
+      }
+      throw new Error('No valid JSON found in response');
+    }
+  } catch (error) {
+    console.error('Error fetching resources:', error);
+    // Return a default structure with empty arrays
+    return {
+      courses: [],
+      videos: [],
+      books: [],
+      websites: [],
+      exercises: []
+    };
+  }
 };
 
 const ResourceUtilization = () => {
@@ -144,6 +177,60 @@ const ResourceUtilization = () => {
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  // Update the ResourceCard component to handle different resource types
+  const ResourceCard = ({ resource, type }) => {
+    const getResourceIcon = () => {
+      switch (type) {
+        case 'videos':
+          return <PlayIcon className="w-6 h-6 text-red-400" />;
+        case 'books':
+          return <BookOpenIcon className="w-6 h-6 text-green-400" />;
+        case 'websites':
+          return <LinkIcon className="w-6 h-6 text-blue-400" />;
+        case 'courses':
+          return <DocumentIcon className="w-6 h-6 text-purple-400" />;
+        case 'exercises':
+          return <DocumentMagnifyingGlassIcon className="w-6 h-6 text-amber-400" />;
+        default:
+          return <LinkIcon className="w-6 h-6 text-gray-400" />;
+      }
+    };
+
+    return (
+      <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4 hover:shadow-xl transition-all">
+        <div className="flex items-start gap-4">
+          <div className="p-2 bg-gray-700/50 rounded-lg">
+            {getResourceIcon()}
+          </div>
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold text-white mb-2">{resource.title}</h3>
+            {resource.description && (
+              <p className="text-gray-400 text-sm mb-3">{resource.description}</p>
+            )}
+            {resource.channel && (
+              <p className="text-gray-400 text-sm mb-2">Channel: {resource.channel}</p>
+            )}
+            {resource.duration && (
+              <p className="text-gray-400 text-sm mb-2">Duration: {resource.duration}</p>
+            )}
+            {resource.author && (
+              <p className="text-gray-400 text-sm mb-2">Author: {resource.author}</p>
+            )}
+            <a
+              href={resource.link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-indigo-400 hover:text-indigo-300 transition-colors"
+            >
+              <LinkIcon className="w-4 h-4" />
+              <span>Visit Resource</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-900 flex">
@@ -230,120 +317,59 @@ const ResourceUtilization = () => {
 
         {/* Search Section */}
         <div className="mb-8">
-          <div className="relative max-w-2xl">
-            <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-3" />
-            <input
-              type="text"
-              placeholder="Enter topic to search (e.g. Linear Algebra, Python Programming)"
-              className="w-full pl-10 pr-4 py-3 bg-gray-700/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            {isSearching && (
-              <div className="absolute right-3 top-3">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-400"></div>
-              </div>
-            )}
+          <div className="relative max-w-2xl flex gap-2">
+            <div className="relative flex-1">
+              <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-3" />
+              <input
+                type="text"
+                placeholder="Enter topic to search (e.g. Linear Algebra, Python Programming)"
+                className="w-full pl-10 pr-4 py-3 bg-gray-700/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSearch();
+                  }
+                }}
+              />
+              {isSearching && (
+                <div className="absolute right-3 top-3">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-400"></div>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={handleSearch}
+              disabled={isSearching || !searchQuery.trim()}
+              className="px-6 py-3 bg-indigo-500 hover:bg-indigo-600 disabled:bg-indigo-500/50 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center gap-2"
+            >
+              <span>Search</span>
+              <ArrowUpTrayIcon className="w-5 h-5" />
+            </button>
           </div>
         </div>
 
         {/* Search Results */}
         {foundResources && (
           <div className="space-y-8">
-            {/* Books Section */}
-            {foundResources.books && foundResources.books.length > 0 && (
-              <div>
-                <h3 className="text-2xl font-semibold text-white mb-4 flex items-center gap-2">
-                  <BookOpenIcon className="w-6 h-6 text-green-400" />
-                  Recommended Books
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {foundResources.books.map((book) => (
-                    <div key={book.id} className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50 hover:border-green-400/30 transition-all">
-                      <div className="flex items-start gap-4 mb-4">
-                        {getIcon('book')}
-                        <div>
-                          <h4 className="text-lg font-semibold text-white">{book.title}</h4>
-                          <p className="text-gray-400 text-sm">{book.author}</p>
-                        </div>
-                      </div>
-                      <p className="text-gray-300 text-sm mb-4">{book.description}</p>
-                      <a 
-                        href={book.link} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="inline-block px-4 py-2 bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500/30 transition-colors"
-                      >
-                        View Book
-                      </a>
-                    </div>
-                  ))}
+            {Object.entries(foundResources).map(([category, resources]) => (
+              resources.length > 0 && (
+                <div key={category}>
+                  <h3 className="text-xl font-semibold text-white mb-4 capitalize">
+                    {category}
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {resources.map((resource, index) => (
+                      <ResourceCard
+                        key={`${category}-${index}`}
+                        resource={resource}
+                        type={category}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-
-            {/* Videos Section */}
-            {foundResources.videos && foundResources.videos.length > 0 && (
-              <div>
-                <h3 className="text-2xl font-semibold text-white mb-4 flex items-center gap-2">
-                  <VideoCameraIcon className="w-6 h-6 text-blue-400" />
-                  Video Tutorials
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {foundResources.videos.map((video) => (
-                    <div key={video.id} className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50 hover:border-blue-400/30 transition-all">
-                      <div className="flex items-start gap-4 mb-4">
-                        {getIcon('video')}
-                        <div>
-                          <h4 className="text-lg font-semibold text-white">{video.title}</h4>
-                          <p className="text-gray-400 text-sm">{video.channel}</p>
-                          <p className="text-gray-500 text-xs">{video.duration}</p>
-                        </div>
-                      </div>
-                      <a 
-                        href={video.link} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="inline-block px-4 py-2 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors"
-                      >
-                        Watch Video
-                      </a>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Websites Section */}
-            {foundResources.websites && foundResources.websites.length > 0 && (
-              <div>
-                <h3 className="text-2xl font-semibold text-white mb-4 flex items-center gap-2">
-                  <LinkIcon className="w-6 h-6 text-indigo-400" />
-                  Useful Websites
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {foundResources.websites.map((site) => (
-                    <div key={site.id} className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50 hover:border-indigo-400/30 transition-all">
-                      <div className="flex items-start gap-4 mb-4">
-                        {getIcon('website')}
-                        <div>
-                          <h4 className="text-lg font-semibold text-white">{site.title}</h4>
-                        </div>
-                      </div>
-                      <p className="text-gray-300 text-sm mb-4">{site.description}</p>
-                      <a 
-                        href={site.link} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="inline-block px-4 py-2 bg-indigo-500/20 text-indigo-400 rounded-lg hover:bg-indigo-500/30 transition-colors"
-                      >
-                        Visit Site
-                      </a>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+              )
+            ))}
           </div>
         )}
 
