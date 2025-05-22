@@ -708,11 +708,49 @@ const MobileDashboard = ({ role }) => {
             </button>
             <button 
               onClick={() => setIsProfileOpen(!isProfileOpen)}
-              className="p-2 hover:bg-gray-700 rounded-full transition-colors"
+              className="p-2 hover:bg-gray-700 rounded-full transition-colors relative"
             >
-              <UserCircleIcon className="w-6 h-6 text-gray-400" />
+              {user?.avatar ? (
+                <img
+                  src={user.avatar}
+                  alt={user.name}
+                  className="w-6 h-6 rounded-full object-cover"
+                />
+              ) : (
+                <UserCircleIcon className="w-6 h-6 text-gray-400" />
+              )}
             </button>
           </div>
+          {isProfileOpen && (
+            <div className="absolute bottom-16 right-4 w-48 bg-gray-800 rounded-lg shadow-xl border border-gray-700/50 z-50">
+              <div className="p-3 border-b border-gray-700/50">
+                <p className="text-white font-medium text-sm">{user?.name || 'User'}</p>
+                <p className="text-xs text-gray-400">{user?.email || `${role}@sparkiq.com`}</p>
+              </div>
+              <div className="p-2">
+                <Link
+                  to="/profile"
+                  onClick={() => setIsProfileOpen(false)}
+                  className="block p-2 text-gray-300 hover:bg-gray-700 rounded-md text-sm"
+                >
+                  Profile
+                </Link>
+                <Link
+                  to="/settings"
+                  onClick={() => setIsProfileOpen(false)}
+                  className="block p-2 text-gray-300 hover:bg-gray-700 rounded-md text-sm"
+                >
+                  Settings
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="w-full text-left p-2 text-red-400 hover:bg-gray-700 rounded-md text-sm"
+                >
+                  Logout
+                </button>
+              </div>
+            </div>
+          )}
         </nav>
       </main>
     </div>
