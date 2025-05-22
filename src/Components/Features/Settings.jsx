@@ -8,6 +8,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { auth } from '../../firebase/firebaseConfig';
+import { signOut } from 'firebase/auth';
 import { getUserSettings, updateUserSettings } from '../../firebase/userOperations';
 import { updateUserProfile, uploadProfilePicture } from '../../firebase/userOperations';
 import { updateProfile } from 'firebase/auth';
@@ -58,6 +59,24 @@ const SettingsPage = () => {
   const [accentColor, setAccentColor] = useState(() => localStorage.getItem('accentColor') || '#8B5CF6');
   const [fontSize, setFontSize] = useState(() => localStorage.getItem('fontSize') || 'Medium');
   const [density, setDensity] = useState(() => localStorage.getItem('density') || 'Normal');
+
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      // Clear any stored user data
+      localStorage.removeItem('profileAvatar');
+      localStorage.removeItem('accentColor');
+      showToast('Logged out successfully!', 'success');
+      // Short delay to show the success message before redirecting
+      setTimeout(() => {
+        navigate('/login');
+      }, 1500);
+    } catch (error) {
+      console.error('Error logging out:', error);
+      showToast('Error logging out. Please try again.', 'error');
+    }
+  };
 
   const handleEditChange = (e) => {
     const { name, value } = e.target;
@@ -466,7 +485,7 @@ const SettingsPage = () => {
                     </button>
                   ))}
                   <button
-                    onClick={() => showToast('Logged out successfully!', 'success')}
+                    onClick={() => handleLogout()}
                     className="flex items-center w-full px-4 py-3 text-sm font-medium text-red-400 rounded-lg hover:text-red-300 hover:bg-gray-800 mt-6"
                   >
                     <FiLogOut className="mr-3 w-5 h-5" />
@@ -501,7 +520,7 @@ const SettingsPage = () => {
             </div>
             <div className="p-4 border-t border-gray-800">
               <button
-                onClick={() => showToast('Logged out successfully!', 'success')}
+                onClick={() => handleLogout()}
                 className="flex items-center justify-center w-full px-4 py-2 text-sm font-medium text-red-400 bg-gray-800/50 rounded-lg hover:bg-gray-800 hover:text-red-300 transition-colors"
               >
                 <FiLogOut className="mr-2 w-5 h-5" />
@@ -901,7 +920,9 @@ const SettingsPage = () => {
                       </button>
                     </div>
                     
-                    <button className="w-full px-4 py-2 text-sm font-medium text-red-400 bg-gray-700/50 rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center">
+                    <button 
+                      onClick={handleLogout}
+                      className="w-full px-4 py-2 text-sm font-medium text-red-400 bg-gray-700/50 rounded-lg hover:bg-gray-700 hover:text-red-300 transition-colors flex items-center justify-center">
                       <FiLogOut className="mr-2 w-5 h-5" />
                       Log Out All Other Devices
                     </button>
