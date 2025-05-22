@@ -42,6 +42,11 @@ import CollaborationHub from './Components/Features/CollaborationHub';
 import AnnouncementsPage from './Components/Features/AnnouncementsPage';
 import Meeting from './Components/Meetings';
 import Meetings from './Components/Meetings';
+import UserProfile from './Components/Features/UserProfile'; // Import the UserProfile component
+import EducatorProfilePage from './Components/Features/EducatorProfilePage'; // Import the EducatorProfilePage component  
+import EducatorSettings from './Components/Features/EducatorSettings'; // Import the EducatorSettings component
+import ViewOnlyProfile from './Components/Features/ViewOnlyProfile'; // Import the ViewOnlyProfile component
+
 
 const Layout = ({ children, showHeaderFooter = true }) => (
   <div className="flex flex-col min-h-screen">
