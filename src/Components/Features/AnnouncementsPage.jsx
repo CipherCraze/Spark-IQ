@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   MegaphoneIcon,
@@ -12,7 +12,8 @@ import {
   ChevronDownIcon,
   SparklesIcon,
   BookOpenIcon,
-  UserGroupIcon
+  UserGroupIcon,
+  Bars3Icon
 } from '@heroicons/react/24/outline';
 import { useDropzone } from 'react-dropzone';
 
@@ -41,6 +42,7 @@ const AnnouncementsPage = () => {
   ]);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [newAnnouncement, setNewAnnouncement] = useState({
     title: '',
     content: '',
@@ -81,10 +83,26 @@ const AnnouncementsPage = () => {
     });
   };
 
+  useEffect(() => {
+    if (isSidebarOpen) {
+      document.body.classList.add('overflow-hidden');
+    } else {
+      document.body.classList.remove('overflow-hidden');
+    }
+    return () => {
+      document.body.classList.remove('overflow-hidden');
+    };
+  }, [isSidebarOpen]);
+
   return (
     <div className="min-h-screen bg-gray-900 flex">
       {/* Sidebar */}
-      <aside className="w-64 bg-gray-800/50 border-r border-gray-700/50 p-6">
+      <aside className={`w-64 bg-gray-800/50 border-r border-gray-700/50 p-6 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 transition-transform duration-300 z-50`}>
+        <div className="flex justify-end md:hidden">
+          <button onClick={() => setIsSidebarOpen(false)}>
+            <XMarkIcon className="w-6 h-6 text-white" />
+          </button>
+        </div>
         <div className="flex items-center gap-3 mb-8">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
             SPARK IQ
@@ -99,26 +117,36 @@ const AnnouncementsPage = () => {
         </nav>
       </aside>
 
+      {/* Overlay for mobile */}
+      {isSidebarOpen && (
+        <div className="fixed inset-0 bg-black/50 md:hidden" onClick={() => setIsSidebarOpen(false)} />
+      )}
+
       {/* Main Content */}
-      <main className="flex-1 p-8">
+      <main className="flex-1 p-4 md:p-8">
         {/* Header */}
         <div className="flex justify-between items-start mb-8">
-          <div>
-            <h1 className="text-4xl font-bold text-white mb-2">
-              <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                Announcement Center
-              </span>
-            </h1>
-            <p className="text-gray-400 text-lg">
-              Communicate important updates to students effectively
-            </p>
+          <div className="flex items-center gap-4">
+            <button className="md:hidden p-2" onClick={() => setIsSidebarOpen(true)}>
+              <Bars3Icon className="w-6 h-6 text-white" />
+            </button>
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
+                <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                  Announcement Center
+                </span>
+              </h1>
+              <p className="text-gray-400 text-base md:text-lg">
+                Communicate important updates to students effectively
+              </p>
+            </div>
           </div>
           <button 
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 hover:opacity-90 rounded-lg transition-all"
+            className="flex items-center gap-2 px-4 py-2 md:px-6 md:py-3 bg-gradient-to-r from-blue-500 to-purple-500 hover:opacity-90 rounded-lg transition-all"
           >
             <PlusIcon className="w-5 h-5" />
-            New Announcement
+            New
           </button>
         </div>
 
@@ -206,7 +234,7 @@ const AnnouncementsPage = () => {
             <motion.div
               initial={{ scale: 0.95 }}
               animate={{ scale: 1 }}
-              className="bg-gray-800 rounded-xl p-8 w-full max-w-2xl relative"
+              className="bg-gray-800 rounded-xl p-4 md:p-8 w-full max-w-2xl mx-auto my-4 md:my-0 relative overflow-y-auto max-h-[90vh]"
             >
               <button
                 onClick={() => setShowCreateModal(false)}
@@ -242,7 +270,7 @@ const AnnouncementsPage = () => {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="block text-gray-300">Target Group</label>
                     <select

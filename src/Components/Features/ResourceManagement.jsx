@@ -15,7 +15,6 @@ import {
   EyeIcon,
   ShareIcon,
   UsersIcon,
-  
   DocumentTextIcon,
   BookOpenIcon,
   ClockIcon,
@@ -31,12 +30,13 @@ import {
   XMarkIcon,
   PlusIcon,
   ArrowUpTrayIcon,
-  DocumentMagnifyingGlassIcon
+  DocumentMagnifyingGlassIcon,
+  Bars3Icon,
 } from '@heroicons/react/24/outline';
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { motion } from 'framer-motion';
 
-// Function to get icon based on resource type
+// getIcon and fetchResourcesFromLLM functions remain unchanged
 const getIcon = (type) => {
   switch (type) {
     case 'video':
@@ -56,7 +56,6 @@ const getIcon = (type) => {
   }
 };
 
-// Function to call Gemini API
 const fetchResourcesFromLLM = async (query) => {
   try {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
@@ -64,8 +63,6 @@ const fetchResourcesFromLLM = async (query) => {
       console.error('Gemini API key is missing');
       throw new Error('API key not found');
     }
-
-    console.log('Using API Key:', apiKey.substring(0, 5) + '...'); // Log first 5 chars for debugging
 
     const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', {
       method: 'POST',
@@ -100,34 +97,13 @@ const fetchResourcesFromLLM = async (query) => {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => null);
-      console.error('API Error Response:', errorData);
       throw new Error(`HTTP error! status: ${response.status} - ${errorData?.error?.message || 'Unknown error'}`);
     }
 
     const data = await response.json();
-    console.log('Gemini API Response:', data);
-
-    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
-      throw new Error('Invalid response format from Gemini API');
-    }
-
     const responseText = data.candidates[0].content.parts[0].text;
-    console.log('Response Text:', responseText);
-
-    // Clean the response text by removing any markdown formatting
-    const cleanedText = responseText
-      .replace(/```json\s*/g, '')
-      .replace(/```\s*/g, '')
-      .trim();
-
-    try {
-      const resources = JSON.parse(cleanedText);
-      console.log('Parsed Resources:', resources);
-      return resources;
-    } catch (parseError) {
-      console.error('Error parsing JSON:', parseError);
-      throw new Error('Failed to parse resource data');
-    }
+    const cleanedText = responseText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+    return JSON.parse(cleanedText);
   } catch (error) {
     console.error('Error fetching resources:', error);
     return {
@@ -153,7 +129,7 @@ const ResourceManagement = () => {
       uploaded: '2023-10-15',
       thumbnail: 'https://example.com/quantum-thumb.jpg',
       size: '2.4 GB',
-      tags: ['Physics', 'Advanced', 'Video Lecture']
+      tags: ['Physics', 'Advanced', 'Video Lecture'],
     },
     {
       id: 2,
@@ -165,11 +141,11 @@ const ResourceManagement = () => {
       uploaded: '2023-11-01',
       thumbnail: 'https://example.com/python-guide.jpg',
       size: '15 MB',
-      tags: ['Programming', 'Data Science', 'PDF']
+      tags: ['Programming', 'Data Science', 'PDF'],
     },
   ]);
 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isGridView, setIsGridView] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -182,7 +158,7 @@ const ResourceManagement = () => {
 
   const educatorMenu = [
     { title: 'Dashboard', Icon: AcademicCapIcon, link: '/educator-dashboard' },
-    { title : 'Grades', Icon: DocumentTextIcon, link: '/grading-system' },
+    { title: 'Grades', Icon: DocumentTextIcon, link: '/grading-system' },
     { title: 'Assignments', Icon: FunnelIcon, link: '/assignment-management' },
     { title: 'Attendance', Icon: UserGroupIcon, link: '/attendance-tracking' },
     { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
@@ -190,11 +166,10 @@ const ResourceManagement = () => {
     { title: 'Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
     { title: 'News', Icon: UsersIcon, link: '/educational-news' },
     { title: 'Suggestions', Icon: EnvelopeIcon, link: '/suggestions-to-students' },
-    { title: 'Meetings', Icon: VideoCameraIcon, link: '/meeting-host' },  
+    { title: 'Meetings', Icon: VideoCameraIcon, link: '/meeting-host' },
     { title: 'Announcements', Icon: MegaphoneIcon, link: '/announcements' },
   ];
 
-  // Analytics Data
   const categoryData = [
     { name: 'Science', value: 45 },
     { name: 'Math', value: 30 },
@@ -212,6 +187,15 @@ const ResourceManagement = () => {
 
   const COLORS = ['#60a5fa', '#3b82f6', '#2563eb', '#1d4ed8'];
 
+  useEffect(() => {
+    const handleResize = () => {
+      setIsSidebarOpen(window.innerWidth >= 768);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files);
     if (files.length > 0) {
@@ -222,7 +206,6 @@ const ResourceManagement = () => {
   const simulateUpload = (file) => {
     setIsUploading(true);
     setUploadProgress(0);
-    
     const interval = setInterval(() => {
       setUploadProgress(prev => {
         if (prev >= 100) {
@@ -233,14 +216,7 @@ const ResourceManagement = () => {
         return prev + 10;
       });
     }, 300);
-
-    // In a real app, you would upload to a server here
-    return new Promise(resolve => {
-      setTimeout(() => {
-        clearInterval(interval);
-        resolve();
-      }, 3000);
-    });
+    return new Promise(resolve => setTimeout(() => { clearInterval(interval); resolve(); }, 3000));
   };
 
   const handleUpload = async (e) => {
@@ -272,7 +248,6 @@ const ResourceManagement = () => {
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
-    
     setIsSearching(true);
     try {
       const resources = await fetchResourcesFromLLM(searchQuery);
@@ -286,16 +261,13 @@ const ResourceManagement = () => {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (searchQuery.trim()) {
-        handleSearch();
-      }
+      if (searchQuery.trim()) handleSearch();
     }, 800);
-
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
   const ResourceCard = ({ resource }) => (
-    <motion.div 
+    <motion.div
       whileHover={{ scale: 1.02 }}
       className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4 hover:shadow-xl transition-all"
     >
@@ -311,7 +283,6 @@ const ResourceManagement = () => {
             </div>
           )}
         </div>
-        
         <div className="flex justify-between items-start mb-2">
           <h4 className="text-lg font-semibold text-white truncate">{resource.title}</h4>
           <div className="flex gap-2">
@@ -323,18 +294,13 @@ const ResourceManagement = () => {
             </button>
           </div>
         </div>
-
         <div className="flex flex-wrap gap-2 mb-4">
           {resource.tags.map((tag, index) => (
-            <span 
-              key={index}
-              className="px-2 py-1 text-xs bg-gray-700/50 rounded-full text-blue-300"
-            >
+            <span key={index} className="px-2 py-1 text-xs bg-gray-700/50 rounded-full text-blue-300">
               {tag}
             </span>
           ))}
         </div>
-
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div className="flex items-center gap-2 text-gray-400">
             <ClockIcon className="w-4 h-4" />
@@ -359,18 +325,16 @@ const ResourceManagement = () => {
 
   const UploadModal = () => (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-xl p-8 w-full max-w-2xl relative">
+      <div className="bg-gray-800 rounded-xl p-4 md:p-8 w-full max-w-2xl relative mx-4 md:mx-auto">
         <button
           onClick={() => setShowUploadModal(false)}
           className="absolute top-4 right-4 text-gray-400 hover:text-white"
         >
           <XMarkIcon className="w-6 h-6" />
         </button>
-        
         <h3 className="text-2xl font-bold mb-6 bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">
           Upload New Resource
         </h3>
-        
         <form onSubmit={handleUpload} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
@@ -396,7 +360,6 @@ const ResourceManagement = () => {
               </select>
             </div>
           </div>
-
           <div className="space-y-2">
             <label className="block text-gray-300">File</label>
             <input
@@ -417,7 +380,6 @@ const ResourceManagement = () => {
               <p className="text-gray-500 text-sm">Supports videos, PDFs, presentations (max 500MB)</p>
             </label>
           </div>
-
           {isUploading && (
             <div className="space-y-2">
               <div className="flex justify-between text-gray-400 text-sm">
@@ -432,7 +394,6 @@ const ResourceManagement = () => {
               </div>
             </div>
           )}
-
           <div className="flex justify-end gap-4 mt-8">
             <button
               type="button"
@@ -446,9 +407,7 @@ const ResourceManagement = () => {
               className="px-6 py-2.5 rounded-lg bg-gradient-to-r from-green-500 to-cyan-500 hover:opacity-90 transition-all flex items-center gap-2"
               disabled={isUploading}
             >
-              {isUploading ? (
-                'Uploading...'
-              ) : (
+              {isUploading ? 'Uploading...' : (
                 <>
                   <CloudArrowUpIcon className="w-5 h-5" />
                   Upload Resource
@@ -463,17 +422,19 @@ const ResourceManagement = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 flex">
-      {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 h-screen w-64 bg-gray-800 border-r border-gray-700/50 transform transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 left-0 h-screen w-64 bg-gray-800 border-r border-gray-700/50 transform transition-transform duration-300 ease-in-out z-50 flex flex-col ${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } z-50 flex flex-col`}
+        } md:translate-x-0`}
       >
         <div className="p-6">
-          <div className="flex items-center gap-3 mb-8">
+          <div className="flex justify-between items-center mb-8">
             <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
               SPARK IQ
             </h1>
+            <button className="md:hidden" onClick={() => setIsSidebarOpen(false)}>
+              <XMarkIcon className="w-6 h-6 text-white" />
+            </button>
           </div>
           <nav>
             <ul className="space-y-2">
@@ -493,37 +454,51 @@ const ResourceManagement = () => {
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className={`flex-1 p-8 overflow-y-auto relative transition-margin duration-300 ${
-        isSidebarOpen ? 'ml-64' : 'ml-0'
-      }`}>
-        {/* Header Section */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 md:hidden z-40"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      <main
+        className={`flex-1 p-4 md:p-8 overflow-y-auto relative transition-margin duration-300 ${
+          isSidebarOpen ? 'md:ml-64' : ''
+        }`}
+      >
         <header className="mb-8">
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <h1 className="text-4xl font-bold text-white mb-2">
-                <span className="bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">
-                  Knowledge Vault
-                </span>
-              </h1>
-              <p className="text-gray-400 text-lg">
-                Manage educational resources, track engagement, and collaborate with peers
-              </p>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <button
+                className="md:hidden p-2"
+                onClick={() => setIsSidebarOpen(true)}
+              >
+                <Bars3Icon className="w-6 h-6 text-white" />
+              </button>
+              <div>
+                <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
+                  <span className="bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">
+                    Knowledge Vault
+                  </span>
+                </h1>
+                <p className="text-gray-400 text-base md:text-lg">
+                  Manage educational resources, track engagement, and collaborate with peers
+                </p>
+              </div>
             </div>
-            <button 
+            <button
               onClick={() => setShowUploadModal(true)}
-              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-cyan-500 hover:opacity-90 rounded-lg transition-all"
+              className="flex items-center gap-2 px-4 py-2 md:px-6 md:py-3 bg-gradient-to-r from-green-500 to-cyan-500 hover:opacity-90 rounded-lg transition-all"
             >
               <CloudArrowUpIcon className="w-5 h-5" />
-              Upload Resource
+              Upload
             </button>
           </div>
         </header>
 
-        {/* Search Section */}
         <div className="mb-8">
-          <div className="relative max-w-2xl flex gap-2">
-            <div className="relative flex-1">
+          <div className="relative max-w-2xl flex gap-2 flex-wrap">
+            <div className="relative flex-1 min-w-0">
               <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-3" />
               <input
                 type="text"
@@ -531,11 +506,7 @@ const ResourceManagement = () => {
                 className="w-full pl-10 pr-4 py-3 bg-gray-700/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleSearch();
-                  }
-                }}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               />
               {isSearching && (
                 <div className="absolute right-3 top-3">
@@ -554,7 +525,6 @@ const ResourceManagement = () => {
           </div>
         </div>
 
-        {/* Search Results */}
         {foundResources && (
           <div className="space-y-8 mb-12">
             {Object.entries(foundResources).map(([category, resources]) => (
@@ -610,9 +580,7 @@ const ResourceManagement = () => {
           </div>
         )}
 
-        {/* Stats & Filters */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          {/* Stats Cards */}
           {[
             { title: 'Total Resources', value: '2.1K', icon: FolderIcon, trend: '↑12%' },
             { title: 'Storage Used', value: '84 GB', icon: CloudArrowUpIcon, trend: '↑3.2%' },
@@ -632,7 +600,6 @@ const ResourceManagement = () => {
           ))}
         </div>
 
-        {/* Control Bar */}
         <div className="flex flex-wrap gap-4 mb-8 items-center bg-gray-800/50 p-4 rounded-xl border border-gray-700/50">
           <div className="flex items-center gap-2 flex-1">
             <MagnifyingGlassIcon className="w-5 h-5 text-gray-400" />
@@ -644,9 +611,8 @@ const ResourceManagement = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          
           <div className="flex gap-4">
-            <select 
+            <select
               className="bg-gray-700 rounded-lg px-4 py-2"
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
@@ -656,8 +622,7 @@ const ResourceManagement = () => {
               <option>Mathematics</option>
               <option>Literature</option>
             </select>
-            
-            <button 
+            <button
               onClick={() => setIsGridView(!isGridView)}
               className="p-2 hover:bg-gray-700/50 rounded-lg"
             >
@@ -674,9 +639,7 @@ const ResourceManagement = () => {
           </div>
         </div>
 
-        {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Resource Grid */}
           <div className="lg:col-span-2">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {resources.map(resource => (
@@ -685,52 +648,55 @@ const ResourceManagement = () => {
             </div>
           </div>
 
-          {/* Analytics Sidebar */}
           <div className="space-y-8">
-            {/* Category Distribution */}
             <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-6">
               <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
                 <TagIcon className="w-6 h-6 text-cyan-400" />
                 Resource Categories
               </h3>
-              <div className="flex items-center justify-center">
-                <PieChart width={240} height={240}>
-                  <Pie
-                    data={categoryData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={2}
-                    dataKey="value"
-                  >
-                    {categoryData.map((entry, index) => (
-                      <Cell key={index} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                </PieChart>
+              <div className="w-full h-64">
+                <ResponsiveContainer>
+                  <PieChart>
+                    <Pie
+                      data={categoryData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      {categoryData.map((entry, index) => (
+                        <Cell key={index} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
             </div>
 
-            {/* Usage Trends */}
             <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-6">
               <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
                 <ChartBarIcon className="w-6 h-6 text-green-400" />
                 Weekly Engagement
               </h3>
-              <BarChart width={300} height={200} data={usageData}>
-                <XAxis dataKey="day" stroke="#6b7280" />
-                <YAxis stroke="#6b7280" />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#1f2937', border: 'none' }}
-                  itemStyle={{ color: '#e5e7eb' }}
-                />
-                <Bar 
-                  dataKey="views" 
-                  fill="#34d399" 
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
+              <div className="w-full h-64">
+                <ResponsiveContainer>
+                  <BarChart data={usageData}>
+                    <XAxis dataKey="day" stroke="#6b7280" />
+                    <YAxis stroke="#6b7280" />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#1f2937', border: 'none' }}
+                      itemStyle={{ color: '#e5e7eb' }}
+                    />
+                    <Bar
+                      dataKey="views"
+                      fill="#34d399"
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
         </div>
