@@ -255,19 +255,16 @@ const MobileDashboard = ({ role }) => {
   const [points, setPoints] = useState(850);
 
   const studentMenu = [
-    { title: 'Resources', Icon: FolderIcon, link: '/resource-utilization' },
+    { title: 'Assignment Submission', Icon: ClipboardDocumentIcon, link: '/assignment-submission' },
+    { title: 'Grades', Icon: AcademicCapIcon, link: '/grading-access' },
+    { title: 'Chatbot Interaction', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-access' },
+    { title: 'Chat & Connect', Icon: UsersIcon, link: '/chat-functionality' },
+    { title: 'Suggestions Inbox', Icon: EnvelopeIcon, link: '/inbox-for-suggestions' },
+    { title: 'Meeting Participation', Icon: VideoCameraIcon, link: '/meeting-participation' },
     { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-monitoring' },
-    { title: 'Assignments', Icon: ClipboardDocumentIcon, link: '/assignment-submission' },
-    { title: 'Grades', Icon: PresentationChartLineIcon, link: '/grading-access' },
-    { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-access' },
-    { title: 'Feedback', Icon: LightBulbIcon, link: '/personalized-feedback' },
-    { title: 'Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
+    { title: 'AI Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
+    { title: 'Personalized Feedback', Icon: LightBulbIcon, link: '/personalized-feedback' },
     { title: 'News', Icon: UsersIcon, link: '/educational-news' },
-    { title: 'Argue AI', Icon: UsersIcon, link: '/argue-ai' },
-    { title: 'Smart Review', Icon: UsersIcon, link: '/smart-review' },
-    { title: 'Meetings', Icon: VideoCameraIcon, link: '/meeting-participation' },
-    { title: 'Social', Icon: ChatBubbleLeftRightIcon, link: '/chat-functionality' },
-    { title: 'Inbox', Icon: EnvelopeIcon, link: '/inbox-for-suggestions' },
     { title: 'Upgrade to Pro', Icon: SparklesIcon, link: '/pricing' },
   ];
 
@@ -275,6 +272,7 @@ const MobileDashboard = ({ role }) => {
     { title: 'Assignment Management', Icon: ClipboardDocumentIcon, link: '/assignment-management' },
     { title: 'Grading System', Icon: AcademicCapIcon, link: '/grading-system' },
     { title: 'Resource Management', Icon: FolderIcon, link: '/resource-management' },
+    { title: 'Chat & Connect', Icon: UsersIcon, link: '/chat-functionality' },
     { title: 'Attendance Tracking', Icon: ChartBarIcon, link: '/attendance-tracking' },
     { title: 'Chatbot Interaction', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
     { title: 'Feedback Provision', Icon: LightBulbIcon, link: '/feedback-dashboard' },
@@ -744,7 +742,7 @@ const MobileDashboard = ({ role }) => {
                 </Link>
                 <button
                   onClick={handleLogout}
-                  className="w-full text-left p-2 text-red-400 hover:bg-gray-700 rounded-md text-sm"
+                  className="w-full text-left p-2 text-red-400 hover:bg-gray-700 rounded-md text-sm sm:text-base"
                 >
                   Logout
                 </button>
@@ -805,32 +803,34 @@ const DesktopDashboard = ({ role }) => {
   const [points, setPoints] = useState(850);
 
   const studentMenu = [
-    { title: 'Resources', Icon: FolderIcon, link: '/resource-utilization' },
+    { title: 'Assignment Submission', Icon: ClipboardDocumentIcon, link: '/assignment-submission' },
+    { title: 'Grades', Icon: AcademicCapIcon, link: '/grading-access' },
+    { title: 'Chatbot Interaction', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-access' },
+    { title: 'Chat & Connect', Icon: UsersIcon, link: '/chat-functionality' },
+    { title: 'Suggestions Inbox', Icon: EnvelopeIcon, link: '/inbox-for-suggestions' },
+    { title: 'Meeting Participation', Icon: VideoCameraIcon, link: '/meeting-participation' },
     { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-monitoring' },
-    { title: 'Assignments', Icon: ClipboardDocumentIcon, link: '/assignment-submission' },
-    { title: 'Grades', Icon: PresentationChartLineIcon, link: '/grading-access' },
-    { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-access' },
-    { title: 'Feedback', Icon: LightBulbIcon, link: '/personalized-feedback' },
-    { title: 'Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
+    { title: 'AI Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
+    { title: 'Personalized Feedback', Icon: LightBulbIcon, link: '/personalized-feedback' },
     { title: 'News', Icon: UsersIcon, link: '/educational-news' },
-    { title: 'Smart Review', Icon: UsersIcon, link: '/smart-review' },
-    { title: 'Meetings', Icon: VideoCameraIcon, link: '/meeting-participation' },
-    { title: 'Social', Icon: ChatBubbleLeftRightIcon, link: '/chat-functionality' },
-    { title: 'Inbox', Icon: EnvelopeIcon, link: '/inbox-for-suggestions' },
     { title: 'Upgrade to Pro', Icon: SparklesIcon, link: '/pricing' },
   ];
 
   const educatorMenu = [
     { title: 'Assignment Management', Icon: ClipboardDocumentIcon, link: '/assignment-management' },
     { title: 'Grading System', Icon: AcademicCapIcon, link: '/grading-system' },
+    { title: 'Resource Management', Icon: FolderIcon, link: '/resource-management' },
+    { title: 'Chat & Connect', Icon: UsersIcon, link: '/chat-functionality' },
     { title: 'Attendance Tracking', Icon: ChartBarIcon, link: '/attendance-tracking' },
     { title: 'Chatbot Interaction', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
-    { title: 'Feedback Provision', Icon: LightBulbIcon, link: '/feedback-provision' },
-    { title: 'Question Generation', Icon: SparklesIcon, link: '/question-generation' },
+    { title: 'Feedback Provision', Icon: LightBulbIcon, link: '/feedback-dashboard' },
+    { title: 'Question Generation', Icon: SparklesIcon, link: '/ai-generated-questions' },
+    { title: 'News', Icon: UsersIcon, link: '/educational-news' },
     { title: 'Suggestions to Students', Icon: EnvelopeIcon, link: '/suggestions-to-students' },
-    { title: 'Meeting Hosting', Icon: VideoCameraIcon, link: '/meeting-hosting' },
-    { title: 'Collaboration', Icon: UserGroupIcon, link: '/collaboration' },
+    { title: 'Meeting Hosting', Icon: VideoCameraIcon, link: '/meeting-host' },
+    { title: 'Collaboration', Icon: UserGroupIcon, link: '/collaboration-hub' },
     { title: 'Announcements', Icon: MegaphoneIcon, link: '/announcements' },
+    { title: 'Upgrade to Pro', Icon: SparklesIcon, link: '/pricing' },
   ];
 
   const menuItems = role === 'student' ? studentMenu : educatorMenu;

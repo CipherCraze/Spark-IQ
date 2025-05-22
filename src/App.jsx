@@ -42,6 +42,8 @@ import CollaborationHub from './Components/Features/CollaborationHub';
 import AnnouncementsPage from './Components/Features/AnnouncementsPage';
 import Meeting from './Components/Meetings';
 import Meetings from './Components/Meetings';
+import UserProfile from './Components/Features/UserProfile';
+import ViewOnlyProfile from './Components/Features/ViewOnlyProfile';
 
 const Layout = ({ children, showHeaderFooter = true }) => (
   <div className="flex flex-col min-h-screen">
@@ -99,11 +101,38 @@ function App() {
             </Layout>
           }
         />
-        {/* Profile Route */}
+        {/* Profile Routes */}
         <Route
           path="/profile"
           element={
-            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+            <Layout showHeaderFooter={false}>
+              <Profile />
+            </Layout>
+          }
+        />
+        {/* View Only Profile Route (for viewing from chat) */}
+        <Route
+          path="/view-profile/:userId"
+          element={
+            <Layout showHeaderFooter={false}>
+              <ViewOnlyProfile />
+            </Layout>
+          }
+        />
+        {/* User Profile Route (for viewing other users from chat) */}
+        <Route
+          path="/user-profile/:userId"
+          element={
+            <Layout showHeaderFooter={false}>
+              <UserProfile />
+            </Layout>
+          }
+        />
+        {/* Profile with ID Route (for viewing own profile from dashboard) */}
+        <Route
+          path="/profile/:userId"
+          element={
+            <Layout showHeaderFooter={false}>
               <Profile />
             </Layout>
           }
@@ -338,8 +367,19 @@ function App() {
             </Layout>
           }
         />
-        {/* Not Found Route */}
-        <Route path="*" element={<Layout><h1>404 - Not Found</h1></Layout>} />
+        {/* Catch-all route for debugging */}
+        <Route
+          path="*"
+          element={
+            <div className="min-h-screen flex items-center justify-center bg-gray-900">
+              <div className="text-white">
+                <h1 className="text-xl font-bold mb-2">Page Not Found</h1>
+                <p>The requested page does not exist.</p>
+                <p className="text-sm text-gray-400 mt-2">Path: {window.location.pathname}</p>
+              </div>
+            </div>
+          }
+        />
       </Routes>
     </Router>
   );
