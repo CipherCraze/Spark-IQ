@@ -133,13 +133,25 @@ const ProfilePage = () => {
 
   // Check authentication state
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log('Auth state changed:', user ? 'User logged in' : 'No user');
       setAuthChecked(true);
       if (!user) {
         console.log('No authenticated user, redirecting to login');
         navigate('/login');
         return;
+      }
+      
+      // Get user profile to check role
+      try {
+        const profileData = await getUserProfile(user.uid);
+        if (profileData?.role === 'educator') {
+          // Redirect educators to educator profile
+          navigate('/educator-profile');
+          return;
+        }
+      } catch (err) {
+        console.error('Error checking user role:', err);
       }
       
       // Determine if this is the user's own profile
