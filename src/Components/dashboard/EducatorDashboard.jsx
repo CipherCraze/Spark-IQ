@@ -25,8 +25,7 @@ import {
   FolderIcon,
   BookOpenIcon,
   PresentationChartLineIcon,
-  GlobeAltIcon,
-  Cog6ToothIcon
+  GlobeAltIcon
 } from '@heroicons/react/24/outline';
 import { BarChart, LineChart, DonutChart } from '../Charts.jsx';
 
@@ -373,6 +372,18 @@ const MobileEducatorDashboard = ({ role }) => {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const navigate = useNavigate();
 
+  const [classes] = useState([
+    { id: 1, name: 'Mathematics 101', students: 32, progress: 85 },
+    { id: 2, name: 'Advanced Physics', students: 28, progress: 72 },
+    { id: 3, name: 'Modern Literature', students: 35, progress: 91 },
+  ]);
+
+  const [recentSubmissions] = useState([
+    { id: 1, course: 'Math 101', student: 'Alice Chen', status: 'Graded', time: '2h ago' },
+    { id: 2, course: 'Physics', student: 'David Kim', status: 'Pending', time: '4h ago' },
+    { id: 3, course: 'Literature', student: 'Maria Gomez', status: 'Needs Review', time: '1d ago' },
+  ]);
+
   const [performanceMetrics] = useState({
     attendance: { current: 92, previous: 88 },
     grades: { average: 84, trend: 'up' },
@@ -387,7 +398,7 @@ const MobileEducatorDashboard = ({ role }) => {
     { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
     { title: 'Feedback', Icon: LightBulbIcon, link: '/feedback-dashboard' },
     { title: 'Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
-    { title: 'Social', Icon: ChatBubbleLeftRightIcon, link: '/chat-functionality' },
+    { title: 'Social', Icon: ChatBubbleLeftRightIcon, link: '/chat-functionality', highlight: true },
     { title: 'News', Icon: UsersIcon, link: '/educational-news' },
     { title: 'Suggestions', Icon: EnvelopeIcon, link: '/suggestions-to-students' },
     { title: 'Meetings', Icon: VideoCameraIcon, link: '/meeting-host' },
@@ -422,21 +433,21 @@ const MobileEducatorDashboard = ({ role }) => {
               SPARK-IQ
             </h1>
           </div>
-          <nav className="flex-1 overflow-y-auto p-6 space-y-2">
-            {educatorMenu.map((item, index) => (
-              <Link
-                key={index}
-                to={item.link}
-                className="group flex items-center gap-3 p-3 text-gray-300 hover:bg-gray-700/30 rounded-lg transition-all duration-300 hover:translate-x-2"
-                onClick={() => setIsSidebarOpen(false)}
-              >
-                <item.Icon className="w-5 h-5 text-purple-400 group-hover:text-blue-400 transition-colors" />
-                <span className="flex-1">{item.title}</span>
-                <ArrowRightCircleIcon className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" />
-              </Link>
-            ))}
-          </nav>
         </div>
+        <nav className="flex-1 overflow-y-auto p-6 space-y-2">
+          {educatorMenu.map((item, index) => (
+            <Link
+              key={index}
+              to={item.link}
+              className="group flex items-center gap-3 p-3 text-gray-300 hover:bg-gray-700/30 rounded-lg transition-all duration-300 hover:translate-x-2"
+              onClick={() => setIsSidebarOpen(false)}
+            >
+              <item.Icon className="w-5 h-5 text-purple-400 group-hover:text-blue-400 transition-colors" />
+              <span className="flex-1">{item.title}</span>
+              <ArrowRightCircleIcon className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" />
+            </Link>
+          ))}
+        </nav>
       </aside>
 
       <main className="flex-1 p-4 overflow-y-auto">
@@ -451,31 +462,6 @@ const MobileEducatorDashboard = ({ role }) => {
             <h2 className="text-2xl font-bold text-white">Educator Dashboard</h2>
           </div>
         </header>
-
-        {/* Quick Access Bar - Added for better social visibility */}
-        <div className="mb-6 grid grid-cols-3 gap-3">
-          <Link
-            to="/chat-functionality"
-            className="flex items-center justify-center gap-2 p-3 bg-indigo-500/20 rounded-lg hover:bg-indigo-500/30 transition-colors"
-          >
-            <ChatBubbleLeftRightIcon className="w-5 h-5 text-indigo-400" />
-            <span className="text-indigo-300 text-sm font-medium">Social</span>
-          </Link>
-          <Link
-            to="/meeting-host"
-            className="flex items-center justify-center gap-2 p-3 bg-gray-700/30 rounded-lg hover:bg-gray-700/50 transition-colors"
-          >
-            <VideoCameraIcon className="w-5 h-5 text-purple-400" />
-            <span className="text-gray-300 text-sm">Meetings</span>
-          </Link>
-          <Link
-            to="/announcements"
-            className="flex items-center justify-center gap-2 p-3 bg-gray-700/30 rounded-lg hover:bg-gray-700/50 transition-colors"
-          >
-            <MegaphoneIcon className="w-5 h-5 text-purple-400" />
-            <span className="text-gray-300 text-sm">Announce</span>
-          </Link>
-        </div>
 
         <div className="space-y-4 mb-6">
           <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700/50">
@@ -499,6 +485,24 @@ const MobileEducatorDashboard = ({ role }) => {
         </div>
 
         <div className="mb-6">
+          <h3 className="text-lg font-semibold text-white mb-3">Your Classes</h3>
+          <div className="space-y-3">
+            {classes.slice(0, 3).map((cls) => (
+              <div key={cls.id} className="p-3 bg-gray-900/30 rounded-lg">
+                <p className="text-white font-medium">{cls.name}</p>
+                <p className="text-gray-400 text-sm">{cls.students} students</p>
+                <div className="mt-2 h-2 bg-gray-700 rounded-full">
+                  <div 
+                    className="h-2 bg-gradient-to-r from-purple-400 to-blue-400 rounded-full"
+                    style={{ width: `${cls.progress}%` }}
+                  ></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mb-6">
           <h3 className="text-lg font-semibold text-white mb-3">Quick Actions</h3>
           <div className="grid grid-cols-2 gap-3">
             <button className="p-4 bg-purple-500/20 rounded-xl hover:bg-purple-500/30 transition-colors flex flex-col items-center">
@@ -512,115 +516,97 @@ const MobileEducatorDashboard = ({ role }) => {
           </div>
         </div>
 
-        <nav className="fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700/50 p-2">
-          <div className="flex justify-around items-center">
-            <Link
-              to="/chat-functionality"
-              className="p-2 hover:bg-gray-700 rounded-full transition-colors flex flex-col items-center"
-            >
-              <ChatBubbleLeftRightIcon className="w-6 h-6 text-indigo-400" />
-              <span className="text-xs text-indigo-300">Social</span>
-            </Link>
-            <button
-              onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-              className="p-2 hover:bg-gray-700 rounded-full transition-colors relative"
-            >
-              <BellIcon className="w-6 h-6 text-gray-400" />
-              <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
-            <button
-              onClick={() => setIsProfileOpen(!isProfileOpen)}
-              className="p-2 hover:bg-gray-700 rounded-full transition-colors"
-            >
-              <UserCircleIcon className="w-6 h-6 text-gray-400" />
-            </button>
+        <div>
+          <h3 className="text-lg font-semibold text-white mb-3">Recent Submissions</h3>
+          <div className="space-y-3">
+            {recentSubmissions.slice(0, 3).map((submission) => (
+              <div key={submission.id} className="p-3 bg-gray-900/30 rounded-lg">
+                <p className="text-white font-medium">{submission.course}</p>
+                <p className="text-gray-400 text-sm">{submission.student}</p>
+                <div className="flex justify-between mt-2">
+                  <span className={`text-sm ${
+                    submission.status === 'Graded' ? 'text-green-400' :
+                    submission.status === 'Pending' ? 'text-yellow-400' :
+                    'text-red-400'
+                  }`}>
+                    {submission.status}
+                  </span>
+                  <span className="text-gray-400 text-sm">{submission.time}</span>
+                </div>
+              </div>
+            ))}
           </div>
-          {isProfileOpen && (
-            <div className="fixed bottom-16 right-4 w-48 bg-gray-800 rounded-lg shadow-xl border border-gray-700/50 z-50">
-              <div className="p-3 border-b border-gray-700/50">
-                <p className="text-white font-medium text-sm">Dr. Sarah Johnson</p>
-                <p className="text-xs text-gray-400">educator@sparkiq.com</p>
-              </div>
-              <div className="p-2">
-                <Link
-                  to="/educator-profile"
-                  className="block p-2 text-gray-300 hover:bg-gray-700 rounded-md text-sm"
-                  onClick={() => setIsProfileOpen(false)}
-                >
-                  Profile
-                </Link>
-                <Link
-                  to="/educator-settings"
-                  className="block p-2 text-gray-300 hover:bg-gray-700 rounded-md text-sm"
-                  onClick={() => setIsProfileOpen(false)}
-                >
-                  Settings
-                </Link>
-                <button
-                  onClick={handleLogout}
-                  className="w-full text-left p-2 text-red-400 hover:bg-gray-700 rounded-md text-sm"
-                >
-                  Logout
-                </button>
-              </div>
-            </div>
-          )}
-          {isNotificationsOpen && (
-            <div className="fixed bottom-16 left-4 w-64 bg-gray-800 rounded-lg shadow-xl border border-gray-700/50 z-50">
-              <div className="p-4 border-b border-gray-700/50">
-                <h3 className="text-lg font-semibold text-white">Notifications</h3>
-              </div>
-              <div className="p-4">
-                <p className="text-gray-400">No new notifications</p>
-              </div>
-            </div>
-          )}
-        </nav>
+        </div>
       </main>
+
+      <nav className="fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700/50 p-2">
+        <div className="flex justify-around items-center">
+          <button className="p-2 hover:bg-gray-700 rounded-full transition-colors">
+            <ClipboardDocumentIcon className="w-6 h-6 text-gray-400" />
+          </button>
+          <button
+            onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+            className="p-2 hover:bg-gray-700 rounded-full transition-colors relative"
+          >
+            <BellIcon className="w-6 h-6 text-gray-400" />
+            <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+          </button>
+          <button
+            onClick={() => setIsProfileOpen(!isProfileOpen)}
+            className="p-2 hover:bg-gray-700 rounded-full transition-colors"
+          >
+            <UserCircleIcon className="w-6 h-6 text-gray-400" />
+          </button>
+        </div>
+        {isProfileOpen && (
+          <div className="fixed bottom-16 right-4 w-48 bg-gray-800 rounded-lg shadow-xl border border-gray-700/50 z-50">
+            <div className="p-3 border-b border-gray-700/50">
+              <p className="text-white font-medium text-sm">Dr. Sarah Johnson</p>
+              <p className="text-xs text-gray-400">educator@sparkiq.com</p>
+            </div>
+            <div className="p-2">
+              <Link
+                to="/profile"
+                className="block p-2 text-gray-300 hover:bg-gray-700 rounded-md text-sm"
+                onClick={() => setIsProfileOpen(false)}
+              >
+                Profile
+              </Link>
+              <Link
+                to="/settings"
+                className="block p-2 text-gray-300 hover:bg-gray-700 rounded-md text-sm"
+                onClick={() => setIsProfileOpen(false)}
+              >
+                Settings
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="w-full text-left p-2 text-red-400 hover:bg-gray-700 rounded-md text-sm"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        )}
+        {isNotificationsOpen && (
+          <div className="fixed bottom-16 left-4 w-64 bg-gray-800 rounded-lg shadow-xl border border-gray-700/50 z-50">
+            <div className="p-4 border-b border-gray-700/50">
+              <h3 className="text-lg font-semibold text-white">Notifications</h3>
+            </div>
+            <div className="p-4">
+              <p className="text-gray-400">No new notifications</p>
+            </div>
+          </div>
+        )}
+      </nav>
     </div>
   );
 };
 
 // Parent Educator Dashboard Component
 const EducatorDashboard = ({ role }) => {
-  const isMobile = useMediaQuery({ maxWidth: 768 });
-
-  return (
-    <>
-      <style>
-        {`
-          @keyframes slideDown {
-            from {
-              transform: translateY(-100%);
-              opacity: 0;
-            }
-            to {
-              transform: translateY(0);
-              opacity: 1;
-            }
-          }
-
-          @keyframes fadeIn {
-            from {
-              opacity: 0;
-            }
-            to {
-              opacity: 1;
-            }
-          }
-
-          .animate-slideDown {
-            animation: slideDown 0.3s ease-out forwards;
-          }
-
-          .animate-fadeIn {
-            animation: fadeIn 0.3s ease-out forwards;
-          }
-        `}
-      </style>
-      {isMobile ? <MobileEducatorDashboard role={role} /> : <DesktopEducatorDashboard role={role} />}
-    </>
-  );
+  const isDesktop = useMediaQuery({ minWidth: 768 });
+  return isDesktop ? <DesktopEducatorDashboard role={role} /> : <MobileEducatorDashboard role={role} />;
 };
 
 export default EducatorDashboard;
