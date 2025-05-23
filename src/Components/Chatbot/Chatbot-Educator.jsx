@@ -20,6 +20,8 @@ import confetti from 'canvas-confetti';
 import { ChartBarIcon } from '@heroicons/react/24/solid';
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+const NEWS_API_KEY = import.meta.env.VITE_NEWS_API_KEY;
+const NEWS_API_BASE_URL = import.meta.env.VITE_NEWS_API_BASE_URL;
 
 const Chatbot = () => {
   const [messages, setMessages] = useState(() => {
@@ -102,13 +104,58 @@ const Chatbot = () => {
 
   const sendMessageToGemini = async (messages) => {
     try {
-        // Map chat history to Gemini's expected format
-        const contents = [
-            // System prompt to set the behavior
-            {
-                role: "user",
-                parts: [{
-                    text: `You are an AI Teaching Assistant focused exclusively on academic support. Your role is to:
+      // Get current date and time
+      const now = new Date();
+      const hours = now.getHours();
+      const minutes = now.getMinutes();
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      const formattedHours = hours % 12 || 12;
+      const formattedMinutes = minutes.toString().padStart(2, '0');
+      
+      const currentDateTime = {
+        time: `${formattedHours}:${formattedMinutes} ${ampm}`,
+        date: now.toLocaleDateString('en-US'),
+        day: now.toLocaleDateString('en-US', { weekday: 'long' }),
+        month: now.toLocaleDateString('en-US', { month: 'long' }),
+        year: now.getFullYear()
+      };
+
+      // Fetch latest news
+      let latestNews = '';
+      if (NEWS_API_KEY && NEWS_API_KEY !== 'your-news-api-key') {
+        try {
+          const newsResponse = await axios.get(NEWS_API_BASE_URL, {
+            params: {
+              country: 'us',
+              category: 'technology',
+              apiKey: NEWS_API_KEY
+            }
+          });
+          
+          if (newsResponse.data.articles && newsResponse.data.articles.length > 0) {
+            latestNews = '\n\nLatest Tech News:\n' + newsResponse.data.articles
+              .slice(0, 3)
+              .map(article => `• ${article.title}`)
+              .join('\n');
+          }
+        } catch (error) {
+          console.error('Error fetching news:', error);
+          // Continue without news if there's an error
+        }
+      }
+
+      const timeContext = `Current time: ${currentDateTime.time}
+Current date: ${currentDateTime.date}
+Day of week: ${currentDateTime.day}
+Month: ${currentDateTime.month}
+Year: ${currentDateTime.year}${latestNews}`;
+
+      const contents = [
+        // System prompt to set the behavior
+        {
+          role: "user",
+          parts: [{
+            text: `You are an AI Teaching Assistant focused exclusively on academic support. Your role is to:
 1. Provide clear, accurate explanations of academic concepts
 2. Help students understand solutions to problems
 3. Support teachers with pedagogical advice
@@ -132,34 +179,53 @@ OUTPUT FORMAT RULES:
     - Use CAPITAL LETTERS for section headers
     - For code examples, indent with 4 spaces instead of code blocks
 
-If a question is not study-related, respond: "I'm sorry, but I can only assist with academic questions. Please ask about your studies."`
-                }]
-            },
-            {
-                role: "model",
-                parts: [{
-                    text: "Understood. I'm ready to assist with academic questions. Please ask your study-related doubt."
-                }]
-            },
-            // Add the conversation history
-            ...messages.map(msg => ({
-                role: msg.sender === 'user' ? 'user' : 'model',
-                parts: [{ text: msg.text }]
-            }))
-        ];
+If a question is not study-related, respond: "I'm sorry, but I can only assist with academic questions. Please ask about your studies."
 
-        const response = await axios.post(
-            'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent',
-            { contents },
-            {
-                params: { key: GEMINI_API_KEY },
-                headers: { 'Content-Type': 'application/json' },
-            }
-        );
+CURRENT TIME AND DATE CONTEXT:
+${timeContext}
 
-      return response.data.candidates?.[0]?.content?.parts?.[0]?.text || 'I couldn’t generate a response.';
+When users ask about the current time or date, always provide this information in your response. The time is in 12-hour format with AM/PM.`
+          }]
+        },
+        ...messages.map(msg => ({
+          role: msg.sender === 'user' ? 'user' : 'model',
+          parts: [{ text: msg.text }]
+        }))
+      ];
+
+      if (!GEMINI_API_KEY || GEMINI_API_KEY === 'your-gemini-api-key') {
+        throw new Error('Gemini API key is not configured');
+      }
+
+      const response = await axios.post(
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent',
+        {
+          contents,
+          generationConfig: {
+            temperature: 0.7,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 1024,
+          }
+        },
+        {
+          params: { key: GEMINI_API_KEY },
+          headers: { 
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.data.candidates?.[0]?.content?.parts?.[0]?.text) {
+        throw new Error('Invalid response format from Gemini API');
+      }
+
+      return response.data.candidates[0].content.parts[0].text;
     } catch (error) {
       console.error('Error fetching response:', error);
+      if (error.message === 'Gemini API key is not configured') {
+        return 'Please configure your Gemini API key in the .env file.';
+      }
       return 'Sorry, something went wrong. Please try again.';
     }
   };
@@ -180,12 +246,27 @@ If a question is not study-related, respond: "I'm sorry, but I can only assist w
   };
 
   useEffect(() => {
-    const initialPrompt = `Hello! I'm Sparky, your AI assistant. I can help with math and science problems and will format equations properly:
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const formattedHours = hours % 12 || 12;
+    const formattedMinutes = minutes.toString().padStart(2, '0');
+    
+    const currentDateTime = {
+      time: `${formattedHours}:${formattedMinutes} ${ampm}`,
+      date: now.toLocaleDateString('en-US'),
+      day: now.toLocaleDateString('en-US', { weekday: 'long' }),
+      month: now.toLocaleDateString('en-US', { month: 'long' }),
+      year: now.getFullYear()
+    };
+
+    const initialPrompt = `Hello! I'm Sparky, your AI Teaching Assistant. I can help with academic concepts, provide current date/time information, and share the latest news. I'll format equations properly:
     
     - Inline equations: \\(E=mc^2\\)
     - Block equations: $$\\int_0^\\infty x^2 dx$$
     
-    How can I help you today?`;
+    How can I help you with your studies today?`;
     
     if (messages.length === 0) {
       setMessages([{
