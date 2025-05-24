@@ -52,6 +52,7 @@ const SettingsPage = () => {
     location: '',
     bio: '',
     education: '',
+    experience: '',
   });
   const [avatarUrl, setAvatarUrl] = useState(() => localStorage.getItem('profileAvatar') || null);
   const [formErrors, setFormErrors] = useState({});
@@ -94,6 +95,8 @@ const SettingsPage = () => {
     if (!user.phone.trim()) errors.phone = 'Phone number is required';
     if (!user.location.trim()) errors.location = 'Location is required';
     if (!user.education.trim()) errors.education = 'Education is required';
+    if (user.bio.length > 500) errors.bio = 'Bio cannot exceed 500 characters';
+    if (!user.experience.trim()) errors.experience = 'Experience is required';
     return errors;
   };
 
@@ -256,6 +259,7 @@ const SettingsPage = () => {
         location: user.location,
         bio: user.bio,
         education: user.education,
+        experience: user.experience,
         lastUpdated: new Date().toISOString()
       });
 
@@ -681,6 +685,21 @@ const SettingsPage = () => {
                         className={`w-full px-4 py-2 text-white bg-gray-700 border ${formErrors.education ? 'border-red-500' : 'border-gray-600'} rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-colors placeholder-gray-500`}
                       />
                       {formErrors.education && <div className="text-red-400 text-xs mt-1">{formErrors.education}</div>}
+                    </div>
+                    <div className="mt-4">
+                      <label htmlFor="experience" className="block text-sm font-medium text-gray-400 mb-1">
+                        Experience
+                      </label>
+                      <input
+                        type="text"
+                        id="experience"
+                        name="experience"
+                        value={user.experience}
+                        onChange={handleEditChange}
+                        placeholder="Enter your years of experience"
+                        className={`w-full px-4 py-2 text-white bg-gray-700 border ${formErrors.experience ? 'border-red-500' : 'border-gray-600'} rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-colors placeholder-gray-500`}
+                      />
+                      {formErrors.experience && <div className="text-red-400 text-xs mt-1">{formErrors.experience}</div>}
                     </div>
                   </div>
                   <div className="flex justify-end mt-4">

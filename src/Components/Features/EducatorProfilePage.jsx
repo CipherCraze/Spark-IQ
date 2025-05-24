@@ -101,6 +101,7 @@ const EducatorProfilePage = () => {
     teachingExperience: 0,
     researchInterests: [],
     publications: [],
+    skills: [],
     isVerified: false,
     role: 'educator',
     joinDate: '',
@@ -127,11 +128,13 @@ const EducatorProfilePage = () => {
   const [isEditingResearch, setIsEditingResearch] = useState(false);
   const [isEditingSocial, setIsEditingSocial] = useState(false);
   const [isEditingAvailability, setIsEditingAvailability] = useState(false);
+  const [isEditingSkills, setIsEditingSkills] = useState(false);
   const [editData, setEditData] = useState({ ...user });
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarUrl, setAvatarUrl] = useState(null);
   const [newResearchInterest, setNewResearchInterest] = useState('');
   const [newPublication, setNewPublication] = useState({ title: '', link: '' });
+  const [newSkill, setNewSkill] = useState('');
   const [showSubjectModal, setShowSubjectModal] = useState(false);
   const [selectedSubjectId, setSelectedSubjectId] = useState('');
   const fileInputRef = useRef();
@@ -142,6 +145,7 @@ const EducatorProfilePage = () => {
   const safePublications = (isEditing ? editData.publications : user.publications) ?? [];
   const safeSocial = (isEditingSocial ? editData.social : user.social) || {};
   const safeAvailability = (isEditing ? editData.availability : user.availability) || {};
+  const safeSkills = (isEditingSkills ? editData.skills : user.skills) || [];
 
   // Check authentication state
   useEffect(() => {
@@ -208,6 +212,7 @@ const EducatorProfilePage = () => {
           teachingExperience: 0,
           researchInterests: [],
           publications: [],
+          skills: [],
           social: {},
           stats: {
             studentsTaught: 0,
@@ -284,6 +289,46 @@ const EducatorProfilePage = () => {
       } finally {
         setIsLoading(false);
       }
+    }
+  };
+
+  const handleAddSkill = () => {
+    if (newSkill.trim() && !editData.skills?.includes(newSkill.trim())) {
+      const updatedSkills = [...(editData.skills || []), newSkill.trim()];
+      setEditData(prev => ({
+        ...prev,
+        skills: updatedSkills
+      }));
+      setNewSkill('');
+    }
+  };
+
+  const handleRemoveSkill = (skillToRemove) => {
+    const updatedSkills = editData.skills.filter(skill => skill !== skillToRemove);
+    setEditData(prev => ({
+      ...prev,
+      skills: updatedSkills
+    }));
+  };
+
+  const handleSaveSkills = async () => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('No authenticated user found');
+
+      await updateUserProfile(currentUser.uid, {
+        skills: editData.skills || []
+      });
+
+      setUser(prev => ({
+        ...prev,
+        skills: editData.skills || []
+      }));
+      setIsEditingSkills(false);
+      showToast('Technical skills updated successfully!', 'success');
+    } catch (err) {
+      console.error('Error saving skills:', err);
+      showToast('Error updating technical skills. Please try again.', 'error');
     }
   };
 
@@ -454,6 +499,7 @@ const EducatorProfilePage = () => {
         teachingExperience: editData.teachingExperience || 0,
         researchInterests: editData.researchInterests || [],
         publications: editData.publications || [],
+        skills: editData.skills || [],
         availability: editData.availability || {},
         lastUpdated: new Date().toISOString()
       };
@@ -635,8 +681,11 @@ const EducatorProfilePage = () => {
                     onClick={handleEditClick}
                     className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-500/80 to-purple-500/80 rounded-xl text-white hover:scale-[1.02] transition-transform"
                   >
-                    <PencilSquareIcon className="h-5 w-5" />
-                    Edit Profile
+                    <Link to = "/educator-settings" className="flex items-center gap-2">
+                      <PencilSquareIcon className="h-5 w-5" />
+                      Edit Profile
+                    </Link>
+                    
                   </button>
                 )}
               </div>
@@ -873,6 +922,92 @@ const EducatorProfilePage = () => {
                       </div>
                     ))}
                   </div>
+                </div>
+
+                {/* Technical Skills Section */}
+                <div className="bg-gray-800/50 p-6 rounded-2xl border border-gray-700/30">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+                      <CodeBracketIcon className="h-6 w-6 text-purple-400" />
+                      Technical Skills
+                    </h3>
+                    {!isEditingSkills ? (
+                      <button
+                        onClick={() => setIsEditingSkills(true)}
+                        className="px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
+                      >
+                        Edit Skills
+                      </button>
+                    ) : (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setIsEditingSkills(false);
+                            setEditData(prev => ({ ...prev, skills: user.skills || [] }));
+                            setNewSkill('');
+                          }}
+                          className="px-3 py-1.5 text-sm font-medium text-gray-300 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleSaveSkills}
+                          className="px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
+                        >
+                          Save Skills
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-3 mb-3">
+                    {safeSkills.map((skill, idx) => (
+                      <div key={idx} className="px-3 py-1.5 bg-indigo-500/20 text-indigo-300 rounded-full text-sm flex items-center gap-2">
+                        {isEditingSkills ? (
+                          <>
+                            <input
+                              type="text"
+                              value={skill}
+                              onChange={e => {
+                                const updatedSkills = [...safeSkills];
+                                updatedSkills[idx] = e.target.value;
+                                setEditData(prev => ({ ...prev, skills: updatedSkills }));
+                              }}
+                              className="bg-transparent border-none text-indigo-300 focus:outline-none w-20"
+                            />
+                            <button
+                              type="button"
+                              className="ml-1 text-red-400 hover:text-red-200"
+                              onClick={() => handleRemoveSkill(skill)}
+                              title="Remove"
+                            >
+                              ×
+                            </button>
+                          </>
+                        ) : (
+                          skill
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {isEditingSkills && (
+                    <div className="flex gap-2 mt-2">
+                      <input
+                        type="text"
+                        value={newSkill}
+                        onChange={e => setNewSkill(e.target.value)}
+                        placeholder="Add skill"
+                        className="px-3 py-1 rounded bg-gray-700 text-white border border-gray-600 focus:outline-none"
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddSkill(); } }}
+                      />
+                      <button
+                        type="button"
+                        className="px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                        onClick={handleAddSkill}
+                      >
+                        Add
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
