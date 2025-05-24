@@ -145,13 +145,31 @@ const EducatorProfilePage = () => {
 
   // Check authentication state
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log('Auth state changed:', user ? 'User logged in' : 'No user');
       setAuthChecked(true);
       if (!user) {
         console.log('No authenticated user, redirecting to login');
         navigate('/login');
+        return;
       }
+
+      // Check if user is an educator
+      try {
+        const profileData = await getUserProfile(user.uid);
+        if (profileData?.role !== 'educator') {
+          // Redirect non-educators to student profile
+          navigate('/profile');
+          return;
+        }
+      } catch (err) {
+        console.error('Error checking user role:', err);
+        navigate('/profile');
+        return;
+      }
+
+      // Load the educator profile
+      loadUserProfile(user.uid);
     });
 
     return () => unsubscribe();

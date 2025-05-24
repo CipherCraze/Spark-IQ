@@ -398,6 +398,7 @@ const MobileEducatorDashboard = ({ role }) => {
     { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
     { title: 'Feedback', Icon: LightBulbIcon, link: '/feedback-dashboard' },
     { title: 'Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
+    { title: 'Social', Icon: ChatBubbleLeftRightIcon, link: '/chat-functionality', highlight: true },
     { title: 'News', Icon: UsersIcon, link: '/educational-news' },
     { title: 'Suggestions', Icon: EnvelopeIcon, link: '/suggestions-to-students' },
     { title: 'Meetings', Icon: VideoCameraIcon, link: '/meeting-host' },
