@@ -21,7 +21,130 @@ import { ChartBarIcon } from '@heroicons/react/24/solid';
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const NEWS_API_KEY = import.meta.env.VITE_NEWS_API_KEY;
+const GOOGLE_SEARCH_API_KEY = import.meta.env.VITE_GOOGLE_SEARCH_API_KEY;
+const GOOGLE_SEARCH_ENGINE_ID = import.meta.env.VITE_GOOGLE_SEARCH_ENGINE_ID;
 const NEWS_API_BASE_URL = 'https://newsapi.org/v2/top-headlines';
+const GOOGLE_SEARCH_URL = 'https://www.googleapis.com/customsearch/v1';
+
+// Function to scrape content from a URL
+const scrapeContent = async (url) => {
+  try {
+    const response = await axios.get(url);
+    const html = response.data;
+    
+    // Enhanced content extraction
+    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+    const title = titleMatch ? titleMatch[1] : '';
+    
+    // More comprehensive content extraction patterns
+    const contentPatterns = [
+      /<main[^>]*>([\s\S]*?)<\/main>/i,
+      /<article[^>]*>([\s\S]*?)<\/article>/i,
+      /<div[^>]*class="[^"]*content[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+      /<div[^>]*class="[^"]*article[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+      /<div[^>]*class="[^"]*story[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+      /<div[^>]*class="[^"]*post[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+      /<div[^>]*id="[^"]*content[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+      /<div[^>]*id="[^"]*article[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+      /<div[^>]*id="[^"]*story[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+      /<div[^>]*id="[^"]*post[^"]*"[^>]*>([\s\S]*?)<\/div>/i
+    ];
+    
+    let content = '';
+    for (const pattern of contentPatterns) {
+      const match = html.match(pattern);
+      if (match && match[1]) {
+        content = match[1]
+          .replace(/<[^>]+>/g, ' ') // Remove HTML tags
+          .replace(/\s+/g, ' ') // Normalize whitespace
+          .trim();
+        if (content.length > 100) break; // Use first substantial match
+      }
+    }
+    
+    // If no content found, try to extract paragraphs
+    if (!content) {
+      const paragraphs = html.match(/<p[^>]*>([^<]+)<\/p>/gi);
+      if (paragraphs) {
+        content = paragraphs
+          .map(p => p.replace(/<[^>]+>/g, '').trim())
+          .filter(p => p.length > 20) // Filter out short paragraphs
+          .join(' ');
+      }
+    }
+    
+    return { title, content };
+  } catch (error) {
+    console.error('Error scraping content:', error);
+    return null;
+  }
+};
+
+// Function to fetch real-time information using Google Custom Search
+const fetchRealTimeInfo = async (query) => {
+  if (!GOOGLE_SEARCH_API_KEY || !GOOGLE_SEARCH_ENGINE_ID) {
+    return null;
+  }
+
+  try {
+    // First, get search results from Google Custom Search
+    const searchResponse = await axios.get(GOOGLE_SEARCH_URL, {
+      params: {
+        key: GOOGLE_SEARCH_API_KEY,
+        cx: GOOGLE_SEARCH_ENGINE_ID,
+        q: query,
+        num: 3 // Get top 3 results
+      }
+    });
+
+    const searchResults = searchResponse.data.items || [];
+    
+    // Scrape content from each result
+    const scrapedResults = await Promise.all(
+      searchResults.map(async (result) => {
+        const scraped = await scrapeContent(result.link);
+        return {
+          title: scraped?.title || result.title,
+          content: scraped?.content || result.snippet,
+          link: result.link
+        };
+      })
+    );
+
+    // Combine and process the information
+    const realTimeInfo = {
+      sources: scrapedResults.filter(result => result.content),
+      // Extract potential direct answer from the first result
+      directAnswer: scrapedResults[0]?.content?.split('.')[0] || null
+    };
+
+    return realTimeInfo;
+  } catch (error) {
+    console.error('Error fetching real-time information:', error);
+    return null;
+  }
+};
+
+// Helper function to detect if a query needs real-time information
+const needsRealTimeInfo = (query) => {
+  const realTimePatterns = [
+    /who won/i,
+    /who is winning/i,
+    /current (?:score|result)/i,
+    /latest (?:news|update)/i,
+    /what (?:happened|is happening)/i,
+    /when (?:is|was)/i,
+    /where (?:is|was)/i,
+    /how (?:is|was)/i,
+    /202[3-4]/i,
+    /this (?:year|month|week)/i,
+    /today/i,
+    /yesterday/i,
+    /tomorrow/i
+  ];
+
+  return realTimePatterns.some(pattern => pattern.test(query));
+};
 
 const Chatbot = () => {
   const [messages, setMessages] = useState(() => {
@@ -120,21 +243,70 @@ const Chatbot = () => {
         year: now.getFullYear()
       };
 
-      // Fetch latest news
+      // Get the latest user message
+      const latestUserMessage = messages
+        .filter(msg => msg.sender === 'user')
+        .pop()?.text || '';
+
+      // Check if we need real-time information
+      let realTimeContext = '';
+      if (needsRealTimeInfo(latestUserMessage)) {
+        const realTimeInfo = await fetchRealTimeInfo(latestUserMessage);
+        if (realTimeInfo) {
+          realTimeContext = '\n\nREAL-TIME INFORMATION:\n';
+          if (realTimeInfo.directAnswer) {
+            realTimeContext += `Direct Answer: ${realTimeInfo.directAnswer}\n\n`;
+          }
+          realTimeContext += 'Sources:\n' + realTimeInfo.sources
+            .map(source => `• ${source.title}\n  ${source.content.substring(0, 200)}...`)
+            .join('\n');
+        }
+      }
+
+      // Extract topic from the latest user message
+      const extractKeywords = (message) => {
+        // Common news-related keywords to look for
+        const newsKeywords = [
+          'news', 'latest', 'update', 'recent', 'current', 'today',
+          'sports', 'business', 'technology', 'politics', 'entertainment',
+          'science', 'health', 'weather', 'economy', 'market'
+        ];
+
+        // Extract words that might be topics
+        const words = message.toLowerCase().split(/\s+/);
+        const keywords = words.filter(word => 
+          newsKeywords.includes(word) || 
+          word.length > 3 // Consider longer words as potential topics
+        );
+
+        return keywords.length > 0 ? keywords : ['general'];
+      };
+
+      // Fetch news based on extracted keywords
       let latestNews = '';
       if (NEWS_API_KEY && NEWS_API_KEY !== 'your-news-api-key') {
         try {
-          const newsResponse = await axios.get(NEWS_API_BASE_URL, {
-            params: {
-              country: 'us',
-              category: 'technology',
-              apiKey: NEWS_API_KEY
-            }
-          });
-          
-          if (newsResponse.data.articles && newsResponse.data.articles.length > 0) {
-            latestNews = '\n\nLatest Tech News:\n' + newsResponse.data.articles
-              .slice(0, 3)
+          const keywords = extractKeywords(latestUserMessage);
+          const newsPromises = keywords.map(keyword =>
+            axios.get(NEWS_API_BASE_URL, {
+              params: {
+                q: keyword,
+                language: 'en',
+                sortBy: 'publishedAt',
+                pageSize: 3,
+                apiKey: NEWS_API_KEY
+              }
+            })
+          );
+
+          const newsResponses = await Promise.all(newsPromises);
+          const allArticles = newsResponses
+            .flatMap(response => response.data.articles || [])
+            .filter(article => article.title && article.title.trim() !== '')
+            .slice(0, 5); // Get top 5 most relevant articles
+
+          if (allArticles.length > 0) {
+            latestNews = '\n\nRelevant News:\n' + allArticles
               .map(article => `• ${article.title}`)
               .join('\n');
           }
@@ -148,10 +320,9 @@ const Chatbot = () => {
 Current date: ${currentDateTime.date}
 Day of week: ${currentDateTime.day}
 Month: ${currentDateTime.month}
-Year: ${currentDateTime.year}${latestNews}`;
+Year: ${currentDateTime.year}${latestNews}${realTimeContext}`;
 
       const contents = [
-        // System prompt to set the behavior
         {
           role: "user",
           parts: [{
@@ -169,7 +340,10 @@ Guidelines:
 - Ask clarifying questions if the student's doubt isn't clear
 - For math/science problems, show step-by-step solutions
 - For humanities, provide structured analysis frameworks
-- Never provide direct answers to exam/test questions
+- Never provide direct answers to exam/test questions unless it is related to general knowledge or current affairs or sports
+- Answer general knowledge, sports, current affairs, history, geography, etc. questions. Dont consider these as non academic.
+- When "REAL-TIME INFORMATION" is provided, ALWAYS use the Direct Answer as your primary response if it exists. If not, summarize the top Sources clearly and directly answer the question. Never say "I don't know" if any Direct Answer or Source content is available.
+- For real-time factual queries, you MUST use the provided real-time information to give accurate answers. Do not make up or guess information.
 - Encourage learning through guided explanation
 
 OUTPUT FORMAT RULES:
