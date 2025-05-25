@@ -46,6 +46,8 @@ import UserProfile from './Components/Features/UserProfile'; // Import the UserP
 import EducatorProfilePage from './Components/Features/EducatorProfilePage'; // Import the EducatorProfilePage component  
 import EducatorSettings from './Components/Features/EducatorSettings'; // Import the EducatorSettings component
 import ViewOnlyProfile from './Components/Features/ViewOnlyProfile'; // Import the ViewOnlyProfile component
+import GradesAndAnalytics from './Components/Features/GradesAndAnalytics';
+import GradesAndFeedback from './Components/Features/GradesAndFeedback';
 
 
 const Layout = ({ children, showHeaderFooter = true }) => (
@@ -190,15 +192,8 @@ function App() {
           path="/attendance-tracking"
           element={<AttendanceTracking />}
         />
-        {/* Feedback Dashboard */}
-        <Route
-          path="/feedback-dashboard"
-          element={
-            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
-              <FeedbackDashboard />
-            </Layout>
-          }
-        /> 
+
+      
         {/* Suggestions to Students */}
         <Route
           path="/suggestions-to-students"
@@ -213,15 +208,7 @@ function App() {
             </Layout>
           }
         />
-        {/* Collaboration Hub */}
-        <Route
-          path="/collaboration-hub"
-          element={
-            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
-              <CollaborationHub />
-            </Layout>
-          }
-        />
+        
         {/* Announcements Page */}
         <Route
           path="/announcements"
@@ -231,15 +218,7 @@ function App() {
             </Layout>
           }
         />
-        {/* Grading System */}
-        <Route
-          path="/grading-system"
-          element={
-            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
-              <GradingSystem />
-            </Layout>
-          }
-        />
+        
         {/* Smart Review */}
         <Route
           path="/smart-review"
@@ -288,15 +267,7 @@ function App() {
             </Layout>
           }
         />
-        {/* Grades Route */}
-        <Route
-          path="/grading-access"
-          element={
-            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
-              <Grades />
-            </Layout>
-          }
-        />
+        
 
         {/* Assignment Submission Route */}
         <Route
@@ -353,15 +324,7 @@ function App() {
             </Layout>
           }
         />
-        {/*Personalized Feedback */}
-        <Route
-          path="/personalized-feedback"
-          element={
-            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
-              <PersonalizedFeedback />
-            </Layout>
-          } 
-        />
+        
         {/*Educational News Page */}
         <Route
           path="/educational-news"
@@ -385,6 +348,24 @@ function App() {
           element={
             <Layout showHeaderFooter={false}>
               <MeetingHost />
+            </Layout>
+          }
+        />
+        {/* Grades & Analytics Route */}
+        <Route
+          path="/GradesAndAnalytics"
+          element={
+            <Layout showHeaderFooter={false}>
+              <GradesAndAnalytics />
+            </Layout>
+          }
+        />
+        {/* Grades & Analytics Route */}
+        <Route
+          path="/GradesAndFeedback"
+          element={
+            <Layout showHeaderFooter={false}>
+              <GradesAndFeedback />
             </Layout>
           }
         />

@@ -198,7 +198,7 @@ const ProfileDropdown = ({ role, onClose, handleLogout }) => {
         </Link>
         <button
           onClick={handleLogoutClick}
-          className="w-full text-left p-2 text-red-400 hover:bg-gray-700 rounded-md text-sm"
+          className="w-full text-left p-2 text-red-400 hover:bg-gray-700 rounded-md text-sm sm:text-base"
         >
           Logout
         </button>
@@ -258,9 +258,8 @@ const MobileDashboard = ({ role }) => {
     { title: 'Resources', Icon: FolderIcon, link: '/resource-utilization' },
     { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-monitoring' },
     { title: 'Assignments', Icon: ClipboardDocumentIcon, link: '/assignment-submission' },
-    { title: 'Grades', Icon: PresentationChartLineIcon, link: '/grading-access' },
+    { title: 'Grades & Feedback', Icon: PresentationChartLineIcon, link: '/GradesAndFeedback' },
     { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-access' },
-    { title: 'Feedback', Icon: LightBulbIcon, link: '/personalized-feedback' },
     { title: 'Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
     { title: 'News', Icon: UsersIcon, link: '/educational-news' },
     { title: 'Argue AI', Icon: UsersIcon, link: '/argue-ai' },
@@ -809,11 +808,11 @@ const DesktopDashboard = ({ role }) => {
     { title: 'Resources', Icon: FolderIcon, link: '/resource-utilization' },
     { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-monitoring' },
     { title: 'Assignments', Icon: ClipboardDocumentIcon, link: '/assignment-submission' },
-    { title: 'Grades', Icon: PresentationChartLineIcon, link: '/grading-access' },
+    { title: 'Grades & Feedback', Icon: PresentationChartLineIcon, link: '/GradesAndFeedback' },
     { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-access' },
-    { title: 'Feedback', Icon: LightBulbIcon, link: '/personalized-feedback' },
     { title: 'Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
     { title: 'News', Icon: UsersIcon, link: '/educational-news' },
+    { title: 'Argue AI', Icon: UsersIcon, link: '/argue-ai' },
     { title: 'Smart Review', Icon: UsersIcon, link: '/smart-review' },
     { title: 'Meetings', Icon: VideoCameraIcon, link: '/meeting-participation' },
     { title: 'Social', Icon: ChatBubbleLeftRightIcon, link: '/chat-functionality' },

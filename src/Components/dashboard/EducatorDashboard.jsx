@@ -68,11 +68,10 @@ const DesktopEducatorDashboard = ({ role }) => {
 
   const educatorMenu = [
     { title: 'Assignments', Icon: ClipboardDocumentIcon, link: '/assignment-management' },
-    { title: 'Grades', Icon: AcademicCapIcon, link: '/grading-system' },
+    { title: 'Grades & Analytics', Icon: AcademicCapIcon, link: '/GradesAndAnalytics' },
     { title: 'Resources', Icon: FolderIcon, link: '/resource-management' },
     { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-tracking' },
     { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
-    { title: 'Feedback', Icon: LightBulbIcon, link: '/feedback-dashboard' },
     { title: 'Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
     { title: 'Social', Icon: ChatBubbleLeftRightIcon, link: '/chat-functionality' },
     { title: 'News', Icon: UsersIcon, link: '/educational-news' },
@@ -392,11 +391,10 @@ const MobileEducatorDashboard = ({ role }) => {
 
   const educatorMenu = [
     { title: 'Assignments', Icon: ClipboardDocumentIcon, link: '/assignment-management' },
-    { title: 'Grades', Icon: AcademicCapIcon, link: '/grading-system' },
+    { title: 'Grades & Analytics', Icon: AcademicCapIcon, link: '/GradesAndAnalytics' },
     { title: 'Resources', Icon: FolderIcon, link: '/resource-management' },
     { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-tracking' },
     { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
-    { title: 'Feedback', Icon: LightBulbIcon, link: '/feedback-dashboard' },
     { title: 'Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
     { title: 'Social', Icon: ChatBubbleLeftRightIcon, link: '/chat-functionality', highlight: true },
     { title: 'News', Icon: UsersIcon, link: '/educational-news' },

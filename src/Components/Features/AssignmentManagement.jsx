@@ -1,5 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router';
+import { storage, db } from '../../firebase/firebaseConfig';
+import { collection, addDoc, getDocs, query, where, updateDoc, doc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import {
   ClipboardDocumentIcon,
   CalendarIcon,
@@ -28,28 +31,8 @@ const AssignmentManagement = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [assignments, setAssignments] = useState([
-    {
-      id: 1,
-      title: 'Algebra Basics',
-      subject: 'Mathematics',
-      dueDate: '2023-11-15',
-      status: 'Published',
-      submissions: 45,
-      averageGrade: 78,
-      attachments: 3,
-    },
-    {
-      id: 2,
-      title: 'Chemical Reactions Lab',
-      subject: 'Chemistry',
-      dueDate: '2023-11-18',
-      status: 'Draft',
-      submissions: 0,
-      averageGrade: null,
-      attachments: 1,
-    },
-  ]);
+  const [assignments, setAssignments] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const [newAssignment, setNewAssignment] = useState({
     title: '',
@@ -58,6 +41,10 @@ const AssignmentManagement = () => {
     instructions: '',
     maxPoints: 100,
     attachments: [],
+    rubric: '',
+    totalSubmissions: 0,
+    createdAt: new Date(),
+    status: 'draft'
   });
 
   const educatorMenu = [
@@ -84,29 +71,69 @@ const AssignmentManagement = () => {
 
   const COLORS = ['#60a5fa', '#3b82f6', '#2563eb', '#1d4ed8', '#1e40af'];
 
-  const handleCreateAssignment = (e) => {
+  useEffect(() => {
+    fetchAssignments();
+  }, []);
+
+  const fetchAssignments = async () => {
+    try {
+      const assignmentsRef = collection(db, 'assignments');
+      const q = query(assignmentsRef, where('teacherId', '==', auth.currentUser.uid));
+      const querySnapshot = await getDocs(q);
+      const assignmentsList = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setAssignments(assignmentsList);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching assignments:', error);
+      setLoading(false);
+    }
+  };
+
+  const handleCreateAssignment = async (e) => {
     e.preventDefault();
-    const assignment = {
-      id: assignments.length + 1,
-      title: newAssignment.title,
-      subject: newAssignment.subject,
-      dueDate: newAssignment.dueDate,
-      status: 'Draft',
-      submissions: 0,
-      averageGrade: null,
-      attachments: newAssignment.attachments.length,
-    };
-    setAssignments([assignment, ...assignments]);
-    setShowCreateModal(false);
-    setNewAssignment({
-      title: '',
-      subject: 'Mathematics',
-      dueDate: '',
-      instructions: '',
-      maxPoints: 100,
-      attachments: [],
-    });
-    alert('Assignment created successfully!');
+    try {
+      // Upload attachments to Firebase Storage
+      const attachmentUrls = await Promise.all(
+        newAssignment.attachments.map(async (file) => {
+          const storageRef = ref(storage, `assignments/${Date.now()}_${file.name}`);
+          await uploadBytes(storageRef, file);
+          return getDownloadURL(storageRef);
+        })
+      );
+
+      // Create assignment document in Firestore
+      const assignmentData = {
+        ...newAssignment,
+        teacherId: auth.currentUser.uid,
+        attachmentUrls,
+        createdAt: new Date(),
+        status: 'published',
+        totalSubmissions: 0
+      };
+
+      const docRef = await addDoc(collection(db, 'assignments'), assignmentData);
+      
+      setAssignments([{ id: docRef.id, ...assignmentData }, ...assignments]);
+      setShowCreateModal(false);
+      setNewAssignment({
+        title: '',
+        subject: 'Mathematics',
+        dueDate: '',
+        instructions: '',
+        maxPoints: 100,
+        attachments: [],
+        rubric: '',
+        totalSubmissions: 0,
+        createdAt: new Date(),
+        status: 'draft'
+      });
+    } catch (error) {
+      console.error('Error creating assignment:', error);
+      alert('Error creating assignment. Please try again.');
+    }
   };
 
   const handleFileUpload = (e) => {
@@ -149,6 +176,7 @@ const AssignmentManagement = () => {
                 <option>Science</option>
                 <option>Literature</option>
                 <option>History</option>
+                <option>Computer Science</option>
               </select>
             </div>
           </div>
@@ -160,6 +188,19 @@ const AssignmentManagement = () => {
               value={newAssignment.instructions}
               onChange={(e) => setNewAssignment({ ...newAssignment, instructions: e.target.value })}
               className="w-full bg-gray-700 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-gray-300">Grading Rubric</label>
+            <textarea
+              rows="4"
+              value={newAssignment.rubric}
+              onChange={(e) => setNewAssignment({ ...newAssignment, rubric: e.target.value })}
+              className="w-full bg-gray-700 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
+              placeholder="Enter grading criteria and expectations..."
+              required
             />
           </div>
 
@@ -167,7 +208,7 @@ const AssignmentManagement = () => {
             <div className="space-y-2">
               <label className="block text-gray-300">Due Date</label>
               <input
-                type="date"
+                type="datetime-local"
                 value={newAssignment.dueDate}
                 onChange={(e) => setNewAssignment({ ...newAssignment, dueDate: e.target.value })}
                 className="w-full bg-gray-700 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
@@ -181,6 +222,7 @@ const AssignmentManagement = () => {
                 value={newAssignment.maxPoints}
                 onChange={(e) => setNewAssignment({ ...newAssignment, maxPoints: e.target.value })}
                 className="w-full bg-gray-700 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
+                required
               />
             </div>
             <div className="space-y-2">
@@ -197,6 +239,7 @@ const AssignmentManagement = () => {
                 className="flex items-center justify-center h-full border-2 border-dashed border-gray-600 rounded-lg py-4 hover:border-blue-400 transition-colors cursor-pointer"
               >
                 <PlusIcon className="w-6 h-6 text-gray-400" />
+                <span className="ml-2 text-gray-400">Upload Files</span>
               </label>
             </div>
           </div>
@@ -332,50 +375,54 @@ const AssignmentManagement = () => {
                 </div>
 
                 <div className="space-y-4">
-                  {assignments.map(assignment => (
-                    <div key={assignment.id} className="group p-4 bg-gray-900/30 rounded-lg hover:bg-gray-800/50 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="text-lg font-medium text-white">{assignment.title}</h4>
-                          <div className="flex items-center gap-4 mt-2 text-sm text-gray-400">
-                            <span className="flex items-center gap-1">
-                              <CalendarIcon className="w-4 h-4" />
-                              Due: {assignment.dueDate}
-                            </span>
-                            <span className={`px-2 py-1 rounded-full ${assignment.status === 'Published' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
-                              {assignment.status}
-                            </span>
+                  {loading ? (
+                    <div className="text-center text-gray-400">Loading assignments...</div>
+                  ) : (
+                    assignments.map(assignment => (
+                      <div key={assignment.id} className="group p-4 bg-gray-900/30 rounded-lg hover:bg-gray-800/50 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="text-lg font-medium text-white">{assignment.title}</h4>
+                            <div className="flex items-center gap-4 mt-2 text-sm text-gray-400">
+                              <span className="flex items-center gap-1">
+                                <CalendarIcon className="w-4 h-4" />
+                                Due: {new Date(assignment.dueDate).toLocaleDateString()}
+                              </span>
+                              <span className={`px-2 py-1 rounded-full ${assignment.status === 'published' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                                {assignment.status}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <button className="p-2 hover:bg-gray-700 rounded-lg">
+                              <PencilIcon className="w-5 h-5 text-blue-400" />
+                            </button>
+                            <button className="p-2 hover:bg-gray-700 rounded-lg">
+                              <TrashIcon className="w-5 h-5 text-red-400" />
+                            </button>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4">
-                          <button className="p-2 hover:bg-gray-700 rounded-lg">
-                            <PencilIcon className="w-5 h-5 text-blue-400" />
-                          </button>
-                          <button className="p-2 hover:bg-gray-700 rounded-lg">
-                            <TrashIcon className="w-5 h-5 text-red-400" />
-                          </button>
+                        
+                        {/* Assignment Metrics */}
+                        <div className="grid grid-cols-3 gap-4 mt-4">
+                          <div className="text-center p-2 bg-gray-800/50 rounded-lg">
+                            <p className="text-sm text-gray-400">Submissions</p>
+                            <p className="text-xl font-bold text-white">{assignment.totalSubmissions}</p>
+                          </div>
+                          <div className="text-center p-2 bg-gray-800/50 rounded-lg">
+                            <p className="text-sm text-gray-400">Avg Grade</p>
+                            <p className="text-xl font-bold text-white">
+                              {assignment.averageGrade || '--'}%
+                            </p>
+                          </div>
+                          <div className="text-center p-2 bg-gray-800/50 rounded-lg">
+                            <p className="text-sm text-gray-400">Attachments</p>
+                            <p className="text-xl font-bold text-white">{assignment.attachments.length}</p>
+                          </div>
                         </div>
                       </div>
-                      
-                      {/* Assignment Metrics */}
-                      <div className="grid grid-cols-3 gap-4 mt-4">
-                        <div className="text-center p-2 bg-gray-800/50 rounded-lg">
-                          <p className="text-sm text-gray-400">Submissions</p>
-                          <p className="text-xl font-bold text-white">{assignment.submissions}</p>
-                        </div>
-                        <div className="text-center p-2 bg-gray-800/50 rounded-lg">
-                          <p className="text-sm text-gray-400">Avg Grade</p>
-                          <p className="text-xl font-bold text-white">
-                            {assignment.averageGrade || '--'}%
-                          </p>
-                        </div>
-                        <div className="text-center p-2 bg-gray-800/50 rounded-lg">
-                          <p className="text-sm text-gray-400">Attachments</p>
-                          <p className="text-xl font-bold text-white">{assignment.attachments}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
             </div>

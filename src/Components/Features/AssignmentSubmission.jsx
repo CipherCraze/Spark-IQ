@@ -14,8 +14,14 @@ import {
   ArrowUpTrayIcon,
   ChartBarIcon,
   FolderIcon,
-  SparklesIcon
+  SparklesIcon,
+  CalendarIcon,
+  XCircleIcon
 } from '@heroicons/react/24/outline';
+import { storage, db } from '../../firebase/firebaseConfig';
+import { collection, getDocs, query, where, addDoc, updateDoc, doc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { auth } from '../../firebase/firebaseConfig';
 
 const AssignmentSubmission = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -25,6 +31,11 @@ const AssignmentSubmission = () => {
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [evaluationResult, setEvaluationResult] = useState(null);
   const [error, setError] = useState(null);
+  const [assignments, setAssignments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState(null);
 
   const submissionHistory = [
     {
@@ -82,61 +93,96 @@ const AssignmentSubmission = () => {
     console.log('Gemini API Key configured:', !!import.meta.env.VITE_GEMINI_API_KEY);
   }, []);
 
+  useEffect(() => {
+    fetchAssignments();
+  }, []);
+
+  const fetchAssignments = async () => {
+    try {
+      const assignmentsRef = collection(db, 'assignments');
+      const q = query(assignmentsRef, where('status', '==', 'published'));
+      const querySnapshot = await getDocs(q);
+      const assignmentsList = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setAssignments(assignmentsList);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching assignments:', error);
+      setLoading(false);
+    }
+  };
+
   const handleFileChange = (selectedFile) => {
     setFile(selectedFile);
   };
 
-  const handleSubmit = async () => {
-    if (!file) {
-      alert('Please select a file to submit.');
+  const handleSubmit = async (assignmentId) => {
+    if (!selectedFile) {
+      alert('Please select a file to submit');
       return;
     }
 
+    setSubmitting(true);
     try {
-      setIsEvaluating(true);
-      setError(null);
+      // Upload submission file to Firebase Storage
+      const storageRef = ref(storage, `submissions/${assignmentId}/${auth.currentUser.uid}/${selectedFile.name}`);
+      await uploadBytes(storageRef, selectedFile);
+      const fileUrl = await getDownloadURL(storageRef);
 
-      // Read file content
-      const content = await file.text();
-      
-      // Get assignment type from the current assignment
-      const currentAssignment = submissionHistory.find(a => a.status === 'Submitted');
-      const assignmentType = currentAssignment?.assignment || 'General Assignment';
+      // Create submission document in Firestore
+      const submissionData = {
+        assignmentId,
+        studentId: auth.currentUser.uid,
+        studentName: auth.currentUser.displayName,
+        fileUrl,
+        fileName: selectedFile.name,
+        submittedAt: new Date(),
+        status: 'pending',
+        feedback: null,
+        grade: null
+      };
 
-      // Evaluate the assignment
-      const result = await evaluateAssignment(content, assignmentType);
-      setEvaluationResult(result);
+      const submissionRef = await addDoc(collection(db, 'submissions'), submissionData);
 
-      // Update submission history with evaluation results
-      const updatedHistory = submissionHistory.map(sub => {
-        if (sub.status === 'Submitted') {
-          return {
-            ...sub,
-            status: 'Graded',
-            grade: result.grade,
-            feedback: result.feedback,
-            evaluatedAt: result.timestamp
-          };
-        }
-        return sub;
+      // Update assignment's total submissions count
+      const assignmentRef = doc(db, 'assignments', assignmentId);
+      await updateDoc(assignmentRef, {
+        totalSubmissions: assignments.find(a => a.id === assignmentId).totalSubmissions + 1
       });
 
-      // Update the submission history (in a real app, this would be an API call)
-      // setSubmissionHistory(updatedHistory);
+      // Process submission with Gemini
+      const response = await fetch('/api/grade-submission', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          submissionId: submissionRef.id,
+          assignmentId,
+          fileUrl,
+          rubric: assignments.find(a => a.id === assignmentId).rubric
+        }),
+      });
 
-      alert('Assignment submitted and evaluated successfully!');
-      setFile(null);
-    } catch (err) {
-      const errorMessage = err.message || 'Failed to evaluate assignment. Please try again.';
-      setError(errorMessage);
-      console.error('Evaluation error:', err);
-      
-      // If it's a rate limit error, show a more user-friendly message
-      if (errorMessage.includes('Rate limit exceeded')) {
-        alert('The system is currently busy. Please try again in a few minutes.');
-      }
+      const result = await response.json();
+      setFeedback(result);
+
+      // Update submission with feedback
+      await updateDoc(doc(db, 'submissions', submissionRef.id), {
+        status: 'graded',
+        feedback: result.feedback,
+        grade: result.grade
+      });
+
+      setSelectedFile(null);
+      fetchAssignments(); // Refresh assignments list
+    } catch (error) {
+      console.error('Error submitting assignment:', error);
+      alert('Error submitting assignment. Please try again.');
     } finally {
-      setIsEvaluating(false);
+      setSubmitting(false);
     }
   };
 
@@ -151,6 +197,16 @@ const AssignmentSubmission = () => {
       default:
         return <ClockIcon className="w-5 h-5 text-gray-400" />;
     }
+  };
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   return (
@@ -279,105 +335,117 @@ const AssignmentSubmission = () => {
           {/* Current Assignments */}
           {activeTab === 'current' && (
             <div className="space-y-4">
-              {currentAssignments.length > 0 ? (
-                currentAssignments.map((assignment) => (
-                  <div key={assignment.id} className="bg-gray-800/50 rounded-xl border border-gray-700/50 overflow-hidden hover:shadow-lg transition-shadow">
-                    <div className="p-4 md:p-6">
-                      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <h3 className="text-xl font-semibold text-white mb-1">
-                            {assignment.assignment}
-                          </h3>
-                          <div className="flex items-center gap-2 text-sm text-gray-400">
-                            <ClockIcon className="w-4 h-4" />
-                            <span>Due: {assignment.dueDate}</span>
-                          </div>
-                        </div>
-                        <span className="flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-blue-500/20 text-blue-400 h-fit">
-                          {getStatusIcon(assignment.status)}
-                          {assignment.status}
-                        </span>
-                      </div>
-
-                      <div className="mt-4">
-                        <p className="text-gray-300 mb-4">{assignment.instructions}</p>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="bg-gray-900/30 p-4 rounded-lg">
-                            <h4 className="text-gray-400 text-sm mb-2">Your Submission</h4>
-                            {assignment.file ? (
-                              <div className="flex items-center gap-2">
-                                <PaperClipIcon className="w-5 h-5 text-gray-400" />
-                                <span className="text-white truncate">{assignment.file}</span>
-                              </div>
-                            ) : (
-                              <p className="text-gray-400">No file submitted yet</p>
-                            )}
-                          </div>
-
-                          <div className="bg-gray-900/30 p-4 rounded-lg">
-                            <FileUpload 
-                              onFileChange={handleFileChange}
-                              onSubmit={handleSubmit}
-                              file={file}
-                              isEvaluating={isEvaluating}
-                            />
-                          </div>
-                        </div>
-
-                        {isEvaluating && (
-                          <div className="mt-4 p-4 bg-blue-500/10 rounded-lg flex items-center gap-3">
-                            <SparklesIcon className="w-5 h-5 text-blue-400 animate-pulse" />
-                            <p className="text-blue-400">Evaluating your submission...</p>
-                          </div>
-                        )}
-
-                        {error && (
-                          <div className="mt-4 p-4 bg-red-500/10 rounded-lg flex items-center gap-3">
-                            <ExclamationCircleIcon className="w-5 h-5 text-red-400" />
-                            <p className="text-red-400">{error}</p>
-                          </div>
-                        )}
-
-                        {evaluationResult && (
-                          <div className="mt-4 p-6 bg-gray-900/30 rounded-lg border border-gray-700/50">
-                            <h4 className="text-xl font-semibold text-white mb-4">Evaluation Results</h4>
-                            <div className="space-y-6">
-                              <div className="flex items-center justify-between bg-gray-800/50 p-4 rounded-lg">
-                                <span className="text-gray-300">Grade:</span>
-                                <span className="text-2xl font-bold text-white">{evaluationResult.grade}%</span>
-                              </div>
-                              
-                              <div className="space-y-4">
-                                <h5 className="text-lg font-medium text-white">Feedback:</h5>
-                                <div className="prose prose-invert max-w-none">
-                                  {evaluationResult.feedback.split('\n').map((paragraph, index) => (
-                                    paragraph.trim() ? (
-                                      <p key={index} className="text-white mb-3 leading-relaxed">
-                                        {paragraph}
-                                      </p>
-                                    ) : null
-                                  ))}
-                                </div>
-                              </div>
-
-                              <div className="flex items-center gap-2 text-sm text-gray-400">
-                                <ClockIcon className="w-4 h-4" />
-                                <span>Evaluated on: {new Date(evaluationResult.timestamp).toLocaleString()}</span>
-                              </div>
+              {loading ? (
+                <div className="text-center text-gray-400">Loading assignments...</div>
+              ) : (
+                assignments.length > 0 ? (
+                  assignments.map((assignment) => (
+                    <div key={assignment.id} className="bg-gray-800/50 rounded-xl border border-gray-700/50 overflow-hidden hover:shadow-lg transition-shadow">
+                      <div className="p-4 md:p-6">
+                        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <h3 className="text-xl font-semibold text-white mb-1">
+                              {assignment.title}
+                            </h3>
+                            <div className="flex items-center gap-2 text-sm text-gray-400">
+                              <CalendarIcon className="w-4 h-4" />
+                              <span>Due: {formatDate(assignment.dueDate)}</span>
                             </div>
                           </div>
-                        )}
+                          <span className="flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-blue-500/20 text-blue-400 h-fit">
+                            {getStatusIcon(assignment.status)}
+                            {assignment.status}
+                          </span>
+                        </div>
+
+                        <div className="mt-4">
+                          <p className="text-gray-300 mb-4">{assignment.instructions}</p>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="bg-gray-900/30 p-4 rounded-lg">
+                              <h4 className="text-gray-400 text-sm mb-2">Your Submission</h4>
+                              {assignment.file ? (
+                                <div className="flex items-center gap-2">
+                                  <PaperClipIcon className="w-5 h-5 text-gray-400" />
+                                  <span className="text-white truncate">{assignment.file}</span>
+                                </div>
+                              ) : (
+                                <p className="text-gray-400">No file submitted yet</p>
+                              )}
+                            </div>
+
+                            <div className="bg-gray-900/30 p-4 rounded-lg">
+                              <FileUpload 
+                                onFileChange={(e) => {
+                                  const file = e.target.files[0];
+                                  if (file) {
+                                    setSelectedFile(file);
+                                  }
+                                }}
+                                onSubmit={(e) => {
+                                  e.preventDefault();
+                                  handleSubmit(assignment.id);
+                                }}
+                                file={selectedFile}
+                                isEvaluating={submitting}
+                              />
+                            </div>
+                          </div>
+
+                          {submitting && (
+                            <div className="mt-4 p-4 bg-blue-500/10 rounded-lg flex items-center gap-3">
+                              <ClockIcon className="w-5 h-5 animate-spin" />
+                              <p className="text-blue-400">Submitting...</p>
+                            </div>
+                          )}
+
+                          {error && (
+                            <div className="mt-4 p-4 bg-red-500/10 rounded-lg flex items-center gap-3">
+                              <ExclamationCircleIcon className="w-5 h-5 text-red-400" />
+                              <p className="text-red-400">{error}</p>
+                            </div>
+                          )}
+
+                          {feedback && feedback.assignmentId === assignment.id && (
+                            <div className="mt-4 p-6 bg-gray-900/30 rounded-lg border border-gray-700/50">
+                              <h4 className="text-xl font-semibold text-white mb-4">Feedback</h4>
+                              <div className="space-y-6">
+                                <div className="flex items-center justify-between bg-gray-800/50 p-4 rounded-lg">
+                                  <span className="text-gray-300">Grade:</span>
+                                  <span className="text-2xl font-bold text-white">{feedback.grade}/{assignment.maxPoints}</span>
+                                </div>
+                                
+                                <div className="space-y-4">
+                                  <h5 className="text-lg font-medium text-white">Feedback:</h5>
+                                  <div className="prose prose-invert max-w-none">
+                                    {feedback.feedback.split('\n').map((paragraph, index) => (
+                                      paragraph.trim() ? (
+                                        <p key={index} className="text-white mb-3 leading-relaxed">
+                                          {paragraph}
+                                        </p>
+                                      ) : null
+                                    ))}
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 text-sm text-gray-400">
+                                  <ClockIcon className="w-4 h-4" />
+                                  <span>Evaluated on: {new Date(feedback.timestamp).toLocaleString()}</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
+                  ))
+                ) : (
+                  <div className="text-center py-12">
+                    <DocumentTextIcon className="w-12 h-12 mx-auto text-gray-500 mb-4" />
+                    <h3 className="text-lg font-medium text-gray-400">No current assignments</h3>
+                    <p className="text-gray-500 mt-1">Check back later for new assignments</p>
                   </div>
-                ))
-              ) : (
-                <div className="text-center py-12">
-                  <DocumentTextIcon className="w-12 h-12 mx-auto text-gray-500 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-400">No current assignments</h3>
-                  <p className="text-gray-500 mt-1">Check back later for new assignments</p>
-                </div>
+                )
               )}
             </div>
           )}
