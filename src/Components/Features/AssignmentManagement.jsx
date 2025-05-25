@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router';
-import { storage, db } from '../../firebase/firebaseConfig';
+import { Link } from 'react-router-dom';
+import { storage, db, auth } from '../../firebase/firebaseConfig';
 import { collection, addDoc, getDocs, query, where, updateDoc, doc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import {
@@ -33,6 +33,7 @@ const AssignmentManagement = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
 
   const [newAssignment, setNewAssignment] = useState({
     title: '',
@@ -49,7 +50,7 @@ const AssignmentManagement = () => {
 
   const educatorMenu = [
     { title: 'Dashboard', Icon: AcademicCapIcon, link: '/educator-dashboard' },
-    { title : 'Grades', Icon: DocumentTextIcon, link: '/grading-system' },
+    { title: 'Grades', Icon: DocumentTextIcon, link: '/grading-system' },
     { title: 'Resources', Icon: FolderIcon, link: '/resource-management' },
     { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-tracking' },
     { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
@@ -94,11 +95,18 @@ const AssignmentManagement = () => {
 
   const handleCreateAssignment = async (e) => {
     e.preventDefault();
+    setUploading(true);
+    
     try {
+      // Validate required fields
+      if (!newAssignment.title || !newAssignment.instructions || !newAssignment.rubric || !newAssignment.dueDate) {
+        throw new Error('Please fill all required fields');
+      }
+
       // Upload attachments to Firebase Storage
       const attachmentUrls = await Promise.all(
         newAssignment.attachments.map(async (file) => {
-          const storageRef = ref(storage, `assignments/${Date.now()}_${file.name}`);
+          const storageRef = ref(storage, `assignments/${auth.currentUser.uid}/${Date.now()}_${file.name}`);
           await uploadBytes(storageRef, file);
           return getDownloadURL(storageRef);
         })
@@ -106,18 +114,28 @@ const AssignmentManagement = () => {
 
       // Create assignment document in Firestore
       const assignmentData = {
-        ...newAssignment,
-        teacherId: auth.currentUser.uid,
+        title: newAssignment.title,
+        subject: newAssignment.subject,
+        dueDate: newAssignment.dueDate,
+        instructions: newAssignment.instructions,
+        maxPoints: Number(newAssignment.maxPoints),
         attachmentUrls,
-        createdAt: new Date(),
+        rubric: newAssignment.rubric,
+        teacherId: auth.currentUser.uid,
+        teacherName: auth.currentUser.displayName || 'Teacher',
+        createdAt: new Date().toISOString(),
         status: 'published',
-        totalSubmissions: 0
+        totalSubmissions: 0,
+        averageGrade: 0
       };
 
       const docRef = await addDoc(collection(db, 'assignments'), assignmentData);
       
+      // Update local state with new assignment
       setAssignments([{ id: docRef.id, ...assignmentData }, ...assignments]);
       setShowCreateModal(false);
+      
+      // Reset form
       setNewAssignment({
         title: '',
         subject: 'Mathematics',
@@ -132,18 +150,32 @@ const AssignmentManagement = () => {
       });
     } catch (error) {
       console.error('Error creating assignment:', error);
-      alert('Error creating assignment. Please try again.');
+      alert(`Error: ${error.message}`);
+    } finally {
+      setUploading(false);
     }
   };
 
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files);
-    setNewAssignment({ ...newAssignment, attachments: files });
+    if (files.length > 0) {
+      setNewAssignment(prev => ({
+        ...prev,
+        attachments: [...prev.attachments, ...files]
+      }));
+    }
+  };
+
+  const removeAttachment = (index) => {
+    setNewAssignment(prev => ({
+      ...prev,
+      attachments: prev.attachments.filter((_, i) => i !== index)
+    }));
   };
 
   const CreateAssignmentModal = () => (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-xl p-8 w-full max-w-2xl relative">
+      <div className="bg-gray-800 rounded-xl p-8 w-full max-w-2xl relative max-h-[90vh] overflow-y-auto">
         <button
           onClick={() => setShowCreateModal(false)}
           className="absolute top-4 right-4 text-gray-400 hover:text-white"
@@ -156,7 +188,7 @@ const AssignmentManagement = () => {
         <form onSubmit={handleCreateAssignment} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <label className="block text-gray-300">Assignment Title</label>
+              <label className="block text-gray-300">Assignment Title *</label>
               <input
                 type="text"
                 value={newAssignment.title}
@@ -166,23 +198,24 @@ const AssignmentManagement = () => {
               />
             </div>
             <div className="space-y-2">
-              <label className="block text-gray-300">Subject</label>
+              <label className="block text-gray-300">Subject *</label>
               <select
                 value={newAssignment.subject}
                 onChange={(e) => setNewAssignment({ ...newAssignment, subject: e.target.value })}
                 className="w-full bg-gray-700 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
+                required
               >
-                <option>Mathematics</option>
-                <option>Science</option>
-                <option>Literature</option>
-                <option>History</option>
-                <option>Computer Science</option>
+                <option value="Mathematics">Mathematics</option>
+                <option value="Science">Science</option>
+                <option value="Literature">Literature</option>
+                <option value="History">History</option>
+                <option value="Computer Science">Computer Science</option>
               </select>
             </div>
           </div>
 
           <div className="space-y-2">
-            <label className="block text-gray-300">Instructions</label>
+            <label className="block text-gray-300">Instructions *</label>
             <textarea
               rows="4"
               value={newAssignment.instructions}
@@ -193,7 +226,7 @@ const AssignmentManagement = () => {
           </div>
 
           <div className="space-y-2">
-            <label className="block text-gray-300">Grading Rubric</label>
+            <label className="block text-gray-300">Grading Rubric *</label>
             <textarea
               rows="4"
               value={newAssignment.rubric}
@@ -206,7 +239,7 @@ const AssignmentManagement = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-2">
-              <label className="block text-gray-300">Due Date</label>
+              <label className="block text-gray-300">Due Date *</label>
               <input
                 type="datetime-local"
                 value={newAssignment.dueDate}
@@ -216,9 +249,10 @@ const AssignmentManagement = () => {
               />
             </div>
             <div className="space-y-2">
-              <label className="block text-gray-300">Max Points</label>
+              <label className="block text-gray-300">Max Points *</label>
               <input
                 type="number"
+                min="1"
                 value={newAssignment.maxPoints}
                 onChange={(e) => setNewAssignment({ ...newAssignment, maxPoints: e.target.value })}
                 className="w-full bg-gray-700 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
@@ -241,6 +275,23 @@ const AssignmentManagement = () => {
                 <PlusIcon className="w-6 h-6 text-gray-400" />
                 <span className="ml-2 text-gray-400">Upload Files</span>
               </label>
+              
+              {newAssignment.attachments.length > 0 && (
+                <div className="mt-2 space-y-2">
+                  {newAssignment.attachments.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between bg-gray-700/50 p-2 rounded">
+                      <span className="text-sm text-gray-300 truncate">{file.name}</span>
+                      <button 
+                        type="button"
+                        onClick={() => removeAttachment(index)}
+                        className="text-red-400 hover:text-red-300"
+                      >
+                        <XMarkIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -249,15 +300,29 @@ const AssignmentManagement = () => {
               type="button"
               onClick={() => setShowCreateModal(false)}
               className="px-6 py-2.5 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
+              disabled={uploading}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 transition-colors flex items-center gap-2"
+              className="px-6 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 transition-colors flex items-center gap-2 disabled:opacity-50"
+              disabled={uploading}
             >
-              <PlusIcon className="w-5 h-5" />
-              Create Assignment
+              {uploading ? (
+                <>
+                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <PlusIcon className="w-5 h-5" />
+                  Create Assignment
+                </>
+              )}
             </button>
           </div>
         </form>
@@ -324,61 +389,89 @@ const AssignmentManagement = () => {
           </div>
         </header>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            {[
-              { title: 'Total Assignments', value: 24, icon: DocumentTextIcon, color: 'blue' },
-              { title: 'Pending Submissions', value: 156, icon: ClipboardDocumentIcon, color: 'purple' },
-              { title: 'Average Grade', value: '78%', icon: AcademicCapIcon, color: 'green' },
-              { title: 'Completion Rate', value: '82%', icon: ChartBarIcon, color: 'indigo' },
-            ].map((stat, index) => (
-              <div key={index} className={`bg-gradient-to-br from-${stat.color}-600/20 to-${stat.color}-600/10 p-6 rounded-xl border border-${stat.color}-500/20 hover:shadow-lg transition-all`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-400 text-sm mb-1">{stat.title}</p>
-                    <p className="text-2xl font-bold text-white">{stat.value}</p>
-                  </div>
-                  <stat.icon className={`w-12 h-12 p-2.5 rounded-full bg-${stat.color}-500/20 text-${stat.color}-400`} />
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          {[
+            { title: 'Total Assignments', value: assignments.length, icon: DocumentTextIcon, color: 'blue' },
+            { 
+              title: 'Pending Submissions', 
+              value: assignments.reduce((sum, a) => sum + a.totalSubmissions, 0), 
+              icon: ClipboardDocumentIcon, 
+              color: 'purple' 
+            },
+            { 
+              title: 'Average Grade', 
+              value: assignments.length > 0 
+                ? `${Math.round(assignments.reduce((sum, a) => sum + (a.averageGrade || 0), 0) / assignments.length)}%` 
+                : '0%', 
+              icon: AcademicCapIcon, 
+              color: 'green' 
+            },
+            { 
+              title: 'Completion Rate', 
+              value: '82%', 
+              icon: ChartBarIcon, 
+              color: 'indigo' 
+            },
+          ].map((stat, index) => (
+            <div key={index} className={`bg-gradient-to-br from-${stat.color}-600/20 to-${stat.color}-600/10 p-6 rounded-xl border border-${stat.color}-500/20 hover:shadow-lg transition-all`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-400 text-sm mb-1">{stat.title}</p>
+                  <p className="text-2xl font-bold text-white">{stat.value}</p>
                 </div>
-                <div className="mt-4">
-                  <div className="h-1 bg-gray-700 rounded-full">
-                    <div 
-                      className={`h-full bg-${stat.color}-500 rounded-full transition-all duration-500`}
-                      style={{ width: `${Math.min(100, (stat.value/100)*100)}%` }}
-                    />
-                  </div>
+                <stat.icon className={`w-12 h-12 p-2.5 rounded-full bg-${stat.color}-500/20 text-${stat.color}-400`} />
+              </div>
+              <div className="mt-4">
+                <div className="h-1 bg-gray-700 rounded-full">
+                  <div 
+                    className={`h-full bg-${stat.color}-500 rounded-full transition-all duration-500`}
+                    style={{ width: `${typeof stat.value === 'number' ? Math.min(100, (stat.value/100)*100) : 100}%` }}
+                  />
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
+        </div>
 
-          {/* Main Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Assignment List */}
-            <div className="lg:col-span-2">
-              <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-                    <ClipboardDocumentIcon className="w-6 h-6 text-purple-400" />
-                    Recent Assignments
-                  </h3>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Search assignments..."
-                      className="bg-gray-700 rounded-lg px-4 py-2 pr-8 w-64 focus:ring-2 focus:ring-blue-500 outline-none"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                    <ChevronUpDownIcon className="w-4 h-4 absolute right-3 top-3 text-gray-400" />
-                  </div>
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Assignment List */}
+          <div className="lg:col-span-2">
+            <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+                  <ClipboardDocumentIcon className="w-6 h-6 text-purple-400" />
+                  Recent Assignments
+                </h3>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search assignments..."
+                    className="bg-gray-700 rounded-lg px-4 py-2 pr-8 w-64 focus:ring-2 focus:ring-blue-500 outline-none"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                  <ChevronUpDownIcon className="w-4 h-4 absolute right-3 top-3 text-gray-400" />
                 </div>
+              </div>
 
-                <div className="space-y-4">
-                  {loading ? (
-                    <div className="text-center text-gray-400">Loading assignments...</div>
-                  ) : (
-                    assignments.map(assignment => (
+              <div className="space-y-4">
+                {loading ? (
+                  <div className="text-center text-gray-400">Loading assignments...</div>
+                ) : assignments.length === 0 ? (
+                  <div className="text-center py-12">
+                    <DocumentTextIcon className="w-12 h-12 mx-auto text-gray-500 mb-4" />
+                    <h3 className="text-lg font-medium text-gray-400">No assignments created yet</h3>
+                    <p className="text-gray-500 mt-1">Click "New Assignment" to create your first one</p>
+                  </div>
+                ) : (
+                  assignments
+                    .filter(assignment => 
+                      assignment.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      assignment.subject.toLowerCase().includes(searchQuery.toLowerCase())
+                    )
+                    .map(assignment => (
                       <div key={assignment.id} className="group p-4 bg-gray-900/30 rounded-lg hover:bg-gray-800/50 transition-colors">
                         <div className="flex items-center justify-between">
                           <div>
@@ -394,7 +487,16 @@ const AssignmentManagement = () => {
                             </div>
                           </div>
                           <div className="flex items-center gap-4">
-                            <button className="p-2 hover:bg-gray-700 rounded-lg">
+                            <button 
+                              className="p-2 hover:bg-gray-700 rounded-lg"
+                              onClick={() => {
+                                setNewAssignment({
+                                  ...assignment,
+                                  attachments: []
+                                });
+                                setShowCreateModal(true);
+                              }}
+                            >
                               <PencilIcon className="w-5 h-5 text-blue-400" />
                             </button>
                             <button className="p-2 hover:bg-gray-700 rounded-lg">
@@ -417,77 +519,77 @@ const AssignmentManagement = () => {
                           </div>
                           <div className="text-center p-2 bg-gray-800/50 rounded-lg">
                             <p className="text-sm text-gray-400">Attachments</p>
-                            <p className="text-xl font-bold text-white">{assignment.attachments.length}</p>
+                            <p className="text-xl font-bold text-white">{assignment.attachmentUrls?.length || 0}</p>
                           </div>
                         </div>
                       </div>
                     ))
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Analytics Sidebar */}
-            <div className="space-y-8">
-              {/* Performance Chart */}
-              <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-6">
-                <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                  <ChartBarIcon className="w-6 h-6 text-green-400" />
-                  Class Performance
-                </h3>
-                <div className="flex items-center justify-center">
-                  <PieChart width={240} height={240}>
-                    <Pie
-                      data={performanceData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
-                      {performanceData.map((entry, index) => (
-                        <Cell key={index} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </div>
-                <div className="grid grid-cols-2 gap-4 mt-4">
-                  {performanceData.map((entry, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index] }} />
-                      <span className="text-sm text-gray-300">{entry.name}: {entry.value}%</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Quick Actions */}
-              <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-6">
-                <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                  <ArrowTrendingUpIcon className="w-6 h-6 text-purple-400" />
-                  Quick Actions
-                </h3>
-                <div className="space-y-3">
-                  <button className="w-full flex items-center gap-3 p-3 bg-blue-600/20 hover:bg-blue-600/30 rounded-lg transition-colors">
-                    <UsersIcon className="w-5 h-5 text-blue-400" />
-                    <span>Manage Classes</span>
-                  </button>
-                  <button className="w-full flex items-center gap-3 p-3 bg-purple-600/20 hover:bg-purple-600/30 rounded-lg transition-colors">
-                    <AcademicCapIcon className="w-5 h-5 text-purple-400" />
-                    <span>Gradebook</span>
-                  </button>
-                  <button className="w-full flex items-center gap-3 p-3 bg-green-600/20 hover:bg-green-600/30 rounded-lg transition-colors">
-                    <ChartBarIcon className="w-5 h-5 text-green-400" />
-                    <span>Generate Reports</span>
-                  </button>
-                </div>
+                )}
               </div>
             </div>
           </div>
-        </main>
 
-        {showCreateModal && <CreateAssignmentModal />}
+          {/* Analytics Sidebar */}
+          <div className="space-y-8">
+            {/* Performance Chart */}
+            <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-6">
+              <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                <ChartBarIcon className="w-6 h-6 text-green-400" />
+                Class Performance
+              </h3>
+              <div className="flex items-center justify-center">
+                <PieChart width={240} height={240}>
+                  <Pie
+                    data={performanceData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {performanceData.map((entry, index) => (
+                      <Cell key={index} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </div>
+              <div className="grid grid-cols-2 gap-4 mt-4">
+                {performanceData.map((entry, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index] }} />
+                    <span className="text-sm text-gray-300">{entry.name}: {entry.value}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-6">
+              <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                <ArrowTrendingUpIcon className="w-6 h-6 text-purple-400" />
+                Quick Actions
+              </h3>
+              <div className="space-y-3">
+                <button className="w-full flex items-center gap-3 p-3 bg-blue-600/20 hover:bg-blue-600/30 rounded-lg transition-colors">
+                  <UsersIcon className="w-5 h-5 text-blue-400" />
+                  <span>Manage Classes</span>
+                </button>
+                <button className="w-full flex items-center gap-3 p-3 bg-purple-600/20 hover:bg-purple-600/30 rounded-lg transition-colors">
+                  <AcademicCapIcon className="w-5 h-5 text-purple-400" />
+                  <span>Gradebook</span>
+                </button>
+                <button className="w-full flex items-center gap-3 p-3 bg-green-600/20 hover:bg-green-600/30 rounded-lg transition-colors">
+                  <ChartBarIcon className="w-5 h-5 text-green-400" />
+                  <span>Generate Reports</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      {showCreateModal && <CreateAssignmentModal />}
     </div>
   );
 };
