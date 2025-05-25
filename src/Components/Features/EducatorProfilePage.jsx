@@ -209,7 +209,7 @@ const EducatorProfilePage = () => {
           avatar: null,
           subjects: [],
           batches: [],
-          teachingExperience: 0,
+
           researchInterests: [],
           publications: [],
           skills: [],
@@ -475,16 +475,18 @@ const EducatorProfilePage = () => {
     }
   };
 
-  const saveProfile = async () => {
+  const handleSaveProfile = async () => {
     try {
       setIsLoading(true);
       const currentUser = auth.currentUser;
       if (!currentUser) throw new Error('No authenticated user found');
 
-      await updateProfile(currentUser, {
-        displayName: editData.name
-      });
-      console.log('Updated auth displayName to:', editData.name);
+      // Update displayName in Firebase Auth if changed
+      if (currentUser.displayName !== editData.name) {
+        await updateProfile(currentUser, {
+          displayName: editData.name
+        });
+      }
 
       const dataToSave = {
         name: editData.name || '',
@@ -493,10 +495,10 @@ const EducatorProfilePage = () => {
         bio: editData.bio || '',
         education: editData.education || '',
         location: editData.location || '',
+
         social: editData.social || {},
         subjects: editData.subjects || [],
         batches: editData.batches || [],
-        teachingExperience: editData.teachingExperience || 0,
         researchInterests: editData.researchInterests || [],
         publications: editData.publications || [],
         skills: editData.skills || [],
@@ -504,7 +506,6 @@ const EducatorProfilePage = () => {
         lastUpdated: new Date().toISOString()
       };
 
-      console.log('Saving educator profile data:', dataToSave);
       await updateUserProfile(currentUser.uid, dataToSave);
 
       setUser(prev => ({
@@ -512,6 +513,13 @@ const EducatorProfilePage = () => {
         ...dataToSave
       }));
       
+      // Update localStorage to keep dashboard in sync
+      localStorage.setItem('profileUser', JSON.stringify({
+        ...dataToSave,
+        id: currentUser.uid,
+        avatar: user.avatar
+      }));
+
       setIsLoading(false);
       setIsEditing(false);
       showToast('Profile updated successfully!', 'success');
@@ -670,7 +678,7 @@ const EducatorProfilePage = () => {
                       Cancel
                     </button>
                     <button
-                      onClick={saveProfile}
+                      onClick={handleSaveProfile}
                       className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl text-white hover:scale-[1.02] transition-transform"
                     >
                       Save Changes
@@ -678,14 +686,11 @@ const EducatorProfilePage = () => {
                   </div>
                 ) : (
                   <button
-                    onClick={handleEditClick}
+                    onClick={() => navigate('/educator-settings')}
                     className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-500/80 to-purple-500/80 rounded-xl text-white hover:scale-[1.02] transition-transform"
                   >
-                    <Link to = "/educator-settings" className="flex items-center gap-2">
-                      <PencilSquareIcon className="h-5 w-5" />
-                      Edit Profile
-                    </Link>
-                    
+                    <PencilSquareIcon className="h-5 w-5" />
+                    Edit Profile
                   </button>
                 )}
               </div>
@@ -821,8 +826,12 @@ const EducatorProfilePage = () => {
                         <BriefcaseIcon className="h-5 w-5 text-gray-400 flex-shrink-0" />
                         <input
                           type="number"
+                          min="0"
                           value={editData.teachingExperience || 0}
-                          onChange={(e) => handleInputChange('teachingExperience', parseInt(e.target.value) || 0)}
+                          onChange={(e) => setEditData(prev => ({
+                            ...prev,
+                            teachingExperience: Math.max(0, parseInt(e.target.value) || 0)
+                          }))}
                           placeholder="Years of teaching experience"
                           className="flex-1 px-3 py-2 rounded bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />

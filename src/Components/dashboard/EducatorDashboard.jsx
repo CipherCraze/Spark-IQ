@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMediaQuery } from 'react-responsive';
 import { auth } from '../../firebase/firebaseConfig';
 import { signOut } from 'firebase/auth';
+import { getUserProfile } from '../../firebase/userOperations';
+import { onAuthStateChanged } from 'firebase/auth';
 import {
   ClipboardDocumentIcon,
   AcademicCapIcon,
@@ -36,17 +38,8 @@ const DesktopEducatorDashboard = ({ role }) => {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const navigate = useNavigate();
 
-  const [educator, setEducator] = useState(() => {
-    const saved = localStorage.getItem('profileUser');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  });
+  const [educator, setEducator] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [classes] = useState([
     { id: 1, name: 'Mathematics 101', students: 32, progress: 85 },
@@ -100,6 +93,31 @@ const DesktopEducatorDashboard = ({ role }) => {
       backgroundColor: ['#4f46e5', '#ef4444', '#f59e0b']
     }]
   };
+
+  // Fetch educator data from Firebase
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          setIsLoading(true);
+          const profileData = await getUserProfile(user.uid);
+          if (profileData) {
+            setEducator(profileData);
+            // Store in localStorage for persistence
+            localStorage.setItem('profileUser', JSON.stringify(profileData));
+          }
+        } catch (error) {
+          console.error('Error fetching educator profile:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      } else {
+        navigate('/login');
+      }
+    });
+
+    return () => unsubscribe();
+  }, [navigate]);
 
   const handleLogout = async () => {
     try {
@@ -181,18 +199,27 @@ const DesktopEducatorDashboard = ({ role }) => {
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
                 className="flex items-center gap-2 hover:bg-gray-700/50 p-2 rounded-full transition-colors"
               >
-                <UserCircleIcon className="w-9 h-9 text-gray-400" />
+                {educator?.avatar ? (
+                  <img 
+                    src={educator.avatar} 
+                    alt={educator?.name} 
+                    className="w-9 h-9 rounded-full object-cover"
+                  />
+                ) : (
+                  <UserCircleIcon className="w-9 h-9 text-gray-400" />
+                )}
                 <div className="hidden md:block text-left">
-                  <p className="text-white font-medium">{educator?.name || "Dr. Sarah Johnson"}</p>
-                  <p className="text-sm text-gray-400">{educator?.role || "Professor of Physics"}</p>
+                  <p className="text-white font-medium">{educator?.name || "Loading..."}</p>
+                  <p className="text-sm text-gray-400">{educator?.education || "Educator"}</p>
                 </div>
                 <ChevronDownIcon className="w-5 h-5 text-gray-400" />
               </button>
               {isProfileOpen && (
                 <div className="absolute right-0 mt-2 w-48 bg-gray-800 rounded-lg shadow-xl border border-gray-700 z-50">
                   <div className="p-4 border-b border-gray-700">
-                    <p className="text-white font-medium">{educator?.name || "Dr. Sarah Johnson"}</p>
-                    <p className="text-sm text-gray-400">{educator?.email || "educator@sparkiq.com"}</p>
+                    <p className="text-white font-medium">{educator?.name || "Loading..."}</p>
+                    <p className="text-sm text-gray-400">{educator?.email}</p>
+                    <p className="text-sm text-gray-400 mt-1">{educator?.teachingExperience || 0} years experience</p>
                   </div>
                   <div className="p-2">
                     <Link
