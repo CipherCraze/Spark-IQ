@@ -262,7 +262,7 @@ const MobileDashboard = ({ role }) => {
     { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-access' },
     { title: 'Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
     { title: 'News', Icon: UsersIcon, link: '/educational-news' },
-    { title: 'Argue AI', Icon: UsersIcon, link: '/argue-ai' },
+    
     { title: 'Smart Review', Icon: UsersIcon, link: '/smart-review' },
     { title: 'Meetings', Icon: VideoCameraIcon, link: '/meeting-participation' },
     { title: 'Social', Icon: ChatBubbleLeftRightIcon, link: '/chat-functionality' },
@@ -812,7 +812,7 @@ const DesktopDashboard = ({ role }) => {
     { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-access' },
     { title: 'Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
     { title: 'News', Icon: UsersIcon, link: '/educational-news' },
-    { title: 'Argue AI', Icon: UsersIcon, link: '/argue-ai' },
+    
     { title: 'Smart Review', Icon: UsersIcon, link: '/smart-review' },
     { title: 'Meetings', Icon: VideoCameraIcon, link: '/meeting-participation' },
     { title: 'Social', Icon: ChatBubbleLeftRightIcon, link: '/chat-functionality' },

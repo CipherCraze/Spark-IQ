@@ -11,6 +11,11 @@ import {
   ClockIcon,
   CheckCircleIcon,
   ExclamationCircleIcon,
+  ChatBubbleLeftRightIcon,
+  UsersIcon,
+  VideoCameraIcon,
+  PresentationChartLineIcon,
+  EnvelopeIcon,
   ArrowUpTrayIcon,
   ChartBarIcon,
   FolderIcon,
@@ -245,14 +250,24 @@ const AssignmentSubmission = () => {
           </div>
 
           {/* Scrollable Menu */}
-          <div className="flex-1 overflow-y-auto px-6 pb-4">
+          <div className="flex-1 px-6 pb-4 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900">
             <nav>
               <ul className="space-y-1">
                 {[
                   { title: 'Dashboard', link: '/dashboard', Icon: ClipboardDocumentIcon },
                   { title: 'Assignments', link: '/assignment-submission', Icon: DocumentTextIcon, active: true },
-                  { title: 'Grades', link: '/grading-access', Icon: ChartBarIcon },
                   { title: 'Resources', link: '/resource-utilization', Icon: FolderIcon },
+                  { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-monitoring',  },
+                  { title: 'Grades & Feedback', Icon: PresentationChartLineIcon, link: '/GradesAndFeedback' },
+                  { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-access' },
+                  { title: 'Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
+                  { title: 'News', Icon: UsersIcon, link: '/educational-news' },
+                  
+                  { title: 'Smart Review', Icon: UsersIcon, link: '/smart-review' },
+                  { title: 'Meetings', Icon: VideoCameraIcon, link: '/meeting-participation' },
+                  { title: 'Social', Icon: ChatBubbleLeftRightIcon, link: '/chat-functionality' },
+                  { title: 'Inbox', Icon: EnvelopeIcon, link: '/inbox-for-suggestions' },
+                  { title: 'Upgrade to Pro', Icon: SparklesIcon, link: '/pricing' },
                 ].map((item, index) => (
                   <li key={index}>
                     <Link

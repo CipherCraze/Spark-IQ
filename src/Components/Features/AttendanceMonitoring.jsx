@@ -8,6 +8,13 @@ import {
   XCircleIcon,
   ClockIcon,
   ArrowPathIcon,
+  DocumentTextIcon,
+  SparklesIcon,
+  UsersIcon,
+  VideoCameraIcon,
+  ChatBubbleLeftRightIcon,
+  PresentationChartLineIcon,
+  EnvelopeIcon,
   MagnifyingGlassIcon,
   ClipboardDocumentIcon,
   ChevronLeftIcon,
@@ -154,14 +161,26 @@ const AttendanceMonitoring = () => {
               <ul className="space-y-1">
                 {[
                   { title: 'Dashboard', link: '/dashboard', Icon: ClipboardDocumentIcon },
-                  { title: 'Attendance', link: '/attendance-monitoring', Icon: CalendarIcon },
-                  { title: 'Grades', link: '/grading-access', Icon: ChartBarIcon },
+                  { title: 'Assignments', link: '/assignment-submission', Icon: DocumentTextIcon },
                   { title: 'Resources', link: '/resource-utilization', Icon: FolderIcon },
+                  { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-monitoring', active: true },
+                  { title: 'Grades & Feedback', Icon: PresentationChartLineIcon, link: '/GradesAndFeedback' },
+                  { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-access' },
+                  { title: 'Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
+                  { title: 'News', Icon: UsersIcon, link: '/educational-news' },
+                  
+                  { title: 'Smart Review', Icon: UsersIcon, link: '/smart-review' },
+                  { title: 'Meetings', Icon: VideoCameraIcon, link: '/meeting-participation' },
+                  { title: 'Social', Icon: ChatBubbleLeftRightIcon, link: '/chat-functionality' },
+                  { title: 'Inbox', Icon: EnvelopeIcon, link: '/inbox-for-suggestions' },
+                  { title: 'Upgrade to Pro', Icon: SparklesIcon, link: '/pricing' },
                 ].map((item, index) => (
                   <li key={index}>
                     <Link
                       to={item.link}
-                      className="flex items-center gap-3 p-3 text-gray-300 hover:bg-gray-700/50 rounded-lg transition-all duration-300 group hover:translate-x-1"
+                      className={`flex items-center gap-3 p-3 text-gray-300 hover:bg-gray-700/50 rounded-lg transition-all duration-300 group hover:translate-x-1 ${
+                        item.active ? 'bg-indigo-500/10 text-indigo-400' : ''
+                      }`}
                     >
                       <item.Icon className="w-5 h-5 text-indigo-400 group-hover:text-purple-400 transition-colors" />
                       <span>{item.title}</span>
