@@ -27,14 +27,20 @@ const NEWS_API_BASE_URL = 'https://gnews.io/api/v4/top-headlines';
 const GOOGLE_SEARCH_URL = 'https://www.googleapis.com/customsearch/v1';
 
 const Chatbot = () => {
-  const [messages, setMessages] = useState([]);
-  const [chatHistory, setChatHistory] = useState([]);
+  const [messages, setMessages] = useState(() => {
+    const saved = localStorage.getItem('chatHistory');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [chatHistory, setChatHistory] = useState(() => {
+    const saved = localStorage.getItem('allChatSessions');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [inputText, setInputText] = useState('');
   const [isBotTyping, setIsBotTyping] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(true);
   const [selectedMessage, setSelectedMessage] = useState(null);
-  const [activeTab, setActiveTab] = useState('current');
+  const [activeTab, setActiveTab] = useState('current'); // 'current' or 'history'
   const messagesEndRef = useRef(null);
 
   // Quick reply suggestions
@@ -86,13 +92,17 @@ const Chatbot = () => {
     return () => canvas.remove();
   }, [darkMode]);
 
-  // Scroll to bottom
+  // Scroll to bottom and save messages
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
     scrollToBottom();
+    localStorage.setItem('chatHistory', JSON.stringify(messages));
+    if (messages.length === 0) {
+      confetti({ particleCount: 50, spread: 70, origin: { y: 0.6 } });
+    }
   }, [messages]);
 
   // Function to scrape content from a URL
@@ -428,45 +438,28 @@ When users ask about the current time or date, always provide this information i
     }
   }, []);
 
-  // Modified handleSendMessage to save to Firebase
   const handleSendMessage = async () => {
     if (!inputText.trim()) return;
-
-    const userMessage = {
+    const newMessage = {
       id: Date.now(),
-      text: inputText.trim(),
+      text: inputText,
       sender: 'user',
-      timestamp: new Date()
+      timestamp: new Date().toISOString(),
     };
-
-    setMessages(prev => [...prev, userMessage]);
+    
+    setMessages((prev) => [...prev, newMessage]);
     setInputText('');
     setIsBotTyping(true);
 
-    try {
-      // Get bot response
-      const botResponse = await sendMessageToGemini([...messages, userMessage]);
-      const botMessage = {
-        id: Date.now() + 1,
-        text: botResponse,
-        sender: 'bot',
-        timestamp: new Date()
-      };
+    const updatedMessages = [...messages, newMessage];
+    const botResponse = await sendMessageToGemini(updatedMessages);
 
-      setMessages(prev => [...prev, botMessage]);
-    } catch (error) {
-      console.error('Error in chat:', error);
-      // Add error message to chat
-      const errorMessage = {
-        id: Date.now() + 1,
-        text: "Sorry, I encountered an error. Please try again.",
-        sender: 'bot',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setIsBotTyping(false);
-    }
+    setMessages((prev) => [
+      ...prev,
+      { id: Date.now(), text: botResponse, sender: 'bot', timestamp: new Date().toISOString() },
+    ]);
+    
+    setIsBotTyping(false);
   };
 
   const pinMessage = (messageId) => {
@@ -612,12 +605,16 @@ Sunday Afternoon (1 hr):
     );
   };
 
-  // Modified clearAllChats to use Firebase
-  const clearAllChats = async () => {
-    setMessages([]);
+  const clearAllChats = () => {
+    setMessages([{
+      id: Date.now(),
+      text: "Hello! I'm Sparky, your AI assistant. How can I help you today?",
+      sender: 'bot',
+      timestamp: new Date().toISOString()
+    }]);
     setChatHistory([]);
-    localStorage.removeItem('chatHistory');
     localStorage.removeItem('allChatSessions');
+    localStorage.removeItem('chatHistory');
   };
 
   return (
