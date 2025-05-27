@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db, connectionsCollection, studentsCollection, teachersCollection } from '../../firebase/firebaseConfig';
-import { UserCircleIcon } from '@heroicons/react/24/outline';
+import { 
+  UserCircleIcon, 
+  MagnifyingGlassIcon as SearchIcon, 
+  UserGroupIcon 
+} from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
 
 const ConnectionsList = ({ currentUserId, onSelectUser }) => {
@@ -123,15 +127,20 @@ const ConnectionsList = ({ currentUserId, onSelectUser }) => {
   }
 
   return (
-    <div className="bg-gray-800 rounded-lg shadow p-4">
+    <div className="bg-gray-800/50 backdrop-blur-lg rounded-2xl border border-gray-700/30 p-4 shadow-xl">
       <div className="mb-4">
-        <input
-          type="text"
-          placeholder="Search connections..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full p-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        />
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Search connections..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+          />
+          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+            <SearchIcon className="w-5 h-5 text-gray-400" />
+          </div>
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -139,26 +148,27 @@ const ConnectionsList = ({ currentUserId, onSelectUser }) => {
           <div
             key={connection.connectionId}
             onClick={() => onSelectUser(connection.userId)}
-            className="flex items-center p-3 rounded-lg hover:bg-gray-700 cursor-pointer transition-colors duration-200"
+            className="flex items-center p-3 rounded-xl hover:bg-gray-700/50 cursor-pointer transition-all border border-transparent hover:border-indigo-500/30"
           >
             <div className="flex items-center space-x-3 flex-1">
-              <div className="cursor-pointer">
+              <div className="relative">
                 {connection.avatar ? (
                   <img
                     src={connection.avatar}
                     alt={connection.name}
-                    className="w-10 h-10 rounded-full object-cover"
+                    className="w-12 h-12 rounded-full object-cover border-2 border-indigo-500/30"
                   />
                 ) : (
-                  <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center">
-                    <span className="text-lg font-semibold text-white">
+                  <div className="w-12 h-12 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-full flex items-center justify-center border-2 border-indigo-500/30">
+                    <span className="text-lg font-semibold text-indigo-400">
                       {connection.name.charAt(0).toUpperCase()}
                     </span>
                   </div>
                 )}
+                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-gray-800"></div>
               </div>
               <div className="flex-1">
-                <h3 className="font-medium text-white">
+                <h3 className="font-medium text-white group-hover:text-indigo-400 transition-colors">
                   {connection.name}
                 </h3>
                 <p className="text-sm text-gray-400">Click to start chat</p>
@@ -168,9 +178,12 @@ const ConnectionsList = ({ currentUserId, onSelectUser }) => {
         ))}
         
         {filteredConnections.length === 0 && (
-          <p className="text-center text-gray-400 py-4">
-            {searchTerm ? 'No matching connections found' : 'No connections yet'}
-          </p>
+          <div className="text-center py-8">
+            <UserGroupIcon className="w-12 h-12 text-gray-500 mx-auto mb-3" />
+            <p className="text-gray-400">
+              {searchTerm ? 'No matching connections found' : 'No connections yet'}
+            </p>
+          </div>
         )}
       </div>
     </div>

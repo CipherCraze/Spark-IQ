@@ -9,8 +9,12 @@ import {
   ClipboardDocumentIcon, 
   ArrowPathIcon,
   XMarkIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline';
+import { auth } from '../../firebase/firebaseConfig';
+import { onAuthStateChanged } from 'firebase/auth';
+import { saveQuestionHistory, getQuestionHistory, clearQuestionHistory } from '../../firebase/questionHistoryOperations';
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
@@ -26,6 +30,7 @@ const AIGeneratedQuestions = () => {
   const [error, setError] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
+  const [userId, setUserId] = useState(null);
 
   // Configuration options
   const questionTypes = [
@@ -41,10 +46,42 @@ const AIGeneratedQuestions = () => {
     { value: 'hard', label: 'Advanced' },
   ];
 
+  // Check authentication status and load history
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUserId(user.uid);
+        // Load history from Firebase when user is authenticated
+        loadHistoryFromFirebase(user.uid);
+      } else {
+        setUserId(null);
+        setHistory([]);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Load history from Firebase
+  const loadHistoryFromFirebase = async (uid) => {
+    try {
+      const historyData = await getQuestionHistory(uid);
+      setHistory(historyData);
+    } catch (error) {
+      console.error('Error loading history:', error);
+      setError('Failed to load question history');
+    }
+  };
+
   // Generate questions using Gemini 2.0 Flash
   const generateQuestions = async () => {
     if (!topic.trim()) {
       setError('Please enter a topic');
+      return;
+    }
+
+    if (!userId) {
+      setError('Please sign in to generate questions');
       return;
     }
     
@@ -111,7 +148,7 @@ Requirements:
           }));
         }
 
-        // Add metadata to questions
+        // Add metadata to questions and save to Firebase
         const questionsWithMeta = generatedQuestions.map((q, i) => ({
           ...q,
           id: Date.now() + i,
@@ -122,7 +159,13 @@ Requirements:
         }));
 
         setQuestions(questionsWithMeta);
-        setHistory(prev => [...questionsWithMeta, ...prev.slice(0, 50)]); // Keep last 50 items
+        
+        // Save to Firebase
+        await saveQuestionHistory(userId, questionsWithMeta);
+        
+        // Refresh history
+        await loadHistoryFromFirebase(userId);
+
       } catch (parseError) {
         console.error('Parsing error:', parseError);
         setError('Failed to parse AI response. Please check your prompt and try again.');
@@ -214,6 +257,22 @@ Original question: ${question.text}`;
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [topic, questionType, difficulty, numQuestions]);
 
+  // Modified clearHistory to use Firebase
+  const clearHistory = async () => {
+    if (!userId) {
+      setError('Please sign in to clear history');
+      return;
+    }
+
+    try {
+      await clearQuestionHistory(userId);
+      setHistory([]);
+    } catch (error) {
+      console.error('Error clearing history:', error);
+      setError('Failed to clear history');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
@@ -258,14 +317,23 @@ Original question: ${question.text}`;
           <div className="bg-gray-800/70 rounded-xl p-4 mb-6 border border-gray-700/50">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium text-gray-200">Generation History</h3>
-              <button 
-                onClick={() => setShowHistory(false)}
-                className="p-1 hover:bg-gray-700/50 rounded-lg"
-              >
-                <XMarkIcon className="w-5 h-5 text-gray-400 hover:text-white" />
-              </button>
+              <div className="flex gap-2">
+                <button 
+                  onClick={clearHistory}
+                  className="text-sm text-red-400 hover:text-red-300 flex items-center gap-1"
+                >
+                  <TrashIcon className="w-4 h-4" />
+                  Clear History
+                </button>
+                <button 
+                  onClick={() => setShowHistory(false)}
+                  className="p-1 hover:bg-gray-700/50 rounded-lg"
+                >
+                  <XMarkIcon className="w-5 h-5 text-gray-400 hover:text-white" />
+                </button>
+              </div>
             </div>
-            <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+            <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
               {history.length > 0 ? (
                 history.map((item, index) => (
                   <div 
@@ -282,7 +350,7 @@ Original question: ${question.text}`;
                     <div className="flex justify-between">
                       <span className="text-purple-300 font-medium">{item.topic}</span>
                       <span className="text-xs text-gray-400">
-                        {new Date(item.date).toLocaleTimeString()}
+                        {new Date(item.date).toLocaleString()}
                       </span>
                     </div>
                     <p className="text-sm text-gray-300 truncate mt-1">{item.text}</p>
@@ -524,6 +592,21 @@ Original question: ${question.text}`;
         <div className="mt-12 text-center text-gray-500 text-sm">
           <p>Powered by Gemini 2.0 Flash • {new Date().getFullYear()}</p>
           <p className="mt-1">Press Ctrl+Enter to generate questions</p>
+        </div>
+
+        {/* Add authentication status indicator */}
+        <div className="absolute top-4 right-4 text-sm text-gray-400">
+          {userId ? (
+            <span className="flex items-center gap-2">
+              <span className="w-2 h-2 bg-green-400 rounded-full"></span>
+              Signed In
+            </span>
+          ) : (
+            <span className="flex items-center gap-2">
+              <span className="w-2 h-2 bg-red-400 rounded-full"></span>
+              Not Signed In
+            </span>
+          )}
         </div>
       </div>
     </div>

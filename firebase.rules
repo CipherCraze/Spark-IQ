@@ -13,25 +13,51 @@ service cloud.firestore {
         request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
     }
 
+    function isUsersSparkyChat(chatId) {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/sparkyChats/$(chatId)) &&
+        request.auth.uid == get(/databases/$(database)/documents/sparkyChats/$(chatId)).data.userId;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Sparky Chat rules
+    match /sparkyChats/{chatId} {
+      allow read: if isAuthenticated() && request.auth.uid == resource.data.userId;
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
+      allow update: if isAuthenticated() && request.auth.uid == resource.data.userId;
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    // Sparky Messages rules
+    match /sparkyMessages/{messageId} {
+      allow read: if isAuthenticated() && isUsersSparkyChat(resource.data.chatId);
+      allow create: if isAuthenticated() && isUsersSparkyChat(request.resource.data.chatId);
+      allow update: if isAuthenticated() && isUsersSparkyChat(resource.data.chatId);
+      allow delete: if isAuthenticated() && isUsersSparkyChat(resource.data.chatId);
+    }
+
     // Keep open access for assignments (as requested)
     match /assignments/{assignment} {
       allow read, write: if true;
     }
 
     // Student-specific rules
-    match /students/{userId} {
+    match /students/{studentId} {
       // Allow reading basic profile info for connection requests
       allow read: if request.auth != null;
       // But only allow full access to own document
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == studentId;
     }
 
     // Teacher-specific rules
-    match /teachers/{userId} {
+    match /teachers/{teacherId} {
       // Allow reading basic profile info for connection requests
       allow read: if request.auth != null;
       // But only allow full access to own document
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == teacherId;
     }
 
     // User profiles and settings
@@ -44,6 +70,14 @@ service cloud.firestore {
     match /resources/{resourceId} {
       allow read: if request.auth != null;
       allow write: if false; // Or your custom logic for who can write
+    }
+
+    // Questions collection
+    match /questions/{questionId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
 
     // Chat messages
@@ -78,6 +112,21 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && 
                     (resource.data.senderId == request.auth.uid || 
                      resource.data.receiverId == request.auth.uid);
+    }
+
+    // Question history rules
+    match /questionHistory/{docId} {
+      // Allow read if authenticated and querying own data
+      allow read: if isAuthenticated() && 
+                 (resource == null || resource.data.userId == request.auth.uid);
+      // Allow create if authenticated and creating own data
+      allow create: if isAuthenticated() && 
+                   request.resource.data.userId == request.auth.uid;
+      // Allow delete if authenticated and deleting own data
+      allow delete: if isAuthenticated() && 
+                   resource.data.userId == request.auth.uid;
+      // Questions are immutable once created
+      allow update: if false;
     }
   }
 }
@@ -116,9 +165,14 @@ service firebase.storage {
                    request.resource.size < 20 * 1024 * 1024;  // 20MB file size limit
     }
 
-    // Deny access to all other files by default
+    // Allow read access to all authenticated users
     match /{allPaths=**} {
-      allow read, write: if false;
+      allow read: if isAuthenticated();
+    }
+
+    // Allow write access only to user's own directory
+    match /users/{userId}/{allPaths=**} {
+      allow write: if isAuthenticated() && request.auth.uid == userId;
     }
   }
 } 
