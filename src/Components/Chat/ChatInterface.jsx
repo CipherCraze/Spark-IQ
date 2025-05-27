@@ -2,15 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { collection, query, where, orderBy, onSnapshot, addDoc, getDocs, or, serverTimestamp } from 'firebase/firestore';
 import { db, chatsCollection, messagesCollection } from '../../firebase/firebaseConfig';
 import { sendMessage, subscribeToMessages, createChat, getChatParticipantsInfo } from '../../firebase/chatOperations';
-import { 
-  UserCircleIcon, 
-  PaperAirplaneIcon,
-  EllipsisHorizontalIcon,
-  PhoneIcon,
-  VideoCameraIcon,
-  InformationCircleIcon,
-  ChatBubbleLeftRightIcon
-} from '@heroicons/react/24/outline';
+import { UserCircleIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
 
 const ChatInterface = ({ currentUserId, selectedUserId }) => {
@@ -127,7 +119,7 @@ const ChatInterface = ({ currentUserId, selectedUserId }) => {
 
   if (loading) {
     return (
-      <div className="flex flex-col h-[600px] bg-gray-800/50 backdrop-blur-lg rounded-2xl border border-gray-700/30 shadow-xl">
+      <div className="flex flex-col h-[600px] bg-gray-800 rounded-lg shadow">
         <div className="flex items-center justify-center h-full">
           <p className="text-gray-400">Loading chat...</p>
         </div>
@@ -137,7 +129,7 @@ const ChatInterface = ({ currentUserId, selectedUserId }) => {
 
   if (error) {
     return (
-      <div className="flex flex-col h-[600px] bg-gray-800/50 backdrop-blur-lg rounded-2xl border border-gray-700/30 shadow-xl">
+      <div className="flex flex-col h-[600px] bg-gray-800 rounded-lg shadow">
         <div className="flex items-center justify-center h-full">
           <p className="text-red-400">{error}</p>
         </div>
@@ -148,49 +140,30 @@ const ChatInterface = ({ currentUserId, selectedUserId }) => {
   const otherParticipant = participantInfo?.find(p => p.id === selectedUserId);
 
   return (
-    <div className="flex flex-col h-[600px] bg-gray-800/50 backdrop-blur-lg rounded-2xl border border-gray-700/30 shadow-xl">
-      {/* Enhanced Chat Header */}
-      <div className="p-4 border-b border-gray-700/50 flex items-center justify-between bg-gradient-to-r from-gray-800/80 to-gray-900/80">
-        <div className="flex items-center space-x-4">
-          <div className="relative">
-            {participantInfo?.find(p => p.id === selectedUserId)?.avatar ? (
-              <img 
-                src={participantInfo.find(p => p.id === selectedUserId).avatar}
-                alt="Profile"
-                className="w-12 h-12 rounded-full object-cover border-2 border-indigo-500/30"
-              />
-            ) : (
-              <div className="w-12 h-12 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-full flex items-center justify-center border-2 border-indigo-500/30">
-                <UserCircleIcon className="w-8 h-8 text-indigo-400" />
-              </div>
-            )}
-            <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-gray-800"></div>
-          </div>
-          <div>
-            <h2 
-              onClick={() => handleProfileClick(selectedUserId)}
-              className="text-lg font-semibold text-white hover:text-indigo-400 transition-colors cursor-pointer"
-            >
-              {participantInfo?.find(p => p.id === selectedUserId)?.name || 'Chat'}
-            </h2>
-            <p className="text-sm text-gray-400">Online</p>
-          </div>
-        </div>
+    <div className="flex flex-col h-[600px] bg-gray-800 rounded-lg shadow">
+      {/* Chat Header */}
+      <div className="p-4 border-b border-gray-700 flex items-center">
         <div className="flex items-center space-x-3">
-          <button className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors">
-            <PhoneIcon className="w-5 h-5 text-gray-400 hover:text-indigo-400" />
-          </button>
-          <button className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors">
-            <VideoCameraIcon className="w-5 h-5 text-gray-400 hover:text-indigo-400" />
-          </button>
-          <button className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors">
-            <InformationCircleIcon className="w-5 h-5 text-gray-400 hover:text-indigo-400" />
-          </button>
+          {participantInfo && participantInfo.find(p => p.id === selectedUserId)?.avatar ? (
+            <img 
+              src={participantInfo.find(p => p.id === selectedUserId).avatar}
+              alt="Profile"
+              className="w-10 h-10 rounded-full object-cover"
+            />
+          ) : (
+            <UserCircleIcon className="w-10 h-10 text-gray-400" />
+          )}
+          <h2 
+            onClick={() => handleProfileClick(selectedUserId)}
+            className="text-xl font-semibold text-white select-none cursor-pointer hover:text-indigo-400 transition-colors"
+          >
+            {participantInfo?.find(p => p.id === selectedUserId)?.name || 'Chat'}
+          </h2>
         </div>
       </div>
 
-      {/* Enhanced Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-gray-900/50 to-gray-800/50">
+      {/* Messages Area */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-800">
         {messages.map((message) => {
           const isCurrentUser = message.sender === currentUserId;
           const senderInfo = participantInfo?.find(p => p.id === message.sender);
@@ -212,26 +185,25 @@ const ChatInterface = ({ currentUserId, selectedUserId }) => {
                     <img 
                       src={senderInfo.avatar}
                       alt="Profile"
-                      className="w-8 h-8 rounded-full object-cover border border-gray-700/50"
+                      className="w-8 h-8 rounded-full object-cover"
                     />
                   ) : (
-                    <div className="w-8 h-8 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-full flex items-center justify-center">
-                      <UserCircleIcon className="w-6 h-6 text-indigo-400" />
-                    </div>
+                    <UserCircleIcon className="w-8 h-8 text-gray-400" />
                   )}
                 </div>
               )}
               <div
-                className={`max-w-[70%] p-3 rounded-xl ${
+                className={`max-w-[70%] p-3 rounded-lg ${
                   isCurrentUser
-                    ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white'
-                    : 'bg-gray-700/60 text-gray-100'
-                } shadow-lg hover:scale-[1.02] transition-transform`}
+                    ? 'bg-indigo-500 text-white ml-2'
+                    : 'bg-gray-700 text-gray-100 mr-2'
+                }`}
               >
                 <div 
                   className="cursor-pointer hover:underline"
                   onClick={(e) => {
                     e.stopPropagation();
+                    console.log('Name clicked, sender:', message.sender);
                     handleProfileClick(message.sender);
                   }}
                 >
@@ -239,9 +211,9 @@ const ChatInterface = ({ currentUserId, selectedUserId }) => {
                     {senderInfo?.name || 'Unknown User'}
                   </span>
                 </div>
-                <p className="mt-1">{message.text}</p>
-                <span className="text-xs opacity-75 mt-2 block">
-                  {new Date(message.timestamp?.toDate()).toLocaleTimeString()}
+                <p>{message.text}</p>
+                <span className="text-xs opacity-75 mt-1 block">
+                  {message.timestamp}
                 </span>
               </div>
               {isCurrentUser && (
@@ -256,12 +228,10 @@ const ChatInterface = ({ currentUserId, selectedUserId }) => {
                     <img 
                       src={senderInfo.avatar}
                       alt="Profile"
-                      className="w-8 h-8 rounded-full object-cover border border-gray-700/50"
+                      className="w-8 h-8 rounded-full object-cover"
                     />
                   ) : (
-                    <div className="w-8 h-8 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-full flex items-center justify-center">
-                      <UserCircleIcon className="w-6 h-6 text-indigo-400" />
-                    </div>
+                    <UserCircleIcon className="w-8 h-8 text-gray-400" />
                   )}
                 </div>
               )}
@@ -271,22 +241,21 @@ const ChatInterface = ({ currentUserId, selectedUserId }) => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Enhanced Message Input */}
-      <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-700/50 bg-gray-800/80">
-        <div className="flex items-center space-x-3">
+      {/* Message Input */}
+      <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-700">
+        <div className="flex space-x-2">
           <input
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Type a message..."
-            className="flex-1 px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+            className="flex-1 p-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
           <button
             type="submit"
-            disabled={!newMessage.trim()}
-            className="p-3 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl text-white hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors duration-200"
           >
-            <PaperAirplaneIcon className="w-5 h-5" />
+            Send
           </button>
         </div>
       </form>
