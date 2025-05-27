@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { storage, db, auth } from '../../firebase/firebaseConfig';
 import { collection, addDoc, getDocs, query, where, updateDoc, doc } from 'firebase/firestore';
@@ -173,7 +173,15 @@ const AssignmentManagement = () => {
     }));
   };
 
-  const CreateAssignmentModal = () => (
+  const handleInputChange = (field, value) => {
+    setNewAssignment(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  // Memoize the modal to avoid recreation on every render
+  const CreateAssignmentModal = useMemo(() => (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-gray-800 rounded-xl p-8 w-full max-w-2xl relative max-h-[90vh] overflow-y-auto">
         <button
@@ -192,7 +200,7 @@ const AssignmentManagement = () => {
               <input
                 type="text"
                 value={newAssignment.title}
-                onChange={(e) => setNewAssignment({ ...newAssignment, title: e.target.value })}
+                onChange={e => handleInputChange('title', e.target.value)}
                 className="w-full bg-gray-700 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
                 required
               />
@@ -201,7 +209,7 @@ const AssignmentManagement = () => {
               <label className="block text-gray-300">Subject *</label>
               <select
                 value={newAssignment.subject}
-                onChange={(e) => setNewAssignment({ ...newAssignment, subject: e.target.value })}
+                onChange={e => handleInputChange('subject', e.target.value)}
                 className="w-full bg-gray-700 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
                 required
               >
@@ -219,7 +227,7 @@ const AssignmentManagement = () => {
             <textarea
               rows="4"
               value={newAssignment.instructions}
-              onChange={(e) => setNewAssignment({ ...newAssignment, instructions: e.target.value })}
+              onChange={e => handleInputChange('instructions', e.target.value)}
               className="w-full bg-gray-700 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
               required
             />
@@ -230,7 +238,7 @@ const AssignmentManagement = () => {
             <textarea
               rows="4"
               value={newAssignment.rubric}
-              onChange={(e) => setNewAssignment({ ...newAssignment, rubric: e.target.value })}
+              onChange={e => handleInputChange('rubric', e.target.value)}
               className="w-full bg-gray-700 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
               placeholder="Enter grading criteria and expectations..."
               required
@@ -243,7 +251,7 @@ const AssignmentManagement = () => {
               <input
                 type="datetime-local"
                 value={newAssignment.dueDate}
-                onChange={(e) => setNewAssignment({ ...newAssignment, dueDate: e.target.value })}
+                onChange={e => handleInputChange('dueDate', e.target.value)}
                 className="w-full bg-gray-700 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
                 required
               />
@@ -254,7 +262,7 @@ const AssignmentManagement = () => {
                 type="number"
                 min="1"
                 value={newAssignment.maxPoints}
-                onChange={(e) => setNewAssignment({ ...newAssignment, maxPoints: e.target.value })}
+                onChange={e => handleInputChange('maxPoints', e.target.value)}
                 className="w-full bg-gray-700 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
                 required
               />
@@ -328,7 +336,9 @@ const AssignmentManagement = () => {
         </form>
       </div>
     </div>
-  );
+  ), [
+    newAssignment, uploading, handleCreateAssignment, handleFileUpload, removeAttachment
+  ]);
 
   return (
     <div className="min-h-screen bg-gray-900 flex">
@@ -588,8 +598,7 @@ const AssignmentManagement = () => {
           </div>
         </div>
       </main>
-
-      {showCreateModal && <CreateAssignmentModal />}
+      {showCreateModal && CreateAssignmentModal}
     </div>
   );
 };
