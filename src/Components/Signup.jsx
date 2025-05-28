@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { getAuth, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { getFirestore, doc, setDoc } from 'firebase/firestore';
 import { app } from '../firebase/firebaseConfig';
+import '../styles/animations.css';
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -357,27 +358,6 @@ export default function Signup() {
           </Link>
         </p>
       </div>
-
-      {/* Custom Animations */}
-      <style jsx global>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-20px); }
-        }
-        .animate-float {
-          animation: float 8s ease-in-out infinite;
-        }
-        .animate-float-delayed {
-          animation: float 8s ease-in-out infinite 2s;
-        }
-        @keyframes fade-in {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.3s ease-out;
-        }
-      `}</style>
     </div>
   );
 }

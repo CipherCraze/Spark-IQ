@@ -48,6 +48,7 @@ import EducatorSettings from './Components/Features/EducatorSettings'; // Import
 import ViewOnlyProfile from './Components/Features/ViewOnlyProfile'; // Import the ViewOnlyProfile component
 import GradesAndAnalytics from './Components/Features/GradesAndAnalytics';
 import GradesAndFeedback from './Components/Features/GradesAndFeedback';
+import './styles/animations.css';
 
 
 const Layout = ({ children, showHeaderFooter = true }) => (

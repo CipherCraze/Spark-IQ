@@ -4,6 +4,7 @@ import { LockClosedIcon, UserCircleIcon, SparklesIcon, EyeIcon, EyeSlashIcon } f
 import { getAuth, signInWithPopup, signInWithEmailAndPassword } from 'firebase/auth';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { app, googleProvider } from '../firebase/firebaseConfig';
+import '../styles/animations.css';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -273,30 +274,6 @@ export default function Login() {
           </Link>
         </p>
       </div>
-
-      {/* Add custom animations in global CSS */}
-      <style jsx global>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-20px); }
-        }
-        .animate-float {
-          animation: float 8s ease-in-out infinite;
-        }
-        .animate-float-delayed {
-          animation: float 8s ease-in-out infinite 2s;
-        }
-        @keyframes fade-in {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.3s ease-out;
-        }
-        .hover\:shadow-glow:hover {
-          box-shadow: 0 0 25px rgba(168, 85, 247, 0.3);
-        }
-      `}</style>
     </div>
   );
 }
