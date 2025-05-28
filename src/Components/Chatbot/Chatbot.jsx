@@ -18,6 +18,9 @@ import {
 } from '@heroicons/react/24/outline';
 import confetti from 'canvas-confetti';
 import { ChartBarIcon } from '@heroicons/react/24/solid';
+import { auth } from '../../firebase/firebaseConfig';
+import { onAuthStateChanged } from 'firebase/auth';
+import { saveChatMessage, getChatHistory, clearChatHistory, updateMessagePin } from '../../firebase/chatHistoryOperations';
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const NEWS_API_KEY = import.meta.env.VITE_NEWS_API_KEY;
@@ -162,6 +165,8 @@ const Chatbot = () => {
   const [selectedMessage, setSelectedMessage] = useState(null);
   const [activeTab, setActiveTab] = useState('current'); // 'current' or 'history'
   const messagesEndRef = useRef(null);
+  const [userId, setUserId] = useState(null);
+  const [error, setError] = useState(null);
 
   // Quick reply suggestions
   const quickReplies = [
@@ -212,18 +217,56 @@ const Chatbot = () => {
     return () => canvas.remove();
   }, [darkMode]);
 
-  // Scroll to bottom and save messages
+  // Scroll to bottom
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
     scrollToBottom();
-    localStorage.setItem('chatHistory', JSON.stringify(messages));
+    // Remove localStorage dependency - data is already in Firebase
     if (messages.length === 0) {
       confetti({ particleCount: 50, spread: 70, origin: { y: 0.6 } });
     }
   }, [messages]);
+
+  // Check authentication and load chat history
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUserId(user.uid);
+        loadChatHistory(user.uid);
+      } else {
+        setUserId(null);
+        setMessages([]);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Load chat history from Firebase
+  const loadChatHistory = async (uid) => {
+    try {
+      const history = await getChatHistory(uid, false);
+      if (history.length > 0) {
+        setMessages(history);
+      } else {
+        // Set initial greeting and save it to Firebase
+        const initialMessage = {
+          id: Date.now(),
+          text: initialPrompt,
+          sender: 'bot',
+          timestamp: new Date().toISOString()
+        };
+        await saveChatMessage(uid, initialMessage, false);
+        setMessages([initialMessage]);
+      }
+    } catch (error) {
+      console.error('Error loading chat history:', error);
+      setError('Failed to load chat history');
+    }
+  };
 
   const sendMessageToGemini = async (messages) => {
     try {
@@ -452,34 +495,71 @@ When users ask about the current time or date, always provide this information i
     }
   }, []);
 
+  // Modified handleSendMessage to ensure Firebase persistence
   const handleSendMessage = async () => {
     if (!inputText.trim()) return;
-    const newMessage = {
+    if (!userId) {
+      setError('Please sign in to use the chatbot');
+      return;
+    }
+
+    const userMessage = {
       id: Date.now(),
-      text: inputText,
+      text: inputText.trim(),
       sender: 'user',
-      timestamp: new Date().toISOString(),
+      timestamp: new Date().toISOString()
     };
-    
-    setMessages((prev) => [...prev, newMessage]);
-    setInputText('');
-    setIsBotTyping(true);
 
-    const updatedMessages = [...messages, newMessage];
-    const botResponse = await sendMessageToGemini(updatedMessages);
+    try {
+      // Save user message to Firebase first
+      await saveChatMessage(userId, userMessage, false);
+      setMessages(prev => [...prev, userMessage]);
+      setInputText('');
+      setIsBotTyping(true);
 
-    setMessages((prev) => [
-      ...prev,
-      { id: Date.now(), text: botResponse, sender: 'bot', timestamp: new Date().toISOString() },
-    ]);
-    
-    setIsBotTyping(false);
+      // Get bot response
+      const botResponse = await sendMessageToGemini([...messages, userMessage]);
+      const botMessage = {
+        id: Date.now() + 1,
+        text: botResponse,
+        sender: 'bot',
+        timestamp: new Date().toISOString()
+      };
+
+      // Save bot message to Firebase
+      await saveChatMessage(userId, botMessage, false);
+      setMessages(prev => [...prev, botMessage]);
+    } catch (error) {
+      console.error('Error in chat:', error);
+      const errorMessage = {
+        id: Date.now() + 1,
+        text: "Sorry, I encountered an error. Please try again.",
+        sender: 'bot',
+        timestamp: new Date().toISOString()
+      };
+      await saveChatMessage(userId, errorMessage, false);
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsBotTyping(false);
+    }
   };
 
-  const pinMessage = (messageId) => {
-    setMessages((prev) =>
-      prev.map((msg) => (msg.id === messageId ? { ...msg, pinned: !msg.pinned } : msg))
-    );
+  // Modified pinMessage to use Firebase
+  const pinMessage = async (messageId) => {
+    if (!userId) return;
+
+    try {
+      const message = messages.find(m => m.id === messageId);
+      const newPinnedState = !message.pinned;
+      
+      await updateMessagePin(messageId, userId, newPinnedState);
+      
+      setMessages(prev =>
+        prev.map(msg => msg.id === messageId ? { ...msg, pinned: newPinnedState } : msg)
+      );
+    } catch (error) {
+      console.error('Error updating pin status:', error);
+    }
   };
 
   const generateStudyPlan = () => {
@@ -619,20 +699,37 @@ Sunday Afternoon (1 hr):
     );
   };
 
-  const clearAllChats = () => {
-    setMessages([{
-      id: Date.now(),
-      text: "Hello! I'm Sparky, your AI assistant. How can I help you today?",
-      sender: 'bot',
-      timestamp: new Date().toISOString()
-    }]);
-    setChatHistory([]);
-    localStorage.removeItem('allChatSessions');
-    localStorage.removeItem('chatHistory');
+  // Modified clearAllChats to use Firebase
+  const clearAllChats = async () => {
+    if (!userId) return;
+
+    try {
+      await clearChatHistory(userId, false);
+      setMessages([]);
+      setChatHistory([]);
+    } catch (error) {
+      console.error('Error clearing chat history:', error);
+      setError('Failed to clear chat history');
+    }
   };
 
   return (
     <div className={`min-h-screen flex ${darkMode ? 'dark' : 'light'}`}>
+      {/* Add authentication status indicator */}
+      <div className="absolute top-4 right-4 text-sm text-gray-400">
+        {userId ? (
+          <span className="flex items-center gap-2">
+            <span className="w-2 h-2 bg-green-400 rounded-full"></span>
+            Signed In
+          </span>
+        ) : (
+          <span className="flex items-center gap-2 text-red-400">
+            <span className="w-2 h-2 bg-red-400 rounded-full"></span>
+            Please sign in to save chat history
+          </span>
+        )}
+      </div>
+
       {/* Mobile Sidebar Backdrop */}
       {isSidebarOpen && (
         <div

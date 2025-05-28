@@ -23,67 +23,43 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Chat History rules - Fixed permissions and validation
-    match /chatHistory/{messageId} {
-      // Allow read for authenticated users querying their own data
-      allow read: if isAuthenticated();
-      
-      // Allow create with proper validation
-      allow create: if isAuthenticated() && 
-                   request.resource.data.userId == request.auth.uid &&
-                   request.resource.data.keys().hasAll(['userId', 'text', 'sender', 'timestamp', 'isEducator']) &&
-                   request.resource.data.userId is string &&
-                   request.resource.data.text is string &&
-                   request.resource.data.sender in ['user', 'bot'] &&
-                   request.resource.data.isEducator is bool;
-      
-      // Allow update only for pinned status
-      allow update: if isAuthenticated() && 
-                   resource.data.userId == request.auth.uid &&
-                   request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pinned']) &&
-                   request.resource.data.pinned is bool;
-      
-      // Allow delete for own messages
-      allow delete: if isAuthenticated() && 
-                   resource.data.userId == request.auth.uid;
-    }
-
-    // Question history rules
-    match /questionHistory/{docId} {
-      // Allow read if authenticated and querying own data
+    // Sparky Chat Messages rules - Updated with proper validation
+    match /sparkyChatMessages/{messageId} {
       allow read: if isAuthenticated() && 
                  (resource == null || resource.data.userId == request.auth.uid);
-      // Allow create if authenticated and creating own data
-      allow create: if isAuthenticated() && 
-                   request.resource.data.userId == request.auth.uid;
-      // Allow delete if authenticated and deleting own data
-      allow delete: if isAuthenticated() && 
-                   resource.data.userId == request.auth.uid;
-      // Questions are immutable once created
-      allow update: if false;
-    }
-
-    // Sparky Chat Messages rules
-    match /sparkyChatMessages/{messageId} {
-      // Allow read for authenticated users querying their own data
-      allow read: if isAuthenticated();
-      
-      // Allow create with proper validation
       allow create: if isAuthenticated() && 
                    request.resource.data.userId == request.auth.uid &&
-                   request.resource.data.keys().hasAll(['userId', 'text', 'sender', 'timestamp', 'isEducator']) &&
-                   request.resource.data.userId is string &&
+                   request.resource.data.keys().hasAll(['text', 'sender', 'timestamp', 'userId']) &&
                    request.resource.data.text is string &&
                    request.resource.data.sender in ['user', 'bot'] &&
-                   request.resource.data.isEducator is bool;
-      
-      // Allow update only for pinned status
+                   request.resource.data.timestamp is timestamp;
       allow update: if isAuthenticated() && 
                    resource.data.userId == request.auth.uid &&
-                   request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pinned']) &&
-                   request.resource.data.pinned is bool;
-      
-      // Allow delete for own messages
+                   (
+                     // Only allow updating pinned status
+                     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pinned']) &&
+                     request.resource.data.pinned is bool
+                   );
+      allow delete: if isAuthenticated() && 
+                   resource.data.userId == request.auth.uid;
+    }
+
+    // Chat History collection (for backward compatibility)
+    match /chatHistory/{messageId} {
+      allow read: if isAuthenticated() && 
+                 (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && 
+                   request.resource.data.userId == request.auth.uid &&
+                   request.resource.data.keys().hasAll(['text', 'sender', 'timestamp', 'userId']) &&
+                   request.resource.data.text is string &&
+                   request.resource.data.sender in ['user', 'bot'] &&
+                   request.resource.data.timestamp is timestamp;
+      allow update: if isAuthenticated() && 
+                   resource.data.userId == request.auth.uid &&
+                   (
+                     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pinned']) &&
+                     request.resource.data.pinned is bool
+                   );
       allow delete: if isAuthenticated() && 
                    resource.data.userId == request.auth.uid;
     }
@@ -104,6 +80,30 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && isUsersSparkyChat(resource.data.chatId);
     }
 
+    // Question history rules
+    match /questionHistory/{docId} {
+      allow read: if isAuthenticated() && 
+                 (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && 
+                   request.resource.data.userId == request.auth.uid &&
+                   (
+                     // Validate required fields
+                     request.resource.data.question is string &&
+                     request.resource.data.subject is string &&
+                     request.resource.data.difficulty is string &&
+                     request.resource.data.timestamp is timestamp &&
+                     request.resource.data.isAnswered is bool &&
+                     // Tags must be an array of strings if present
+                     (!('tags' in request.resource.data) || request.resource.data.tags is list) &&
+                     // generatedBy must be string if present
+                     (!('generatedBy' in request.resource.data) || request.resource.data.generatedBy is string)
+                   );
+      allow delete: if isAuthenticated() && 
+                   resource.data.userId == request.auth.uid;
+      // Questions are immutable once created
+      allow update: if false;
+    }
+
     // Keep open access for assignments (as requested)
     match /assignments/{assignment} {
       allow read, write: if true;
@@ -111,29 +111,25 @@ service cloud.firestore {
 
     // Student-specific rules
     match /students/{studentId} {
-      // Allow reading basic profile info for connection requests
-      allow read: if request.auth != null;
-      // But only allow full access to own document
-      allow write: if request.auth != null && request.auth.uid == studentId;
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == studentId;
     }
 
     // Teacher-specific rules
     match /teachers/{teacherId} {
-      // Allow reading basic profile info for connection requests
-      allow read: if request.auth != null;
-      // But only allow full access to own document
-      allow write: if request.auth != null && request.auth.uid == teacherId;
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == teacherId;
     }
 
     // User profiles and settings
     match /users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == userId;
     }
 
     // Optional: Shared resources that both can access
     match /resources/{resourceId} {
-      allow read: if request.auth != null;
+      allow read: if isAuthenticated();
       allow write: if false; // Or your custom logic for who can write
     }
 
