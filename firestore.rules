@@ -143,14 +143,18 @@ service cloud.firestore {
 
     // Chat messages
     match /messages/{messageId} {
-      allow read: if isAuthenticated() && isUserInChat(resource.data.chatId);
-      allow create: if isAuthenticated() && isUserInChat(request.resource.data.chatId) && 
-                   request.auth.uid == request.resource.data.senderId;
-      allow update: if isAuthenticated() && isUserInChat(resource.data.chatId) &&
-                   (request.auth.uid == resource.data.senderId || 
+      allow read: if isAuthenticated() && 
+                 (resource == null || isUserInChat(resource.data.chatId));
+      allow create: if isAuthenticated() && 
+                   isUserInChat(request.resource.data.chatId) && 
+                   request.auth.uid == request.resource.data.sender;
+      allow update: if isAuthenticated() && 
+                   isUserInChat(resource.data.chatId) &&
+                   (request.auth.uid == resource.data.sender || 
                     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']));
-      allow delete: if isAuthenticated() && isUserInChat(resource.data.chatId) && 
-                   request.auth.uid == resource.data.senderId;
+      allow delete: if isAuthenticated() && 
+                   isUserInChat(resource.data.chatId) && 
+                   request.auth.uid == resource.data.sender;
     }
 
     // Chat rooms

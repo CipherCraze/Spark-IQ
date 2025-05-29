@@ -57,7 +57,7 @@ const createChatInFirebase = async (participants) => { // Renamed to avoid confl
 };
 
 const sendMessageToFirebase = async (chatId, senderId, textContent, files = [], replyToMessageId = null) => {
-  const messagesColRef = collection(db, 'chats', chatId, 'messages');
+  const messagesColRef = collection(db, 'messages');
   // In a real app, upload files to Firebase Storage here and get URLs
   const fileDataForFirestore = files.map(file => ({
       name: file.name,
@@ -67,6 +67,7 @@ const sendMessageToFirebase = async (chatId, senderId, textContent, files = [], 
   }));
 
   const messageData = {
+    chatId, // Add chatId to the message document
     sender: senderId,
     text: textContent,
     timestamp: serverTimestamp(),
@@ -87,7 +88,12 @@ const sendMessageToFirebase = async (chatId, senderId, textContent, files = [], 
 };
 
 const subscribeToFirebaseMessages = (chatId, callback) => { // Renamed
-  const messagesQuery = query(collection(db, 'chats', chatId, 'messages'), orderBy('timestamp', 'asc'));
+  const messagesQuery = query(
+    collection(db, 'messages'),
+    where('chatId', '==', chatId),
+    orderBy('timestamp', 'asc')
+  );
+  
   return onSnapshot(messagesQuery, (snapshot) => {
     const newMessages = snapshot.docs.map(doc => ({
       id: doc.id,
