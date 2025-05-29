@@ -13,7 +13,7 @@ export default defineConfig({
         name: 'Spark-IQ',
         short_name: 'Spark-IQ',
         description: 'An intelligent assignment evaluation platform',
-        theme_color: '#000000',
+        theme_color: '#13152d',
         icons: [
           {
             src: 'icons/icon-192x192.png',
