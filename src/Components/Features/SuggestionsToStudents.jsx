@@ -55,7 +55,7 @@ const SuggestionsToStudents = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white p-4 md:p-6">
+    <div className="min-h-screen bg-gradient-to-br from-gray-100 via-gray-200 to-gray-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 text-gray-900 dark:text-white p-4 md:p-6">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center gap-3 mb-8 pt-5">
           <div className="p-2 bg-gradient-to-br from-purple-500 to-blue-500 rounded-lg">
@@ -67,11 +67,11 @@ const SuggestionsToStudents = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6 pt-5">
-          <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-6 backdrop-blur-sm">
+          <div className="bg-white/50 dark:bg-gray-800/50 rounded-xl border border-gray-200/50 dark:border-gray-700/50 p-6 backdrop-blur-sm">
             <div className="space-y-6">
               {/* Title Input */}
               <div>
-                <label htmlFor="title" className="block text-sm font-medium text-gray-300 mb-2">
+                <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Title
                 </label>
                 <input
@@ -79,7 +79,7 @@ const SuggestionsToStudents = () => {
                   id="title"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full p-3 bg-gray-700/60 border border-gray-600 rounded-lg text-white placeholder-gray-400/70 focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
+                  className="w-full p-3 bg-gray-100/60 dark:bg-gray-700/60 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-500/70 dark:placeholder-gray-400/70 focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
                   placeholder="Enter suggestion title"
                   required
                 />
@@ -87,14 +87,14 @@ const SuggestionsToStudents = () => {
 
               {/* Description Input */}
               <div>
-                <label htmlFor="description" className="block text-sm font-medium text-gray-300 mb-2">
+                <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Description
                 </label>
                 <textarea
                   id="description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full p-3 bg-gray-700/60 border border-gray-600 rounded-lg text-white placeholder-gray-400/70 min-h-[200px] focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
+                  className="w-full p-3 bg-gray-100/60 dark:bg-gray-700/60 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-500/70 dark:placeholder-gray-400/70 min-h-[200px] focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
                   placeholder="Enter detailed suggestion description..."
                   required
                 />
@@ -102,14 +102,14 @@ const SuggestionsToStudents = () => {
 
               {/* File Attachments */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Attachments
                 </label>
                 <div className="space-y-4">
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-2 px-4 py-2 bg-gray-700/50 text-gray-300 rounded-lg hover:bg-gray-700/70 transition-all"
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-100/50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200/70 dark:hover:bg-gray-700/70 transition-all"
                   >
                     <ArrowUpTrayIcon className="w-5 h-5" />
                     Attach Files
@@ -127,10 +127,10 @@ const SuggestionsToStudents = () => {
                       {attachments.map((file, i) => (
                         <div 
                           key={i} 
-                          className="flex items-center gap-2 p-2 bg-gray-700/50 rounded-lg"
+                          className="flex items-center gap-2 p-2 bg-gray-100/50 dark:bg-gray-700/50 rounded-lg"
                         >
-                          <DocumentTextIcon className="w-5 h-5 text-gray-400" />
-                          <span className="text-sm text-gray-300 truncate flex-1" title={file.name}>
+                          <DocumentTextIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                          <span className="text-sm text-gray-700 dark:text-gray-300 truncate flex-1" title={file.name}>
                             {file.name}
                           </span>
                           <button
@@ -138,7 +138,7 @@ const SuggestionsToStudents = () => {
                             onClick={() => removeAttachment(file.name)}
                             className="p-1 hover:bg-red-500/20 rounded-lg transition-colors"
                           >
-                            <XMarkIcon className="w-4 h-4 text-red-400" />
+                            <XMarkIcon className="w-4 h-4 text-red-500 dark:text-red-400" />
                           </button>
                         </div>
                       ))}
