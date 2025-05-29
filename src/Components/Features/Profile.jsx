@@ -133,10 +133,10 @@ const ProfilePage = () => {
 
   // Check authentication state
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log('Auth state changed:', user ? 'User logged in' : 'No user');
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => { // Renamed user to currentUser to avoid conflict
+      console.log('Auth state changed:', currentUser ? 'User logged in' : 'No user');
       setAuthChecked(true);
-      if (!user) {
+      if (!currentUser) {
         console.log('No authenticated user, redirecting to login');
         navigate('/login');
         return;
@@ -144,7 +144,7 @@ const ProfilePage = () => {
       
       // Get user profile to check role
       try {
-        const profileData = await getUserProfile(user.uid);
+        const profileData = await getUserProfile(currentUser.uid);
         if (profileData?.role === 'educator') {
           // Redirect educators to educator profile
           navigate('/educator-profile');
@@ -155,10 +155,10 @@ const ProfilePage = () => {
       }
       
       // Determine if this is the user's own profile
-      setIsOwnProfile(!userId || userId === user.uid);
+      setIsOwnProfile(!userId || userId === currentUser.uid);
       
       // Load the appropriate profile
-      loadUserProfile(userId || user.uid);
+      loadUserProfile(userId || currentUser.uid);
     });
 
     return () => unsubscribe();
@@ -525,7 +525,7 @@ const ProfilePage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-gray-100"> {/* Added text-gray-100 for base text color */}
       {/* Toast notification */}
       {toast && (
         <Toast
@@ -556,14 +556,15 @@ const ProfilePage = () => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         {/* Profile Header */}
         <div className="bg-gray-800/50 backdrop-blur-lg rounded-2xl shadow-2xl border border-gray-700/30 overflow-hidden">
-          <div className="relative h-48 bg-gradient-to-r from-indigo-500/20 to-purple-500/20">
+          <div className="relative h-36 md:h-48 bg-gradient-to-r from-indigo-500/20 to-purple-500/20"> {/* Adjusted height for mobile */}
             <div className="absolute inset-0 bg-gradient-to-t from-gray-900/80 via-transparent to-transparent" />
           </div>
-          <div className="px-6 pb-6 -mt-16 relative">
-            <div className="flex flex-col md:flex-row md:items-end md:justify-between">
-              <div className="flex items-end gap-6">
-                <div className="relative group">
-                  <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-full blur opacity-30 group-hover:opacity-50 transition duration-1000"></div>
+          <div className="px-4 sm:px-6 pb-6 -mt-16 relative"> {/* Adjusted padding for mobile */}
+            {/* Main flex container for profile header content. Stacks vertically and centers on mobile, row on desktop. */}
+            <div className="flex flex-col items-center md:flex-row md:items-end md:justify-between">
+              {/* Avatar and Name/Bio Section. Stacks vertically and centers on mobile, row on desktop. */}
+              <div className="flex flex-col items-center md:flex-row md:items-end text-center md:text-left gap-4 md:gap-6">
+                <div className="relative group"> {/* Avatar wrapper */}
                   <input
                     type="file"
                     accept="image/*"
@@ -580,35 +581,37 @@ const ProfilePage = () => {
                       <img
                         src={avatarUrl}
                         alt={user.name}
-                        className="h-32 w-32 rounded-full border-4 border-gray-900 bg-gray-900 z-10 relative object-cover"
+                        className="h-24 w-24 md:h-32 md:w-32 rounded-full border-4 border-gray-900 bg-gray-900 z-10 relative object-cover"
                       />
                     ) : (
-                      <div className="h-32 w-32 rounded-full border-4 border-gray-900 bg-gray-800 flex items-center justify-center z-10 relative">
-                        <UserCircleIcon className="h-20 w-20 text-gray-400" />
+                      <div className="h-24 w-24 md:h-32 md:w-32 rounded-full border-4 border-gray-900 bg-gray-800 flex items-center justify-center z-10 relative">
+                        <UserCircleIcon className="h-16 w-16 md:h-20 md:w-20 text-gray-400" />
                       </div>
                     )}
                   </div>
                   {user.isVerified && (
-                    <div className="absolute bottom-2 right-2 bg-blue-500 rounded-full p-1.5 shadow-lg">
-                      <ShieldCheckIcon className="h-5 w-5 text-white" />
+                    <div className="absolute bottom-1 right-1 md:bottom-2 md:right-2 bg-blue-500 rounded-full p-1 md:p-1.5 shadow-lg z-20"> {/* Adjusted padding for smaller badge */}
+                      <ShieldCheckIcon className="h-4 w-4 md:h-5 md:w-5 text-white" />
                     </div>
                   )}
                 </div>
-                <div className="pb-4 space-y-2">
-                  <h1 className="text-3xl font-bold text-white">
+                {/* Name/Bio Text. Text centered on mobile, left-aligned on desktop. */}
+                <div className="pb-2 md:pb-4 space-y-1 md:space-y-2"> {/* Adjusted padding and spacing for mobile */}
+                  <h1 className="text-2xl md:text-3xl font-bold text-white">
                     {user.name}
-                    <span className="ml-3 text-sm bg-purple-500/20 text-purple-300 px-3 py-1 rounded-full">
+                    <span className="block mt-1 md:mt-0 md:ml-3 md:inline-block text-xs md:text-sm bg-purple-500/20 text-purple-300 px-2 py-0.5 md:px-3 md:py-1 rounded-full"> {/* Adjusted badge style */}
                       Level 3 Learner
                     </span>
                   </h1>
-                  <p className="text-gray-300 max-w-2xl">{user.bio}</p>
+                  <p className="text-gray-300 text-sm md:text-base max-w-md md:max-w-2xl">{user.bio || 'No bio yet.'}</p>
                 </div>
               </div>
-              <div className="mt-4 md:mt-0 flex gap-3">
+              {/* Edit Profile Buttons. Centered on mobile, right-aligned on desktop. */}
+              <div className="mt-6 md:mt-0 flex gap-3 w-full justify-center md:w-auto md:justify-start">
                 {isEditing ? (
                   <div className="flex gap-3">
                     <button
-                      onClick={() => setIsEditing(false)}
+                      onClick={() => setIsEditing(false)} // Should be handleCancelEdit
                       className="px-4 py-2 border border-gray-600 rounded-xl text-gray-300 hover:bg-gray-700/50 transition-all"
                     >
                       Cancel
@@ -633,6 +636,7 @@ const ProfilePage = () => {
             </div>
           </div>
         </div>
+
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -667,12 +671,12 @@ const ProfilePage = () => {
 
         {/* Tabs Navigation */}
         <div className="border-b border-gray-700/50">
-          <nav className="flex space-x-8">
+          <nav className="flex space-x-4 sm:space-x-8"> {/* Adjusted spacing for tabs */}
             {['about', 'courses', 'activity'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`pb-4 px-1 font-medium ${
+                className={`pb-4 px-1 font-medium text-sm sm:text-base ${ /* Responsive text size */
                   activeTab === tab
                     ? 'text-indigo-400 border-b-2 border-indigo-500'
                     : 'text-gray-400 hover:text-gray-300'
@@ -778,8 +782,8 @@ const ProfilePage = () => {
                   </div>
                   <div className="space-y-3">
                     {SOCIAL_PLATFORMS.map(({ key, label, prefix }) => (
-                      <div key={key} className="flex items-center gap-3 text-gray-300">
-                        <div className="w-24 text-indigo-300">{label}</div>
+                      <div key={key} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 text-gray-300"> {/* Responsive social links layout */}
+                        <div className="w-full sm:w-24 text-indigo-300 font-medium sm:font-normal">{label}</div>
                         {isEditingSocial ? (
                           <input
                             type="text"
@@ -789,7 +793,7 @@ const ProfilePage = () => {
                             className="flex-1 px-3 py-1 rounded bg-gray-700 text-white border border-gray-600 focus:outline-none"
                           />
                         ) : (
-                          <div className="flex-1">
+                          <div className="flex-1 truncate"> {/* Added truncate for long links */}
                             {safeSocial[key] ? (
                               <a
                                 href={safeSocial[key].startsWith('http') ? safeSocial[key] : prefix + safeSocial[key].replace(/^@/, '')}
@@ -876,7 +880,7 @@ const ProfilePage = () => {
               </div>
               {/* Enroll Modal */}
               {showCourseModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+                <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
                   <div className="bg-gray-900 rounded-xl p-8 w-full max-w-md shadow-2xl border border-gray-700">
                     <h2 className="text-xl font-bold text-white mb-4">Enroll in a New Course</h2>
                     <select
@@ -944,7 +948,7 @@ const ProfilePage = () => {
         </div>
 
         {/* Floating Action Button */}
-        <div className="fixed bottom-8 right-8">
+        <div className="fixed bottom-8 right-8 z-30"> {/* Ensured FAB is above footer glow */}
           <button
             className="p-4 bg-indigo-600 rounded-full shadow-xl hover:bg-indigo-700 transition-colors animate-bounce-slow"
             title="Upload new avatar"
@@ -960,12 +964,12 @@ const ProfilePage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="text-gray-400 text-sm">
             © 2024 SparkIQ. All rights reserved. 
-            <span className="mx-4">|</span>
+            <span className="mx-2 sm:mx-4">|</span> {/* Adjusted spacing for mobile */}
             <a href="#" className="hover:text-indigo-300 transition-colors">Privacy Policy</a>
-            <span className="mx-4">|</span>
+            <span className="mx-2 sm:mx-4">|</span> {/* Adjusted spacing for mobile */}
             <a href="#" className="hover:text-indigo-300 transition-colors">Terms of Service</a>
           </div>
-          <div className="mt-4 flex justify-center space-x-6">
+          <div className="mt-4 flex justify-center items-center space-x-2 sm:space-x-6"> {/* Adjusted spacing for mobile */}
             <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
             <div className="text-xs text-gray-400">System Status: All Services Operational</div>
           </div>
