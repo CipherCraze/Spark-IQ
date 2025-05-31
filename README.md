@@ -47,7 +47,7 @@ Spark IQ tackles the modern educational challenge of overwhelmed educators who l
 |--------------------|------------------------------------------------|
 | **Frontend**       | React.js, Vite                                 |
 | **Backend**        | Firebase (Realtime DB, Auth, Cloud Functions)  |
-| **AI Integration** | Gemini API, Vertex AI                          |
+| **AI Integration** | Gemini API, Vertex AI, GNEWS                   |
 | **Styling**        | Tailwind CSS                                   |
 | **Build Tool**     | Vite + Project IDX                             |
 | **Deployment**     | Vercel                                         |
