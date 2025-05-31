@@ -11,22 +11,22 @@ import {
 const Team = () => {
   const teamMembers = [
     {
+      name: "Pranav C R",
+      role: "Developer & Team Lead",
+      bio: "Innovative and strategic team lead with a passion for problem-solving",
+      icon: CpuChipIcon, // Processing/AI icon
+    },
+    {
       name: "Noel Manoj",
       role: "Frontend Developer",
       bio: "UI/UX expert with a passion for accessible design",
       icon: SwatchIcon, // Design-focused icon
     },
     {
-      name: "Joswin M.J.",
+      name: "Joswin M J",
       role: "Backend Developer",
       bio: "Focused on scalable solutions and seamless integrations",
       icon: ServerStackIcon, // Server infrastructure icon
-    },
-    {
-      name: "Pranav C.R.",
-      role: "AI/ML Developer",
-      bio: "AI enthusiast with a knack for predictive analytics",
-      icon: CpuChipIcon, // Processing/AI icon
     },
     {
       name: "Niranjan J Rajesh",
