@@ -48,7 +48,10 @@ import EducatorSettings from './Components/Features/EducatorSettings'; // Import
 import ViewOnlyProfile from './Components/Features/ViewOnlyProfile'; // Import the ViewOnlyProfile component
 import GradesAndAnalytics from './Components/Features/GradesAndAnalytics';
 import GradesAndFeedback from './Components/Features/GradesAndFeedback';
+import VoiceChat from './Components/Chatbot/VoiceChat'; // Import the VoiceChat component
+import TeacherVoiceChat from './Components/Chatbot/TeacherVoiceChat'; // Import the TeacherVoiceChat component
 import './styles/animations.css';
+import { AuthProvider } from './context/AuthContext'; // or './contexts/AuthContext' if that's the folder
 
 
 const Layout = ({ children, showHeaderFooter = true }) => (
@@ -63,6 +66,7 @@ const Layout = ({ children, showHeaderFooter = true }) => (
 
 function App() {
   return (
+    <AuthProvider> {/* Wrap the entire app with AuthProvider */}
     <Router>
       <Routes>
         {/* Landing Page */}
@@ -229,9 +233,44 @@ function App() {
             </Layout>
           }
         />
-    
+
         
-        
+          {/* Voice Chat */}
+        <Route
+          path="/voice-chat"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <VoiceChat />
+            </Layout>
+          }
+        />
+        {/* Teacher Voice Chat */}
+        <Route
+          path="/teacher-voice-chat"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <TeacherVoiceChat />
+            </Layout>
+          }
+        />
+        {/* Voice Chat */}
+        <Route
+          path="/voice-chat"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <VoiceChat />
+            </Layout>
+          }
+        />
+        {/* Teacher Voice Chat */}
+        <Route
+          path="/teacher-voice-chat"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <TeacherVoiceChat />
+            </Layout>
+          }
+        />
         {/* Resource Utilization */}
         <Route
           path="/resource-utilization"
@@ -385,6 +424,7 @@ function App() {
         />
       </Routes>
     </Router>
+    </AuthProvider> // Close the AuthProvider
   );
 }
 
