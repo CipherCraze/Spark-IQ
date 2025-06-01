@@ -140,6 +140,14 @@ const Newsletter = () => {
           </p>
         </motion.div>
       </div>
+      <div className="mt-6 flex flex-col items-center justify-center">
+        <span className="inline-flex items-center gap-2 text-lg font-semibold bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 bg-clip-text text-transparent animate-gradient-x drop-shadow-lg">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" className="w-6 h-6 text-pink-400 animate-pulse">
+            <path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" />
+          </svg>
+          with love, team CodeSharks
+        </span>
+      </div>
     </section>
   );
 };
