@@ -322,7 +322,7 @@ const VoiceChat = () => {
           </button>
         </div>
       </footer>
-       <style jsx global>{`
+       <style jsx="jsx" global="global">{`
         .scroll-smooth {
           scroll-behavior: smooth;
         }

@@ -248,6 +248,7 @@ const StudentDashboard = () => {
   const studentMenu = [
     { title: 'Dashboard', Icon: HomeIcon, link: '/dashboard', description: "Overview of your progress." },
     { title: 'My Resources', Icon: FolderIcon, link: '/resource-utilization', description: "Access course materials." },
+    { title: 'Tests', Icon: ClipboardDocumentIcon, link: '/student-tests', description: "Take and view your test results." },
     { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-monitoring', description: "Track your attendance." },
     { title: 'Assignments', Icon: DocumentTextIcon, link: '/assignment-submission', description: "View & submit assignments." },
     { title: 'Grades & Feedback', Icon: PresentationChartLineIcon, link: '/GradesAndFeedback', description: "Check your grades." },
@@ -535,13 +536,7 @@ const StudentDashboard = () => {
                 );
               })}
             </nav>
-            <div className="p-3 border-t border-gray-700/60">
-              <Link to="/settings" onClick={() => !isDesktop && setIsSidebarOpen(false)}
-                    className={`flex items-center gap-3.5 px-3.5 py-2.5 rounded-lg text-gray-400 hover:bg-gray-700/50 hover:text-gray-200 transition-all group`}>
-                <Cog6ToothIcon className="w-5 h-5 text-gray-500 group-hover:text-indigo-400"/>
-                <span className="text-sm font-medium">Settings</span>
-              </Link>
-            </div>
+            
           </motion.aside>
         )}
       </AnimatePresence>
