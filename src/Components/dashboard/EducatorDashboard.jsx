@@ -63,6 +63,7 @@ const DesktopEducatorDashboard = () => {
   const educatorSidebarMenu = [
     { title: 'Dashboard', Icon: PresentationChartLineIcon, link: '/educator-dashboard', current: true },
     { title: 'Assignments', Icon: ClipboardDocumentIcon, link: '/assignment-management' },
+    { title: 'Tests', Icon: ClipboardDocumentIcon, link: '/teacher-tests' },
     { title: 'Grades & Analytics', Icon: AcademicCapIcon, link: '/GradesAndAnalytics' },
     { title: 'Resources', Icon: FolderIcon, link: '/resource-management' },
     { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-tracking' },
@@ -498,6 +499,7 @@ const MobileEducatorDashboard = () => {
   const educatorSidebarMenu = [ 
     { title: 'Dashboard', Icon: PresentationChartLineIcon, link: '/educator-dashboard', current: true },
     { title: 'Assignments', Icon: ClipboardDocumentIcon, link: '/assignment-management' },
+    { title: 'Tests', Icon: ClipboardDocumentIcon, link: '/teacher-tests' },
     { title: 'Grades & Analytics', Icon: AcademicCapIcon, link: '/GradesAndAnalytics' },
     { title: 'Resources', Icon: FolderIcon, link: '/resource-management' },
     { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-tracking' },

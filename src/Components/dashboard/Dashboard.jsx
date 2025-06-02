@@ -248,6 +248,7 @@ const StudentDashboard = () => {
   const studentMenu = [
     { title: 'Dashboard', Icon: HomeIcon, link: '/dashboard', description: "Overview of your progress." },
     { title: 'My Resources', Icon: FolderIcon, link: '/resource-utilization', description: "Access course materials." },
+    { title: 'Tests', Icon: ClipboardDocumentIcon, link: '/student-tests', description: "Take and view your test results." },
     { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-monitoring', description: "Track your attendance." },
     { title: 'Assignments', Icon: DocumentTextIcon, link: '/assignment-submission', description: "View & submit assignments." },
     { title: 'Grades & Feedback', Icon: PresentationChartLineIcon, link: '/GradesAndFeedback', description: "Check your grades." },
