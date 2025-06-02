@@ -15,7 +15,11 @@ import { StarIcon as SolidStarIcon, MapPinIcon as SolidPinIcon } from '@heroicon
 import { auth, db, connectionsCollection, studentsCollection, teachersCollection, chatsCollection } from '../../firebase/firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
 import { collection, query, where, getDocs, doc, getDoc, updateDoc, addDoc, deleteDoc, onSnapshot, or, and, serverTimestamp, orderBy, setDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
-import { useNavigate } from 'react-router-dom'; // Added for potential navigation
+import { useNavigate } from 'react-router-dom';
+
+// --- IMPORT CENSORSHIP LOGIC ---
+import { censorText } from '../../moderation/moderationConfig'; // Adjust path if moderationConfig.js is elsewhere
+
 // --- Firebase Helper Operations (derived from your original components) ---
 
 const getUserProfile = async (userId) => {
@@ -45,10 +49,10 @@ const getChatParticipantsInfo = async (participantIds) => {
   return profiles.filter(p => p !== null);
 };
 
-const createChatInFirebase = async (participants) => { // Renamed to avoid conflict
-  const chatRef = doc(chatsCollection); // Auto-generate ID
+const createChatInFirebase = async (participants) => {
+  const chatRef = doc(chatsCollection);
   await setDoc(chatRef, {
-    participants: participants.sort(), // Ensure consistent order
+    participants: participants.sort(),
     createdAt: serverTimestamp(),
     lastMessageAt: serverTimestamp(),
     typing: {}
@@ -56,18 +60,18 @@ const createChatInFirebase = async (participants) => { // Renamed to avoid confl
   return chatRef.id;
 };
 
-const sendMessageToFirebase = async (chatId, senderId, textContent, files = [], replyToMessageId = null) => {
+const sendMessageToFirebase = async (chatId, senderId, textContent, files = [], replyToMessageId = null, replyToMessageData = null) => {
   const messagesColRef = collection(db, 'messages');
-  // In a real app, upload files to Firebase Storage here and get URLs
   const fileDataForFirestore = files.map(file => ({
       name: file.name,
       type: file.type,
       size: file.size,
-      url: `placeholder_url_for_${file.name}` // Replace with actual Storage URL after upload
+      url: `placeholder_url_for_${file.name}` // Replace with actual storage URL after upload
   }));
 
+  // textContent here is expected to be ALREADY ENCRYPTED (and potentially censored before encryption)
   const messageData = {
-    chatId, // Add chatId to the message document
+    chatId,
     sender: senderId,
     text: textContent,
     timestamp: serverTimestamp(),
@@ -76,6 +80,15 @@ const sendMessageToFirebase = async (chatId, senderId, textContent, files = [], 
     reactions: {},
     isReadBy: { [senderId]: true }
   };
+
+  if (replyToMessageId && replyToMessageData) {
+    messageData.replyToSenderId = replyToMessageData.sender;
+    // Store original (potentially encrypted) text for reply preview consistency
+    messageData.replyToMessageText = replyToMessageData.text; 
+    messageData.replyToHasFiles = replyToMessageData.files && replyToMessageData.files.length > 0;
+  }
+
+
   const newMsgRef = await addDoc(messagesColRef, messageData);
 
   await updateDoc(doc(db, 'chats', chatId), {
@@ -87,23 +100,22 @@ const sendMessageToFirebase = async (chatId, senderId, textContent, files = [], 
   return newMsgRef.id;
 };
 
-const subscribeToFirebaseMessages = (chatId, callback) => { // Renamed
+const subscribeToFirebaseMessages = (chatId, callback) => {
   const messagesQuery = query(
     collection(db, 'messages'),
     where('chatId', '==', chatId),
     orderBy('timestamp', 'asc')
   );
-  
+
   return onSnapshot(messagesQuery, (snapshot) => {
-    const newMessages = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      timestamp: doc.data().timestamp?.toDate ? doc.data().timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Sending...',
+    const newMessages = snapshot.docs.map(docSnap => ({
+      id: docSnap.id,
+      ...docSnap.data(),
+      timestamp: docSnap.data().timestamp?.toDate ? docSnap.data().timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Sending...',
     }));
     callback(newMessages);
   }, (error) => {
     console.error("Error subscribing to messages:", error);
-    // Optionally, you could pass this error to the UI
   });
 };
 
@@ -116,31 +128,31 @@ const ChatFunctionality = () => {
   const [fbCurrentUserName, setFbCurrentUserName] = useState('');
   const [fbCurrentUserProfile, setFbCurrentUserProfile] = useState(null);
 
-  // UI States from New UI (mostly kept)
-  const [messageInputText, setMessageInputText] = useState(''); // Renamed from `message` to avoid conflict
-  const [displayedMessages, setDisplayedMessages] = useState([]); // Renamed from `messages`
-  const [activeChat, setActiveChat] = useState(null); // { id: otherUserId, type: 'dm', name: '', avatar: '', status: '' }
-  
-  const [searchQueryConnections, setSearchQueryConnections] = useState(''); // Renamed
+  // UI States
+  const [messageInputText, setMessageInputText] = useState('');
+  const [displayedMessages, setDisplayedMessages] = useState([]);
+  const [activeChat, setActiveChat] = useState(null);
+
+  const [searchQueryConnections, setSearchQueryConnections] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [typingUsersDisplay, setTypingUsersDisplay] = useState(''); // For display string
-  
+  const [typingUsersDisplay, setTypingUsersDisplay] = useState('');
+
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
-  const [pinnedMessagesDisplay, setPinnedMessagesDisplay] = useState([]); // Renamed
+  const [pinnedMessagesDisplay, setPinnedMessagesDisplay] = useState([]);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [replyingToMessage, setReplyingToMessage] = useState(null); // Renamed
-  const [selectedFilesForUpload, setSelectedFilesForUpload] = useState([]); // Renamed
-  const [activeMainTab, setActiveMainTab] = useState('friends'); // 'friends', 'requests', 'groups'
-  const [showChatInfoPanel, setShowChatInfoPanel] = useState(false); // Renamed
+  const [replyingToMessage, setReplyingToMessage] = useState(null);
+  const [selectedFilesForUpload, setSelectedFilesForUpload] = useState([]);
+  const [activeMainTab, setActiveMainTab] = useState('friends');
+  const [showChatInfoPanel, setShowChatInfoPanel] = useState(false);
   const [messageSearchOpen, setMessageSearchOpen] = useState(false);
   const [messageSearchQuery, setMessageSearchQuery] = useState('');
 
   // Firebase Data States
-  const [connections, setConnections] = useState([]); // List of accepted connections (friends)
+  const [connections, setConnections] = useState([]);
   const [pendingReceivedRequests, setPendingReceivedRequests] = useState([]);
   const [sentRequests, setSentRequests] = useState([]);
   const [activeFirebaseChatId, setActiveFirebaseChatId] = useState(null);
-  const [chatParticipantInfo, setChatParticipantInfo] = useState([]); // Info for users in current chat
+  const [chatParticipantInfo, setChatParticipantInfo] = useState([]);
 
   // Loading & Error States
   const [loadingAuth, setLoadingAuth] = useState(true);
@@ -148,16 +160,16 @@ const ChatFunctionality = () => {
   const [loadingRequests, setLoadingRequests] = useState(true);
   const [loadingChatMessages, setLoadingChatMessages] = useState(false);
   const [chatError, setChatError] = useState(null);
-  
+
   // Refs
   const chatContainerRef = useRef(null);
   const messageInputRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // Encryption (Optional - can be removed if not strictly needed)
-  const encryptionKey = 'secure-encryption-key-v2';
+  // Encryption
+  const encryptionKey = 'secure-encryption-key-v2'; // Store securely in a real app
   const encryptMessage = (text) => CryptoJS.AES.encrypt(text, encryptionKey).toString();
-  const decryptMessage = (ciphertext) => {
+  const decryptMessage = useCallback((ciphertext) => {
     try {
       if (!ciphertext) return '';
       const bytes = CryptoJS.AES.decrypt(ciphertext, encryptionKey);
@@ -165,11 +177,12 @@ const ChatFunctionality = () => {
       return decryptedText || '[Encrypted]';
     } catch (e) {
       console.warn("Decryption error or already plain text:", e.message, ciphertext);
-      return ciphertext || '[Error Decrypting]'; // Fallback to ciphertext if decryption fails
+      return ciphertext || '[Error Decrypting]';
     }
-  };
-  
-  const navigate = useNavigate(); // For any navigation needs
+  }, [encryptionKey]);
+
+
+  const navigate = useNavigate();
 
   // --- Firebase Auth Effect ---
   useEffect(() => {
@@ -186,7 +199,6 @@ const ChatFunctionality = () => {
         setFbCurrentUserId(null);
         setFbCurrentUserName('');
         setFbCurrentUserProfile(null);
-        // Reset all data states
         setConnections([]);
         setPendingReceivedRequests([]);
         setSentRequests([]);
@@ -207,32 +219,20 @@ const ChatFunctionality = () => {
       return;
     }
     setLoadingConnections(true);
-
     const fetchConnectionDetails = async (connectionDoc) => {
       const connectionData = connectionDoc.data();
       const otherUserId = connectionData.senderId === fbCurrentUserId ? connectionData.receiverId : connectionData.senderId;
       const userProfile = await getUserProfile(otherUserId);
       return {
         firebaseConnectionId: connectionDoc.id,
-        id: otherUserId, // friend's ID
+        id: otherUserId,
         name: userProfile?.name || (connectionData.senderId === fbCurrentUserId ? connectionData.receiverName : connectionData.senderName) || 'Unknown User',
         avatar: userProfile?.avatar || null,
-        status: userProfile?.status || 'offline', // Assuming status is on user profile
-        // lastMessage, lastMessageTime, unread will be updated by chat listeners if available
+        status: userProfile?.status || 'offline', // TODO: Get real-time status if available
       };
     };
-    
-    // FIX: Use 'and' to combine multiple filters with 'or'
-    // import { and, or } from 'firebase/firestore'; at the top if not already imported
-    // If not imported, add:
-    // import { and, or } from 'firebase/firestore';
-
     const q = query(
       connectionsCollection,
-      // Use 'and' to wrap the 'or' and the status filter
-      // and(or(...), where('status', '==', 'accepted'))
-      // This is the correct way for Firestore v10+ composite queries
-      // If your Firestore SDK is <10, you may need to update it
       and(
         or(
           where('senderId', '==', fbCurrentUserId),
@@ -241,16 +241,14 @@ const ChatFunctionality = () => {
         where('status', '==', 'accepted')
       )
     );
-
     const unsubscribe = onSnapshot(q, async (snapshot) => {
         const fetchedConnections = await Promise.all(snapshot.docs.map(fetchConnectionDetails));
-        setConnections(fetchedConnections.filter(c => c.id)); // Ensure ID exists
+        setConnections(fetchedConnections.filter(c => c.id));
         setLoadingConnections(false);
     }, (error) => {
         console.error("Error fetching connections:", error);
         setLoadingConnections(false);
     });
-
     return () => unsubscribe();
   }, [fbCurrentUserId]);
 
@@ -263,8 +261,6 @@ const ChatFunctionality = () => {
       return;
     }
     setLoadingRequests(true);
-
-    // Use 'and' for composite queries
     const receivedQuery = query(
       connectionsCollection,
       and(
@@ -273,8 +269,8 @@ const ChatFunctionality = () => {
       )
     );
     const unsubReceived = onSnapshot(receivedQuery, (snapshot) => {
-      setPendingReceivedRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      setLoadingRequests(false); 
+      setPendingReceivedRequests(snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() })));
+      setLoadingRequests(false);
     }, (error) => { console.error('Error fetching received requests:', error); setLoadingRequests(false);});
 
     const sentQuery = query(
@@ -285,9 +281,8 @@ const ChatFunctionality = () => {
       )
     );
     const unsubSent = onSnapshot(sentQuery, (snapshot) => {
-      setSentRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setSentRequests(snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() })));
     }, (error) => console.error('Error fetching sent requests:', error));
-
     return () => { unsubReceived(); unsubSent(); };
   }, [fbCurrentUserId]);
 
@@ -304,33 +299,28 @@ const ChatFunctionality = () => {
     };
 
     const setupActiveChat = async () => {
-      if (!fbCurrentUserId || !activeChat?.id) { // activeChat.id is otherUserId
+      if (!fbCurrentUserId || !activeChat?.id) {
         setDisplayedMessages([]);
         setActiveFirebaseChatId(null);
         setChatParticipantInfo([]);
         cleanupSubscriptions();
         return;
       }
-
       setLoadingChatMessages(true);
       setChatError(null);
       cleanupSubscriptions();
-
       try {
         const otherUserId = activeChat.id;
         const participants = [fbCurrentUserId, otherUserId].sort();
-        
         const chatQuery = query(chatsCollection, where('participants', '==', participants));
         const querySnapshot = await getDocs(chatQuery);
         let currentChatDocId = null;
-
         if (querySnapshot.empty) {
           currentChatDocId = await createChatInFirebase(participants);
         } else {
           currentChatDocId = querySnapshot.docs[0].id;
         }
         setActiveFirebaseChatId(currentChatDocId);
-
         const info = await getChatParticipantsInfo([fbCurrentUserId, otherUserId]);
         setChatParticipantInfo(info);
 
@@ -338,7 +328,8 @@ const ChatFunctionality = () => {
           messageSubscriptionRef.current = subscribeToFirebaseMessages(currentChatDocId, (newMessages) => {
             setDisplayedMessages(newMessages.map(msg => ({
               ...msg,
-              text: decryptMessage(msg.text), // Decrypt here for display
+              // Decrypt text for display. Original encrypted text remains in `msg.text` if needed for `replyToMessageText`
+              textForDisplay: decryptMessage(msg.text),
             })));
             setLoadingChatMessages(false);
           });
@@ -346,14 +337,12 @@ const ChatFunctionality = () => {
           chatDetailsSubscriptionRef.current = onSnapshot(doc(db, 'chats', currentChatDocId), (chatDoc) => {
             if (chatDoc.exists()) {
               const chatData = chatDoc.data();
-              // Typing indicator
               let typingString = '';
               let currentlyTyping = false;
               if (chatData.typing) {
                 const activeTypers = Object.entries(chatData.typing)
                   .filter(([userId, status]) => userId !== fbCurrentUserId && status === true)
                   .map(([userId]) => info.find(p => p.id === userId)?.name || 'Someone');
-                
                 if (activeTypers.length > 0) {
                   currentlyTyping = true;
                   if (activeTypers.length === 1) typingString = `${activeTypers[0]} is typing...`;
@@ -362,12 +351,6 @@ const ChatFunctionality = () => {
               }
               setIsTyping(currentlyTyping);
               setTypingUsersDisplay(typingString);
-
-              // Pinned Messages (if stored on chat doc)
-              if (chatData.pinnedMessageIds && Array.isArray(chatData.pinnedMessageIds)) {
-                // Fetch full pinned messages if only IDs are stored
-                // For simplicity, assuming pinnedMessagesDisplay is managed differently for now.
-              }
             }
           });
         }
@@ -377,37 +360,52 @@ const ChatFunctionality = () => {
         setLoadingChatMessages(false);
       }
     };
-
     setupActiveChat();
     return cleanupSubscriptions;
-  }, [fbCurrentUserId, activeChat?.id]); // Rerun when active chat user changes
+  }, [fbCurrentUserId, activeChat?.id, decryptMessage]);
 
 
   // --- Send Message ---
   const handleSendMessage = async () => {
     if ((!messageInputText.trim() && selectedFilesForUpload.length === 0) || !activeFirebaseChatId || !fbCurrentUserId) return;
 
-    const encryptedText = messageInputText.trim() ? encryptMessage(messageInputText) : '';
-    // File upload logic to Firebase Storage would go here.
-    // For now, sendMessageToFirebase takes file metadata.
-    
+    const originalText = messageInputText.trim();
+    let textToSend = originalText;
+
+    if (originalText) {
+      const censoredText = censorText(originalText);
+      textToSend = censoredText;
+    }
+
+    const encryptedText = textToSend ? encryptMessage(textToSend) : '';
+
     try {
-      setLoadingChatMessages(true); // Indicate sending
-      await sendMessageToFirebase(activeFirebaseChatId, fbCurrentUserId, encryptedText, selectedFilesForUpload, replyingToMessage?.id || null);
+        const replyToData = replyingToMessage ? {
+            id: replyingToMessage.id,
+            text: replyingToMessage.text, // This is original encrypted text of message being replied to
+            sender: replyingToMessage.sender,
+            files: replyingToMessage.files,
+        } : null;
+
+      await sendMessageToFirebase(
+          activeFirebaseChatId, 
+          fbCurrentUserId, 
+          encryptedText, 
+          selectedFilesForUpload, 
+          replyingToMessage?.id || null,
+          replyToData // Pass full replyingToMessage object for context
+        );
       setMessageInputText('');
       setSelectedFilesForUpload([]);
       setReplyingToMessage(null);
       if (messageInputRef.current) messageInputRef.current.focus();
-      
-      // Clear typing status
+
       if (activeFirebaseChatId && fbCurrentUserId) {
         await updateDoc(doc(db, 'chats', activeFirebaseChatId), { [`typing.${fbCurrentUserId}`]: false });
       }
     } catch (error) {
       console.error("Error sending message:", error);
       setChatError("Failed to send message.");
-    } finally {
-        // setLoadingChatMessages(false); // Message list updates via snapshot, so loading is more for initial load
     }
   };
 
@@ -415,10 +413,10 @@ const ChatFunctionality = () => {
   const typingTimeoutRef = useRef(null);
   const handleTypingInputChange = async () => {
     if (!activeFirebaseChatId || !fbCurrentUserId) return;
-    await updateDoc(doc(db, 'chats', activeFirebaseChatId), { [`typing.${fbCurrentUserId}`]: true });
+    updateDoc(doc(db, 'chats', activeFirebaseChatId), { [`typing.${fbCurrentUserId}`]: true });
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    typingTimeoutRef.current = setTimeout(async () => {
-      await updateDoc(doc(db, 'chats', activeFirebaseChatId), { [`typing.${fbCurrentUserId}`]: false });
+    typingTimeoutRef.current = setTimeout(() => {
+      updateDoc(doc(db, 'chats', activeFirebaseChatId), { [`typing.${fbCurrentUserId}`]: false });
     }, 2500);
   };
    useEffect(() => () => { if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current); }, []);
@@ -431,27 +429,26 @@ const ChatFunctionality = () => {
   // --- Message Reactions ---
   const handleMessageReaction = async (messageId, reactionEmoji) => {
     if (!activeFirebaseChatId || !fbCurrentUserId || !messageId) return;
-    const messageRef = doc(db, 'chats', activeFirebaseChatId, 'messages', messageId);
+    const messageRef = doc(db, 'messages', messageId);
+
     try {
       const messageSnap = await getDoc(messageRef);
       if (messageSnap.exists()) {
         const messageData = messageSnap.data();
-        const currentReactions = { ...(messageData.reactions || {}) }; // Ensure reactions is an object
-        
+        if (messageData.chatId !== activeFirebaseChatId) {
+            console.error("Message reaction chatId mismatch!");
+            return;
+        }
+
+        const currentReactions = { ...(messageData.reactions || {}) };
         const usersForThisReaction = currentReactions[reactionEmoji] || [];
         const userHasReactedWithThis = usersForThisReaction.includes(fbCurrentUserId);
 
-        // Atomically update: remove if exists, add if not.
-        // Firestore provides arrayUnion and arrayRemove for this.
         if (userHasReactedWithThis) {
             await updateDoc(messageRef, {
                 [`reactions.${reactionEmoji}`]: arrayRemove(fbCurrentUserId)
             });
-            // If array becomes empty, consider removing the emoji key (more complex cleanup)
         } else {
-            // User might have reacted with a different emoji. Remove that first.
-            // This part is tricky without reading then writing, or a transaction.
-            // For simplicity: just add. Advanced: ensure user has only one reaction.
             await updateDoc(messageRef, {
                 [`reactions.${reactionEmoji}`]: arrayUnion(fbCurrentUserId)
             });
@@ -461,54 +458,91 @@ const ChatFunctionality = () => {
   };
 
   // --- Pin Message (UI only for now) ---
-  // For Firebase: update chat doc with array of pinned message IDs or subcollection.
   const pinMessageToDisplay = (messageToPin) => {
-    setPinnedMessagesDisplay(prev => prev.find(p => p.id === messageToPin.id) ? prev : [messageToPin, ...prev].slice(0,3));
+    // TODO: Implement actual pinning in Firestore if desired (e.g., add messageId to a 'pinnedMessages' array in chat doc)
+    // This currently only updates local UI state for pinned messages.
+    setPinnedMessagesDisplay(prev => {
+        const isAlreadyPinned = prev.find(p => p.id === messageToPin.id);
+        if (isAlreadyPinned) {
+            return prev.filter(p => p.id !== messageToPin.id); // Unpin
+        } else {
+            // For display, we need the decrypted text
+            return [{...messageToPin, text: decryptMessage(messageToPin.text)}, ...prev].slice(0,3); // Pin, max 3
+        }
+    });
   };
 
   // --- Delete Message ---
   const deleteFirebaseMessage = async (messageId, senderId) => {
-    if (!activeFirebaseChatId || !fbCurrentUserId || fbCurrentUserId !== senderId) return; // Only sender can delete
-    const messageRef = doc(db, 'chats', activeFirebaseChatId, 'messages', messageId);
-    try { await deleteDoc(messageRef); } catch (error) { console.error("Error deleting message:", error); }
+    if (!fbCurrentUserId || fbCurrentUserId !== senderId) return;
+    const messageRef = doc(db, 'messages', messageId);
+    try {
+        const msgDoc = await getDoc(messageRef);
+        if (msgDoc.exists() && msgDoc.data().chatId === activeFirebaseChatId) {
+            await deleteDoc(messageRef);
+        } else {
+            console.warn("Attempted to delete message not in active chat or not found.");
+        }
+    } catch (error) { console.error("Error deleting message:", error); }
   };
 
   // --- Start New Chat (Select a Connection) ---
   const handleStartNewChat = (connection) => {
     setActiveChat({
-      id: connection.id, // This is otherUserId
+      id: connection.id,
       type: 'dm',
       name: connection.name,
       avatar: connection.avatar,
       status: connection.status,
     });
-    setDisplayedMessages([]); // Clear previous messages
+    setDisplayedMessages([]);
     setShowChatInfoPanel(false);
     setReplyingToMessage(null);
-    if (window.innerWidth < 768) setIsSidebarCollapsed(true);
+    setMessageSearchQuery('');
+    setMessageSearchOpen(false);
+    if (window.innerWidth < 768) setIsSidebarCollapsed(true); // Collapse sidebar on mobile when a chat is opened
   };
 
-  // Toggle favorite (UI only, Firebase would update user profile or connections doc)
+  // Toggle favorite (UI only)
   const toggleFavoriteConnection = (id) => {
+    // TODO: This should interact with Firestore if favorites are persisted (e.g., in user profile)
     setConnections(prev => prev.map(conn => conn.id === id ? { ...conn, isFavorite: !conn.isFavorite } : conn));
   };
 
   // Filtered lists for display
   const filteredConnections = connections.filter((conn) =>
-    conn.name.toLowerCase().includes(searchQueryConnections.toLowerCase())
+    conn.name?.toLowerCase().includes(searchQueryConnections.toLowerCase())
   );
   const filteredDisplayedMessages = messageSearchQuery ? displayedMessages.filter(msg =>
-    msg.text?.toLowerCase().includes(messageSearchQuery.toLowerCase())
+    (msg.textForDisplay && typeof msg.textForDisplay === 'string' && msg.textForDisplay.toLowerCase().includes(messageSearchQuery.toLowerCase())) ||
+    (msg.files && msg.files.some(file => file.name.toLowerCase().includes(messageSearchQuery.toLowerCase())))
   ) : displayedMessages;
 
   // Scroll to bottom & Focus input effects
-  useEffect(() => { if (chatContainerRef.current) chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight; }, [displayedMessages, replyingToMessage]);
-  useEffect(() => { if (activeChat && messageInputRef.current) messageInputRef.current.focus(); }, [activeChat, replyingToMessage]);
-  
-  // Responsive sidebar
   useEffect(() => {
-    const handleResize = () => setIsSidebarCollapsed(window.innerWidth < 768);
-    window.addEventListener('resize', handleResize); handleResize();
+    if (chatContainerRef.current) {
+        const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+        const isScrolledNearBottom = scrollHeight - scrollTop <= clientHeight + 200; // Tolerance for auto-scroll
+        if (isScrolledNearBottom || displayedMessages.length !== filteredDisplayedMessages.length) { // If not searching, or if search results change
+             chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        }
+    }
+  }, [displayedMessages, filteredDisplayedMessages.length]); // Re-scroll when message list or its filtered version changes
+
+  useEffect(() => { if (activeChat && messageInputRef.current && !emojiPickerOpen) messageInputRef.current.focus(); }, [activeChat, replyingToMessage, emojiPickerOpen]);
+
+  // Responsive sidebar: Collapse by default on mobile.
+  useEffect(() => {
+    const handleResize = () => {
+        if (window.innerWidth < 768) {
+            setIsSidebarCollapsed(true);
+        } else {
+            // Optionally, set to false on desktop or retain user's choice
+            // setIsSidebarCollapsed(false); 
+        }
+    };
+    window.addEventListener('resize', handleResize);
+    handleResize(); // Initial call
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
@@ -541,20 +575,29 @@ const ChatFunctionality = () => {
         const tQuery = query(teachersCollection, where('email', '==', targetEmail));
         userSnap = await getDocs(tQuery);
       }
-      if (userSnap.empty) { setSendReqError('No user found with this email.'); return; }
+      if (userSnap.empty) { setSendReqError('No user found with this email.'); setSendReqLoading(false); return; }
 
       const receiverDoc = userSnap.docs[0];
       const receiverId = receiverDoc.id;
       const receiverData = receiverDoc.data();
 
-      if (receiverId === fbCurrentUserId) { setSendReqError('Cannot send request to yourself.'); return; }
+      if (receiverId === fbCurrentUserId) { setSendReqError('Cannot send request to yourself.'); setSendReqLoading(false); return; }
 
-      const qExisting1 = query(connectionsCollection, where('senderId', '==', fbCurrentUserId), where('receiverId', '==', receiverId));
-      const qExisting2 = query(connectionsCollection, where('senderId', '==', receiverId), where('receiverId', '==', fbCurrentUserId));
-      const [snap1, snap2] = await Promise.all([getDocs(qExisting1), getDocs(qExisting2)]);
+      const qExistingOr1 = query(connectionsCollection,
+        where('senderId', '==', fbCurrentUserId),
+        where('receiverId', '==', receiverId)
+      );
+      const qExistingOr2 = query(connectionsCollection,
+        where('senderId', '==', receiverId),
+        where('receiverId', '==', fbCurrentUserId)
+      );
+
+      const [snap1, snap2] = await Promise.all([getDocs(qExistingOr1), getDocs(qExistingOr2)]);
 
       if (!snap1.empty || !snap2.empty) {
-        setSendReqError('A connection or request already exists with this user.'); return;
+        setSendReqError('A connection or request already exists with this user.');
+        setSendReqLoading(false);
+        return;
       }
 
       await addDoc(connectionsCollection, {
@@ -563,6 +606,7 @@ const ChatFunctionality = () => {
         status: 'pending', createdAt: serverTimestamp()
       });
       setSendReqSuccess(true); setReceiverEmailInput('');
+      setTimeout(() => setSendReqSuccess(false), 3000);
     } catch (err) { console.error('Error sending request:', err); setSendReqError('Failed to send request.');
     } finally { setSendReqLoading(false); }
   };
@@ -581,35 +625,33 @@ const ChatFunctionality = () => {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-900">
         <p className="text-white text-xl">Please Log In to use SparkChat.</p>
-        {/* You would typically have a <Login /> component here or redirect */}
+        <button onClick={() => navigate('/login')} className="mt-4 px-4 py-2 bg-indigo-600 rounded hover:bg-indigo-700 text-white">Login</button>
       </div>
     );
   }
 
-  // Determine active participant profiles for chat header and message item
   const activeChatOtherParticipant = chatParticipantInfo.find(p => p.id === activeChat?.id);
-  const currentChatUserParticipant = chatParticipantInfo.find(p => p.id === fbCurrentUserId);
 
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-100 flex overflow-hidden">
-      {/* Left Sidebar */}
-      <div 
-        className={`bg-gray-800 border-r border-gray-700 transition-all duration-300 flex flex-col ${
-          isSidebarCollapsed ? 'hidden md:flex md:w-20' : 'w-80'
-        }`}
+    <div className="h-screen bg-gray-900 text-gray-100 flex overflow-hidden">
+      {/* Left Sidebar: Hidden on mobile if isSidebarCollapsed OR if a chat is active and sidebar isn't explicitly opened */}
+      <div
+        className={`bg-gray-800 border-r border-gray-700 transition-transform duration-300 ease-in-out flex flex-col
+                    ${isSidebarCollapsed ? 'w-0 -translate-x-full md:w-20 md:translate-x-0' : 'w-full translate-x-0 md:w-80'}
+                    ${activeChat && isSidebarCollapsed && window.innerWidth < 768 ? 'absolute z-30 h-full' : 'relative z-30'}`} // Sidebar overlay on mobile when activeChat
       >
         {/* Sidebar Header */}
-        <div className="p-4 border-b border-gray-700 flex items-center justify-between">
-          {!isSidebarCollapsed ? (
+        <div className="p-4 border-b border-gray-700 flex items-center justify-between shrink-0">
+          {!isSidebarCollapsed || window.innerWidth >= 768 ? ( // Show full header if not collapsed OR on desktop
             <>
               <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
                 SparkChat
               </h1>
-              <button onClick={() => setIsSidebarCollapsed(true)} className="p-1 rounded-lg hover:bg-gray-700">
+              <button onClick={() => setIsSidebarCollapsed(true)} className="p-1 rounded-lg hover:bg-gray-700 md:block"> {/* Chevron always available on desktop */}
                 <ChevronDownIcon className="w-5 h-5 text-gray-400 transform rotate-90" />
               </button>
             </>
-          ) : (
+          ) : ( // Collapsed view on mobile (icon only)
             <button onClick={() => setIsSidebarCollapsed(false)} className="p-1 rounded-lg hover:bg-gray-700 mx-auto">
               <Bars3Icon className="w-7 h-7 text-indigo-400" />
             </button>
@@ -617,10 +659,10 @@ const ChatFunctionality = () => {
         </div>
 
         {/* Search Input for Connections */}
-        <div className="p-3 border-b border-gray-700">
-          {!isSidebarCollapsed ? (
+        <div className={`p-3 border-b border-gray-700 shrink-0 ${isSidebarCollapsed && window.innerWidth < 768 ? 'hidden' : 'block'}`}>
+          {!isSidebarCollapsed || window.innerWidth >= 768 ? (
             <div className="relative">
-              <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-3" />
+              <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text" placeholder="Search connections..." value={searchQueryConnections}
                 onChange={(e) => setSearchQueryConnections(e.target.value)}
@@ -628,24 +670,24 @@ const ChatFunctionality = () => {
               />
             </div>
           ) : (
-            <button className="p-2 rounded-lg hover:bg-gray-700 mx-auto block">
+             <button className="p-2 rounded-lg hover:bg-gray-700 mx-auto block" title="Search Connections" onClick={() => { setIsSidebarCollapsed(false); /* TODO: Focus search? */ }}>
               <MagnifyingGlassIcon className="w-6 h-6 text-gray-400" />
             </button>
           )}
         </div>
 
-        {/* Tabs for Friends/Requests/Groups */}
-        <div className="flex-1 overflow-y-auto">
-          {!isSidebarCollapsed && (
-            <div className="flex border-b border-gray-700">
+        {/* Tabs and Content Area */}
+        <div className={`flex-1 overflow-y-auto min-h-0 ${isSidebarCollapsed && window.innerWidth < 768 ? 'hidden' : 'block'}`}>
+          {(!isSidebarCollapsed || window.innerWidth >=768) && (
+            <div className="flex border-b border-gray-700 shrink-0">
               <button onClick={() => setActiveMainTab('friends')} className={`flex-1 py-3 text-sm font-medium ${activeMainTab === 'friends' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-gray-400 hover:text-gray-300'}`}>
-                Connections {connections.length > 0 ? `(${connections.length})` : ''}
+                {!isSidebarCollapsed || window.innerWidth >= 768 ? `Connections ${connections.length > 0 ? `(${connections.length})` : ''}` : <UsersIcon className="w-5 h-5 mx-auto"/>}
               </button>
               <button onClick={() => setActiveMainTab('requests')} className={`flex-1 py-3 text-sm font-medium ${activeMainTab === 'requests' ? 'text-purple-400 border-b-2 border-purple-400' : 'text-gray-400 hover:text-gray-300'}`}>
-                Requests {pendingReceivedRequests.length > 0 ? `(${pendingReceivedRequests.length})` : ''}
+                 {!isSidebarCollapsed || window.innerWidth >= 768 ? `Requests ${pendingReceivedRequests.length > 0 ? `(${pendingReceivedRequests.length})` : ''}` : <PlusCircleIcon className="w-5 h-5 mx-auto"/>}
               </button>
               <button onClick={() => setActiveMainTab('groups')} className={`flex-1 py-3 text-sm font-medium ${activeMainTab === 'groups' ? 'text-green-400 border-b-2 border-green-400' : 'text-gray-400 hover:text-gray-300'}`}>
-                Groups
+                {!isSidebarCollapsed || window.innerWidth >= 768 ? 'Groups' : <UsersIcon className="w-5 h-5 mx-auto"/>}
               </button>
             </div>
           )}
@@ -653,44 +695,41 @@ const ChatFunctionality = () => {
           {/* Connections (Friends) List */}
           {activeMainTab === 'friends' && (
             <div>
-              {!isSidebarCollapsed && <h3 className="text-xs font-semibold text-gray-500 px-4 py-3 uppercase tracking-wider">Direct Messages</h3>}
-              {loadingConnections ? <p className="text-gray-400 p-4 text-center">Loading...</p> :
-                filteredConnections.length === 0 ? <p className="text-gray-400 p-4 text-center">{searchQueryConnections ? 'No matches' : 'No connections yet.'}</p> :
+              {(!isSidebarCollapsed || window.innerWidth >= 768) && <h3 className="text-xs font-semibold text-gray-500 px-4 py-3 uppercase tracking-wider">Direct Messages</h3>}
+              {loadingConnections ? <p className="text-gray-400 p-4 text-center">Loading connections...</p> :
+                filteredConnections.length === 0 ? <p className="text-gray-400 p-4 text-center">{searchQueryConnections ? 'No matching connections.' : 'No connections yet. Add some!'}</p> :
                 filteredConnections.map((conn) => (
                   <div
                     key={conn.id} onClick={() => handleStartNewChat(conn)}
                     className={`flex items-center p-3 cursor-pointer transition-all ${activeChat?.id === conn.id ? 'bg-gray-700/50' : 'hover:bg-gray-700/30'}`}
                   >
-                    <div className="relative">
+                    <div className="relative shrink-0">
                         {conn.avatar ? <img src={conn.avatar} alt={conn.name} className="w-10 h-10 rounded-full object-cover"/> : <UserCircleIcon className="w-10 h-10 text-gray-500"/>}
-                        {/* Online status dot can be added if `conn.status` is reliable */}
+                        {/* Online status dot */}
                     </div>
-                    {!isSidebarCollapsed && (
+                    {(!isSidebarCollapsed || window.innerWidth >= 768) && (
                       <div className="ml-3 flex-1 min-w-0">
                         <div className="flex items-center justify-between">
                           <p className="text-white font-medium truncate">{conn.name}</p>
-                          {/* Favorite button */}
                         </div>
-                        <p className="text-xs text-gray-400 truncate">{conn.lastMessage || "Start a conversation"}</p>
+                        <p className="text-xs text-gray-400 truncate">{conn.status || "Start a conversation"}</p> {/* Simplified, can add last message later */}
                       </div>
                     )}
-                    {/* Unread count */}
                   </div>
               ))}
             </div>
           )}
-          
+
           {/* Requests Tab Content */}
-          {activeMainTab === 'requests' && !isSidebarCollapsed && (
+          {activeMainTab === 'requests' && (!isSidebarCollapsed || window.innerWidth >= 768) && (
              <div className="p-4 space-y-6">
-                {/* Send Request Form */}
                 <div className="bg-gray-800/50 rounded-lg shadow p-4">
                   <h3 className="text-lg font-medium mb-3 text-gray-200">Send Connection Request</h3>
                   <form onSubmit={handleSubmitConnectionRequest}>
                     <div className="space-y-3">
                       <input type="email" value={receiverEmailInput} onChange={(e) => setReceiverEmailInput(e.target.value)} placeholder="Enter user's email..."
                         className="w-full p-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500" disabled={sendReqLoading}/>
-                      <button type="submit" className="w-full px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 disabled:opacity-50" disabled={sendReqLoading || !receiverEmailInput.trim()}>
+                      <button type="submit" className="w-full px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 disabled:opacity-50 transition-opacity" disabled={sendReqLoading || !receiverEmailInput.trim()}>
                         {sendReqLoading ? 'Sending...' : 'Send Request'}
                       </button>
                     </div>
@@ -698,38 +737,36 @@ const ChatFunctionality = () => {
                   {sendReqError && <p className="mt-2 text-red-400 text-sm">{sendReqError}</p>}
                   {sendReqSuccess && <p className="mt-2 text-green-400 text-sm">Request sent successfully!</p>}
                 </div>
-                {/* Received Requests */}
                 <div className="mb-6">
                   <h3 className="text-lg font-medium mb-3 text-gray-200">Pending Received ({pendingReceivedRequests.length})</h3>
-                  {loadingRequests && pendingReceivedRequests.length === 0 ? <p className="text-gray-400">Loading...</p> : 
-                   !loadingRequests && pendingReceivedRequests.length === 0 ? <p className="text-gray-400">No pending requests.</p> :
-                    (pendingReceivedRequests.map((req) => (
-                        <div key={req.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg mb-2">
-                          <span className="font-medium text-white">{req.senderName}</span>
-                          <div className="space-x-2">
-                            <button onClick={() => handleAcceptRequest(req.id)} className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm">Accept</button>
-                            <button onClick={() => handleRejectRequest(req.id)} className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm">Reject</button>
-                          </div>
+                  {loadingRequests && pendingReceivedRequests.length === 0 && <p className="text-gray-400">Loading requests...</p>}
+                  {!loadingRequests && pendingReceivedRequests.length === 0 && <p className="text-gray-400">No pending requests.</p>}
+                  {pendingReceivedRequests.map((req) => (
+                      <div key={req.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg mb-2">
+                        <span className="font-medium text-white truncate">{req.senderName}</span>
+                        <div className="space-x-2 shrink-0">
+                          <button onClick={() => handleAcceptRequest(req.id)} className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm">Accept</button>
+                          <button onClick={() => handleRejectRequest(req.id)} className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm">Reject</button>
                         </div>
-                    )))}
+                      </div>
+                  ))}
                 </div>
-                {/* Sent Requests */}
                 <div>
                   <h3 className="text-lg font-medium mb-3 text-gray-200">Sent Requests ({sentRequests.length})</h3>
-                   {sentRequests.length === 0 ? <p className="text-gray-400">No sent requests.</p> :
-                    (sentRequests.map((req) => (
+                   {sentRequests.length === 0 && <p className="text-gray-400">No sent requests.</p>}
+                   {sentRequests.map((req) => (
                         <div key={req.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg mb-2">
-                          <span className="font-medium text-white">{req.receiverName || req.receiverEmail}</span>
-                          <span className="text-gray-300 text-sm">Pending</span>
+                          <span className="font-medium text-white truncate">{req.receiverName || req.receiverEmail}</span>
+                          <span className="text-gray-300 text-sm shrink-0">Pending</span>
                         </div>
-                    )))}
+                    ))}
                 </div>
             </div>
           )}
 
           {/* Groups Tab (Placeholder) */}
           {activeMainTab === 'groups' && (
-            <div className="p-4 text-center text-gray-500">
+            <div className={`p-4 text-center text-gray-500 ${isSidebarCollapsed && window.innerWidth < 768 ? 'hidden' : 'block'}`}>
               <UsersIcon className="w-16 h-16 mx-auto mb-4 text-gray-600" />
               <p className="text-lg">Group Chat Feature</p>
               <p className="text-sm">This feature is planned for a future update.</p>
@@ -738,54 +775,71 @@ const ChatFunctionality = () => {
         </div>
 
         {/* User Profile Footer */}
-        {!isSidebarCollapsed && fbCurrentUserProfile && (
-          <div className="p-3 border-t border-gray-700 flex items-center">
-            {fbCurrentUserProfile.avatar ? <img src={fbCurrentUserProfile.avatar} alt="User" className="w-10 h-10 rounded-full object-cover"/> : <UserCircleIcon className="w-10 h-10 text-gray-400"/>}
-            <div className="ml-3 flex-1">
-              <p className="text-white font-medium">{fbCurrentUserName}</p>
-              <p className="text-xs text-green-400">Online</p> {/* Status can be dynamic */}
+        {(!isSidebarCollapsed || window.innerWidth >= 768) && fbCurrentUserProfile && (
+          <div className="p-3 border-t border-gray-700 flex items-center shrink-0">
+            {fbCurrentUserProfile.avatar ? <img src={fbCurrentUserProfile.avatar} alt="User" className="w-10 h-10 rounded-full object-cover shrink-0"/> : <UserCircleIcon className="w-10 h-10 text-gray-400 shrink-0"/>}
+            <div className="ml-3 flex-1 min-w-0">
+              <p className="text-white font-medium truncate">{fbCurrentUserName}</p>
+              <p className="text-xs text-green-400">Online</p>
             </div>
-            {/* Settings/Logout button */}
+            {/* TODO: Settings/Logout button */}
           </div>
         )}
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col">
-        {activeChat && activeFirebaseChatId ? ( // Ensure activeFirebaseChatId is also set
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {activeChat && activeFirebaseChatId ? (
           <>
             {/* Chat Header */}
-            <div className="p-4 border-b border-gray-700 flex items-center justify-between bg-gray-800">
-              <div className="flex items-center gap-3">
-                <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="md:hidden p-2 hover:bg-gray-700 rounded-lg"><Bars3Icon className="w-5 h-5 text-gray-400" /></button>
-                {activeChatOtherParticipant?.avatar ? <img src={activeChatOtherParticipant.avatar} alt={activeChat.name} className="w-10 h-10 rounded-full object-cover"/> : <UserCircleIcon className="w-10 h-10 text-gray-400"/>}
-                <div>
-                  <h2 className="text-lg font-bold text-white">{activeChat.name}</h2>
-                  <p className="text-xs text-gray-400">{activeChat.status || 'Offline'}</p>
+            <div className="p-4 border-b border-gray-700 flex items-center justify-between bg-gray-800 shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <button onClick={() => setIsSidebarCollapsed(prev => !prev)} className="md:hidden p-2 hover:bg-gray-700 rounded-lg"><Bars3Icon className="w-5 h-5 text-gray-400" /></button>
+                {activeChatOtherParticipant?.avatar ? <img src={activeChatOtherParticipant.avatar} alt={activeChat.name} className="w-10 h-10 rounded-full object-cover shrink-0"/> : <UserCircleIcon className="w-10 h-10 text-gray-400 shrink-0"/>}
+                <div className="min-w-0">
+                  <h2 className="text-lg font-bold text-white truncate">{activeChat.name}</h2>
+                  <p className="text-xs text-gray-400 truncate">{isTyping ? typingUsersDisplay : (activeChat.status || 'Offline')}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => setMessageSearchOpen(!messageSearchOpen)} className="p-2 hover:bg-gray-700 rounded-lg"><MagnifyingGlassIcon className="w-5 h-5 text-gray-400" /></button>
-                <button className="p-2 hover:bg-gray-700 rounded-lg"><PhoneIcon className="w-5 h-5 text-gray-400" /></button>
-                <button className="p-2 hover:bg-gray-700 rounded-lg"><VideoCameraIcon className="w-5 h-5 text-gray-400" /></button>
-                <button onClick={() => setShowChatInfoPanel(!showChatInfoPanel)} className="p-2 hover:bg-gray-700 rounded-lg"><InformationCircleIcon className="w-5 h-5 text-gray-400" /></button>
+              <div className="flex items-center gap-1 md:gap-2 shrink-0">
+                <button onClick={() => setMessageSearchOpen(!messageSearchOpen)} className="p-2 hover:bg-gray-700 rounded-lg" title="Search Messages"><MagnifyingGlassIcon className="w-5 h-5 text-gray-400" /></button>
+                <button className="p-2 hover:bg-gray-700 rounded-lg" title="Start Call (Not Implemented)"><PhoneIcon className="w-5 h-5 text-gray-400" /></button>
+                <button className="p-2 hover:bg-gray-700 rounded-lg hidden md:block" title="Start Video Call (Not Implemented)"><VideoCameraIcon className="w-5 h-5 text-gray-400" /></button>
+                <button onClick={() => setShowChatInfoPanel(!showChatInfoPanel)} className="p-2 hover:bg-gray-700 rounded-lg" title="Chat Info"><InformationCircleIcon className="w-5 h-5 text-gray-400" /></button>
               </div>
             </div>
 
-            {/* Message Search Bar */}
-            {/* ... (JSX from new UI, ensure value/onChange are hooked up) ... */}
-
-            {/* Main Content Area (Messages & Chat Info) */}
-            <div className="flex-1 flex overflow-hidden">
-              <div ref={chatContainerRef} className={`flex-1 overflow-y-auto p-4 bg-gray-900/50 ${showChatInfoPanel ? 'hidden md:block md:w-2/3' : 'w-full'}`}>
+            {messageSearchOpen && (
+              <div className="p-2 border-b border-gray-700 bg-gray-800 shrink-0">
+                  <input
+                    type="text"
+                    placeholder="Search in chat..."
+                    value={messageSearchQuery}
+                    onChange={(e) => setMessageSearchQuery(e.target.value)}
+                    className="w-full p-2 bg-gray-700 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+              </div>
+            )}
+            
+            <div className="flex-1 flex overflow-hidden min-h-0">
+              <div ref={chatContainerRef} className={`flex-1 overflow-y-auto p-4 bg-gray-900/50 scroll-smooth flex flex-col ${showChatInfoPanel ? 'hidden md:flex' : 'flex'}`}>
                 {loadingChatMessages && displayedMessages.length === 0 && <p className="text-gray-400 text-center py-4">Loading messages...</p>}
                 {chatError && <p className="text-red-400 text-center py-4">{chatError}</p>}
-                
-                {/* Pinned Messages UI (data from pinnedMessagesDisplay) */}
-                {/* ... (JSX from new UI) ... */}
 
-                {/* Typing Indicator */}
-                {isTyping && typingUsersDisplay && (
+                {pinnedMessagesDisplay.length > 0 && (
+                    <div className="sticky top-0 bg-gray-900/80 backdrop-blur-sm p-2 mb-2 rounded-lg shadow z-10">
+                        {pinnedMessagesDisplay.map(pinMsg => ( // pinMsg.text should already be decrypted from pinMessageToDisplay
+                            <div key={pinMsg.id} className="text-xs text-gray-300 p-1 border-b border-gray-700/50 last:border-b-0 flex items-center">
+                                <SolidPinIcon className="w-3 h-3 inline mr-2 text-yellow-400 shrink-0"/>
+                                <span className="truncate">{pinMsg.text.substring(0,50)}{pinMsg.text.length > 50 && '...'}</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                
+                {filteredDisplayedMessages.length > 0 && <div className="mt-auto" />} 
+
+                {isTyping && typingUsersDisplay && !messageSearchQuery && (
                   <div className="flex items-center gap-2 mb-4 px-2">
                     <div className="p-2 bg-gray-800 rounded-full flex space-x-1">
                         <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
@@ -796,87 +850,93 @@ const ChatFunctionality = () => {
                   </div>
                 )}
 
-                {/* Messages */}
                 {filteredDisplayedMessages.map((msg) => (
-                  <MessageItem 
+                  <MessageItem
                     key={msg.id} msg={msg} currentUserId={fbCurrentUserId}
                     participantInfo={chatParticipantInfo}
+                    decryptMessage={decryptMessage}
                     handleReaction={handleMessageReaction}
                     setReplyingTo={setReplyingToMessage}
-                    pinMessage={pinMessageToDisplay} // UI Pinned
+                    pinMessage={pinMessageToDisplay}
                     deleteMessage={(messageId) => deleteFirebaseMessage(messageId, msg.sender)}
-                    isSearchResult={messageSearchOpen}
+                    isSearchResult={messageSearchOpen && messageSearchQuery && ((msg.textForDisplay && typeof msg.textForDisplay === 'string' && msg.textForDisplay.toLowerCase().includes(messageSearchQuery.toLowerCase())) || (msg.files && msg.files.some(f => f.name.toLowerCase().includes(messageSearchQuery.toLowerCase()))))}
+                    isMessagePinned={pinnedMessagesDisplay.some(p => p.id === msg.id)} // Pass this prop
                   />
                 ))}
                  {!loadingChatMessages && displayedMessages.length === 0 && !chatError && (
-                    <p className="text-gray-500 text-center py-10">No messages yet. Start the conversation!</p>
+                    <div className="flex-1 flex items-center justify-center">
+                        <p className="text-gray-500 text-center py-10">No messages yet. Be the first to say hi!</p>
+                    </div>
                 )}
               </div>
 
-              {/* Chat Info Sidebar */}
               {showChatInfoPanel && activeChatOtherParticipant && (
-                 <div className="w-full md:w-1/3 bg-gray-800 border-l border-gray-700 overflow-y-auto p-4">
-                    <div className="flex items-center justify-between mb-4">
+                 <div className="w-full md:w-1/3 bg-gray-800 border-l border-gray-700 overflow-y-auto p-4 flex flex-col shrink-0">
+                    <div className="flex items-center justify-between mb-4 shrink-0">
                         <h3 className="text-lg font-bold text-white">Chat Info</h3>
                         <button onClick={() => setShowChatInfoPanel(false)} className="p-1 hover:bg-gray-700 rounded-lg"><XMarkIcon className="w-5 h-5 text-gray-400" /></button>
                     </div>
-                    <div className="flex flex-col items-center mb-6">
-                        {activeChatOtherParticipant.avatar ? 
-                            <img src={activeChatOtherParticipant.avatar} alt={activeChatOtherParticipant.name} className="w-24 h-24 rounded-full object-cover mb-3"/> : 
+                    <div className="flex flex-col items-center mb-6 shrink-0">
+                        {activeChatOtherParticipant.avatar ?
+                            <img src={activeChatOtherParticipant.avatar} alt={activeChatOtherParticipant.name} className="w-24 h-24 rounded-full object-cover mb-3"/> :
                             <UserCircleIcon className="w-24 h-24 text-gray-500 mb-3"/>}
                         <h4 className="text-xl font-bold text-white">{activeChatOtherParticipant.name}</h4>
                         <p className="text-sm text-gray-400 mb-4">{activeChat.status || 'Offline'}</p>
-                        {/* TODO: Add more info if available in userProfile */}
                     </div>
-                    {/* Media, Links, Docs sections (placeholders from new UI) */}
+                    <div className="mt-4 overflow-y-auto flex-1 min-h-0">
+                        <h4 className="text-md font-semibold text-gray-300 mb-2">Shared Media</h4>
+                        <p className="text-xs text-gray-500">No media shared yet.</p>
+                        {/* TODO: Placeholder for media items grid */}
+                    </div>
                 </div>
               )}
             </div>
 
-            {/* Reply Preview */}
             {replyingToMessage && (
-              <div className="px-4 pt-2 pb-1 bg-gray-800 border-t border-gray-700 flex items-start justify-between">
-                <div className="flex-1">
+              <div className="px-4 pt-2 pb-1 bg-gray-800 border-t border-gray-700 flex items-start justify-between shrink-0">
+                <div className="flex-1 overflow-hidden">
                   <div className="flex items-center mb-1">
-                    <ArrowUturnLeftIcon className="w-4 h-4 text-gray-400 mr-2" />
+                    <ArrowUturnLeftIcon className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
                     <span className="text-xs font-medium text-gray-400">Replying to {replyingToMessage.sender === fbCurrentUserId ? 'yourself' : chatParticipantInfo.find(p=>p.id === replyingToMessage.sender)?.name || 'them'}</span>
                   </div>
-                  <p className="text-sm text-gray-300 truncate">{decryptMessage(replyingToMessage.text) || '[File]'}</p>
+                  <p className="text-sm text-gray-300 truncate">{decryptMessage(replyingToMessage.text) || (replyingToMessage.files && replyingToMessage.files.length > 0 ? replyingToMessage.files[0].name : '[Message]')}</p>
                 </div>
-                <button onClick={() => setReplyingToMessage(null)} className="p-1 hover:bg-gray-700 rounded-lg"><XMarkIcon className="w-4 h-4 text-gray-400" /></button>
+                <button onClick={() => setReplyingToMessage(null)} className="p-1 hover:bg-gray-700 rounded-lg ml-2"><XMarkIcon className="w-4 h-4 text-gray-400" /></button>
               </div>
             )}
 
-            {/* File Preview */}
             {selectedFilesForUpload.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-2">
-                {selectedFilesForUpload.map((file, idx) => (
-                  <div key={idx} className="flex items-center bg-gray-700 rounded px-2 py-1 text-xs text-gray-200">
-                    <span className="mr-2">{file.name}</span>
-                    <button
-                      type="button"
-                      className="ml-1 text-red-400 hover:text-red-600"
-                      onClick={() => removeSelectedFile(idx)}
-                    >
-                      <XMarkIcon className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
+             <div className="px-4 py-2 bg-gray-800 border-t border-gray-700 shrink-0">
+                <p className="text-xs text-gray-400 mb-1">Files to send:</p>
+                <div className="flex flex-wrap gap-2">
+                    {selectedFilesForUpload.map((file, idx) => (
+                    <div key={idx} className="flex items-center bg-gray-700 rounded px-2 py-1 text-xs text-gray-200">
+                        <PaperClipIcon className="w-3 h-3 mr-1 text-gray-400"/>
+                        <span className="mr-2 truncate max-w-[100px]">{file.name}</span>
+                        <button
+                        type="button"
+                        className="ml-1 text-red-400 hover:text-red-600"
+                        onClick={() => removeSelectedFile(idx)}
+                        >
+                        <XMarkIcon className="w-3 h-3" />
+                        </button>
+                    </div>
+                    ))}
+                </div>
               </div>
             )}
 
-            {/* Message Input */}
-            <div className="p-4 border-t border-gray-700 bg-gray-800">
-              <div className="flex items-center gap-3">
+            <div className="p-4 border-t border-gray-700 bg-gray-800 shrink-0">
+              <div className="flex items-end gap-3">
                 <div className="flex items-center gap-1">
-                  <button onClick={() => fileInputRef.current.click()} className="p-2 hover:bg-gray-700 rounded-lg"><PaperClipIcon className="w-5 h-5 text-gray-400" /></button>
+                  <button onClick={() => fileInputRef.current.click()} className="p-2 hover:bg-gray-700 rounded-lg" title="Attach File"><PaperClipIcon className="w-5 h-5 text-gray-400" /></button>
                   <input type="file" ref={fileInputRef} onChange={handleFileSelect} multiple className="hidden"/>
-                  <button onClick={() => setEmojiPickerOpen(!emojiPickerOpen)} className="p-2 hover:bg-gray-700 rounded-lg relative">
+                  <button onClick={() => setEmojiPickerOpen(!emojiPickerOpen)} className="p-2 hover:bg-gray-700 rounded-lg relative" title="Open Emoji Picker">
                     <FaceSmileIcon className="w-5 h-5 text-gray-400" />
                     {emojiPickerOpen && (
                       <div className="absolute bottom-full left-0 mb-2 z-20">
-                        <EmojiPicker 
-                          onEmojiClick={(emojiData) => {setMessageInputText(prev => prev + emojiData.emoji); setEmojiPickerOpen(false);}}
+                        <EmojiPicker
+                          onEmojiClick={(emojiData) => {setMessageInputText(prev => prev + emojiData.emoji); setEmojiPickerOpen(false); messageInputRef.current?.focus();}}
                           theme="dark" width={300} height={350} previewConfig={{ showPreview: false }} lazyLoadEmojis={true}
                         />
                       </div>
@@ -884,24 +944,24 @@ const ChatFunctionality = () => {
                   </button>
                 </div>
                 <div className="flex-1 relative">
-                  <input
-                    ref={messageInputRef} type="text" placeholder="Type your message..." value={messageInputText}
+                  <textarea
+                    ref={messageInputRef} placeholder="Type your message..." value={messageInputText}
                     onChange={(e) => setMessageInputText(e.target.value)}
-                    onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { handleSendMessage(); e.preventDefault();}}}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { handleSendMessage(); e.preventDefault();}}}
                     onKeyUp={handleTypingInputChange}
-                    className="w-full px-4 py-3 bg-gray-700 rounded-xl text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    rows={1}
+                    className="w-full px-4 py-3 bg-gray-700 rounded-xl text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none overflow-y-auto max-h-28"
+                    style={{lineHeight: '1.5rem'}} // Ensure enough line height for single line text
                   />
-                  {/* Optional right-side input icons from new UI can be added here */}
                 </div>
                 <button onClick={handleSendMessage} disabled={(!messageInputText.trim() && selectedFilesForUpload.length === 0) || loadingChatMessages}
-                  className={`p-3 rounded-xl transition-all ${ (messageInputText.trim() || selectedFilesForUpload.length > 0) && !loadingChatMessages ? 'bg-gradient-to-br from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600' : 'bg-gray-700 cursor-not-allowed'}`}>
+                  className={`p-3 rounded-xl transition-all self-end ${ (messageInputText.trim() || selectedFilesForUpload.length > 0) && !loadingChatMessages ? 'bg-gradient-to-br from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600' : 'bg-gray-700 cursor-not-allowed'}`}>
                   <PaperAirplaneIcon className="w-5 h-5 text-white transform rotate-45" />
                 </button>
               </div>
             </div>
           </>
         ) : (
-          // Empty State (no chat selected)
           <div className="flex-1 flex flex-col items-center justify-center bg-gray-900 p-6">
              <div className="max-w-md text-center animate-fade-in">
               <div className="relative inline-block mb-8">
@@ -913,11 +973,17 @@ const ChatFunctionality = () => {
                 Start a Conversation
               </h3>
               <p className="text-gray-400 mb-6">
-                Select a connection from the sidebar to begin messaging.
+                Select a connection from the sidebar to begin messaging. Your chats are end-to-end encrypted.
               </p>
+              <button
+                onClick={() => setIsSidebarCollapsed(false)}
+                className="md:hidden px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium mb-6"
+              >
+                View Connections
+              </button>
               <div className="mt-8 pt-6 border-t border-gray-800 flex items-center justify-center">
                 <LockClosedIcon className="w-5 h-5 text-green-400 mr-2" />
-                <span className="text-xs text-gray-500">End-to-end encrypted (client-side option)</span>
+                <span className="text-xs text-gray-500">Client-side encryption enabled</span>
               </div>
             </div>
           </div>
@@ -927,16 +993,16 @@ const ChatFunctionality = () => {
   );
 };
 
-// --- MessageItem Component (Adapted) ---
-const MessageItem = ({ msg, currentUserId, participantInfo, handleReaction, setReplyingTo, pinMessage, deleteMessage, isSearchResult }) => {
+// --- MessageItem Component ---
+const MessageItem = ({ msg, currentUserId, participantInfo, decryptMessage, handleReaction, setReplyingTo, pinMessage, deleteMessage, isSearchResult, isMessagePinned }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const messageItemRef = useRef(null);
-  const reactionsEmojis = ['👍', '❤️', '😂', '😮', '😢', '🙏']; // Renamed from `reactions` to avoid conflict
+  const reactionsEmojis = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
   const senderIsCurrentUser = msg.sender === currentUserId;
   const senderProfile = participantInfo.find(p => p.id === msg.sender);
 
-  useEffect(() => { // Close menu on click outside
+  useEffect(() => {
     const handleClickOutside = (event) => {
       if (messageItemRef.current && !messageItemRef.current.contains(event.target)) setMenuOpen(false);
     };
@@ -945,63 +1011,98 @@ const MessageItem = ({ msg, currentUserId, participantInfo, handleReaction, setR
   }, []);
 
   const msgTimestamp = typeof msg.timestamp === 'string' ? msg.timestamp : msg.timestamp?.toDate?.().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || '...';
+  
+  // Decrypt reply text if needed
+  const decryptedReplyText = msg.replyTo && msg.replyToMessageText ? decryptMessage(msg.replyToMessageText) : msg.replyToMessageText;
+  const displayedMessageText = msg.textForDisplay; // Use pre-decrypted text for display
+
 
   return (
-    <div 
+    <div
       ref={messageItemRef}
-      className={`flex ${senderIsCurrentUser ? 'justify-end' : 'justify-start'} mb-1 group relative ${isSearchResult ? 'bg-gray-800/50 rounded-lg p-1 my-1' : ''}`}
-      onContextMenu={(e) => { e.preventDefault(); setMenuOpen(!menuOpen);}}
+      className={`flex ${senderIsCurrentUser ? 'justify-end' : 'justify-start'} mb-1 group relative w-full ${isSearchResult ? 'bg-indigo-900/30 rounded-lg p-1 my-1 ring-1 ring-indigo-600' : ''}`}
+      onContextMenu={(e) => { e.preventDefault(); setMenuOpen(prev => !prev);}}
     >
-      <div className={`flex items-end gap-2 ${senderIsCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}>
+      <div className={`flex items-end gap-2 max-w-full ${senderIsCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}>
         {!senderIsCurrentUser && (
-            senderProfile?.avatar ? 
-            <img src={senderProfile.avatar} alt={senderProfile.name} className="w-6 h-6 rounded-full object-cover self-end mb-1"/> : 
-            <UserCircleIcon className="w-6 h-6 text-gray-500 self-end mb-1"/>
+            senderProfile?.avatar ?
+            <img src={senderProfile.avatar} alt={senderProfile.name || 'User Avatar'} className="w-6 h-6 rounded-full object-cover self-end mb-1 shrink-0"/> :
+            <UserCircleIcon className="w-6 h-6 text-gray-500 self-end mb-1 shrink-0"/>
         )}
-        <div 
+        <div
           className={`max-w-[85%] md:max-w-[70%] p-2.5 rounded-xl relative transition-all ${
             senderIsCurrentUser ? 'bg-gradient-to-br from-indigo-500 to-purple-500 text-white rounded-br-none' : 'bg-gray-700 text-gray-100 rounded-bl-none'
-          } ${isSearchResult ? '!bg-gray-700' : ''}`}
+          } ${isSearchResult ? '!bg-indigo-700 shadow-lg' : 'shadow-md'}`}
         >
           {!senderIsCurrentUser && senderProfile && (<p className="text-xs font-medium text-indigo-300 mb-0.5">{senderProfile.name}</p>)}
-          
+
           {msg.replyTo && (
-            <div className="mb-1 p-1 bg-gray-800/60 rounded text-xs text-indigo-200">
-              Replying to: {participantInfo.find(p => p.id === msg.replyTo)?.name || 'Unknown'}
+            <div className="mb-1.5 p-1.5 bg-black/20 rounded text-xs text-indigo-200/80 border-l-2 border-indigo-400">
+              <p className="font-medium text-indigo-300/90 mb-0.5">
+                Replying to: {msg.replyToSenderName || participantInfo.find(p=>p.id === msg.replyToSenderId)?.name || 'Unknown'}
+              </p>
+              <p className="truncate">{decryptedReplyText || (msg.replyToHasFiles ? '[File Attachment]' : '[Original message not available]')}</p>
             </div>
           )}
-          {msg.files?.map((file, i) => ( /* ... File Display in Message ... */ <div key={i} className="text-xs my-1 p-1 bg-black/20 rounded">{file.name}</div> ))}
-          
-          {msg.text && <p className="text-sm whitespace-pre-wrap break-words">{msg.text}</p>} {/* Ensure msg.text is already decrypted */}
+
+          {msg.files?.map((file, i) => (
+            <div key={i} className="text-xs my-1 p-1.5 bg-black/20 rounded flex items-center gap-2 hover:bg-black/30 cursor-pointer">
+                {file.type?.startsWith('image/') ? <PhotoIcon className="w-4 h-4 text-indigo-300 shrink-0"/> : <DocumentTextIcon className="w-4 h-4 text-indigo-300 shrink-0"/>}
+                <span className="truncate">{file.name} ({file.size ? Math.round(file.size / 1024) : 'N/A'}KB)</span>
+                {/* TODO: Add download/preview link for file.url (requires file upload implementation) */}
+            </div>
+          ))}
+
+          {displayedMessageText && <p className="text-sm whitespace-pre-wrap break-words">{displayedMessageText}</p>}
 
           <div className="flex items-center justify-end mt-1 space-x-2">
-            {/* Display Reactions from msg.reactions */}
-            {msg.reactions && Object.entries(msg.reactions).map(([emoji, users]) => 
+            {msg.reactions && Object.entries(msg.reactions).map(([emoji, users]) =>
                 (users && users.length > 0) && (
-                <span key={emoji} className="text-xs bg-black/20 rounded-full px-1.5 py-0.5 cursor-pointer hover:bg-black/40" onClick={() => handleReaction(msg.id, emoji)}>
-                    {emoji} <span className="text-gray-400">{users.length}</span>
+                <span
+                    key={emoji}
+                    className={`text-xs rounded-full px-1.5 py-0.5 cursor-pointer transition-all ${
+                        users.includes(currentUserId) ? 'bg-indigo-400/50 hover:bg-indigo-400/70' : 'bg-black/20 hover:bg-black/40'
+                    }`}
+                    onClick={() => handleReaction(msg.id, emoji)}
+                    title={users.map(uid => participantInfo.find(p => p.id === uid)?.name || 'User').join(', ')}
+                >
+                    {emoji} <span className="text-gray-300">{users.length}</span>
                 </span>
             ))}
             <span className="text-xs text-gray-400/80 leading-none">{msgTimestamp}</span>
-            {senderIsCurrentUser && (<CheckIcon className={`w-3.5 h-3.5 ${msg.isReadBy && Object.keys(msg.isReadBy).length > 1 ? 'text-blue-300' : 'text-gray-400/80'}`} />)}
+            {senderIsCurrentUser && (<CheckIcon className={`w-3.5 h-3.5 ${msg.isReadBy && Object.keys(msg.isReadBy).length > 1 ? 'text-blue-300' : 'text-gray-400/80'}`} />)} {/* Simplified read check */}
           </div>
-          
-          {!isSearchResult && (
-            <div className={`absolute opacity-0 group-hover:opacity-100 transition-opacity flex bg-gray-800/80 backdrop-blur-sm rounded-md shadow-lg overflow-hidden z-10 ${senderIsCurrentUser ? 'right-0 -top-7' : 'left-0 -top-7'}`}>
+
+          {!isSearchResult && ( // Hide quick reactions if this is a search result item to reduce clutter
+            <div className={`absolute opacity-0 group-hover:opacity-100 transition-opacity flex bg-gray-800/80 backdrop-blur-sm rounded-md shadow-lg overflow-hidden z-10 ${senderIsCurrentUser ? 'right-0 -top-7 transform -translate-y-0.5' : 'left-0 -top-7 transform -translate-y-0.5'}`}>
               {reactionsEmojis.slice(0, 3).map((r) => (<button key={r} onClick={() => handleReaction(msg.id, r)} className="p-1.5 hover:bg-gray-700"><span className="text-sm">{r}</span></button>))}
-              <button onClick={() => setMenuOpen(true)} className="p-1.5 hover:bg-gray-700"><EllipsisVerticalIcon className="w-4 h-4 text-gray-300" /></button>
+              <button onClick={() => setMenuOpen(prev => !prev)} className="p-1.5 hover:bg-gray-700"><EllipsisVerticalIcon className="w-4 h-4 text-gray-300" /></button>
             </div>
           )}
         </div>
       </div>
-      
+
       {menuOpen && (
-        <div className={`absolute z-20 mt-1 w-48 origin-top rounded-md bg-gray-800 shadow-lg ring-1 ring-gray-700 focus:outline-none ${senderIsCurrentUser ? 'right-0' : 'left-8' }`} style={{top: '10px'}}>
+        <div className={`absolute z-20 mt-1 w-48 origin-top rounded-md bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none 
+                       ${senderIsCurrentUser ? 
+                         (window.innerWidth < 768 ? 'right-0 bottom-full mb-1' : 'right-full mr-[-0.5rem] top-0 transform -translate-x-full') : 
+                         (window.innerWidth < 768 ? 'left-8 top-full' : 'left-full ml-[-0.5rem] top-0')}
+                       `}
+        >
           <div className="py-1">
-            <button onClick={() => { setReplyingTo(msg); setMenuOpen(false); }} className="flex items-center px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 w-full"><ArrowUturnLeftIcon className="w-3.5 h-3.5 mr-2" />Reply</button>
-            <button onClick={() => { pinMessage(msg); setMenuOpen(false); }} className="flex items-center px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 w-full"><MapPinIcon className="w-3.5 h-3.5 mr-2" />Pin</button>
-            <button onClick={() => { navigator.clipboard.writeText(msg.text); setMenuOpen(false); }} className="flex items-center px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 w-full"><DocumentTextIcon className="w-3.5 h-3.5 mr-2" />Copy Text</button>
-            {senderIsCurrentUser && <button onClick={() => { deleteMessage(msg.id); setMenuOpen(false); }} className="flex items-center px-3 py-1.5 text-xs text-red-400 hover:bg-gray-700 w-full"><TrashIcon className="w-3.5 h-3.5 mr-2" />Delete</button>}
+            <button onClick={() => { setReplyingTo({
+                id: msg.id,
+                text: msg.text, // Original encrypted text
+                sender: msg.sender,
+                senderName: senderProfile?.name || 'User',
+                files: msg.files 
+            }); setMenuOpen(false); }} className="flex items-center w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 hover:text-white"><ArrowUturnLeftIcon className="w-3.5 h-3.5 mr-2" />Reply</button>
+            <button onClick={() => { pinMessage(msg); setMenuOpen(false); }} className="flex items-center w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 hover:text-white">
+                {isMessagePinned ? <SolidPinIcon className="w-3.5 h-3.5 mr-2 text-yellow-400"/> : <MapPinIcon className="w-3.5 h-3.5 mr-2" />}
+                {isMessagePinned ? 'Unpin' : 'Pin Message'}
+            </button>
+            {displayedMessageText && <button onClick={() => { navigator.clipboard.writeText(displayedMessageText); setMenuOpen(false); }} className="flex items-center w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 hover:text-white"><DocumentTextIcon className="w-3.5 h-3.5 mr-2" />Copy Text</button>}
+            {senderIsCurrentUser && <button onClick={() => { deleteMessage(msg.id); setMenuOpen(false); }} className="flex items-center w-full text-left px-3 py-1.5 text-xs text-red-400 hover:bg-gray-700 hover:text-red-300"><TrashIcon className="w-3.5 h-3.5 mr-2" />Delete Message</button>}
           </div>
         </div>
       )}
