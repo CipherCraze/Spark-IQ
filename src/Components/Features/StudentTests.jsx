@@ -1,5 +1,23 @@
 // StudentTests.jsx
 import React, { useState, useEffect } from 'react';
+import {
+  HomeIcon,
+  FolderIcon,
+  ClipboardDocumentIcon,
+  ChartBarIcon,
+  DocumentTextIcon,
+  PresentationChartLineIcon,
+  ChatBubbleLeftRightIcon,
+  QuestionMarkCircleIcon,
+  LightBulbIcon,
+  NewspaperIcon,
+  WrenchScrewdriverIcon,
+  VideoCameraIcon,
+  EnvelopeIcon,
+  SparklesIcon,
+  XMarkIcon,
+  Bars3Icon
+} from '@heroicons/react/24/outline';
 
 const StudentTests = () => {
     const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard', 'takeTest', 'showResult'
@@ -8,6 +26,7 @@ const StudentTests = () => {
     const [score, setScore] = useState(null);
     const [timeRemaining, setTimeRemaining] = useState(0); // In seconds
     const [timerId, setTimerId] = useState(null);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
 
     // Dummy data for available tests (teacher-generated tests)
     const [availableTests, setAvailableTests] = useState([
@@ -48,6 +67,24 @@ const StudentTests = () => {
         { id: 'attempt-001', testId: 'test-001', title: 'Algebra Basics Quiz', subject: 'Mathematics', score: 70, dateAttempted: '2023-10-21' },
         { id: 'attempt-002', testId: 'test-002', title: 'World War II History', subject: 'History', score: 65, dateAttempted: '2023-09-17' },
     ]);
+
+    const studentMenu = [
+        { title: 'Dashboard', Icon: HomeIcon, link: '/dashboard', description: "Overview of your progress." },
+        { title: 'My Resources', Icon: FolderIcon, link: '/resource-utilization', description: "Access course materials." },
+        { title: 'Tests', Icon: ClipboardDocumentIcon, link: '/student-tests', description: "Take and view your test results." },
+        { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-monitoring', description: "Track your attendance." },
+        { title: 'Assignments', Icon: DocumentTextIcon, link: '/assignment-submission', description: "View & submit assignments." },
+        { title: 'Grades & Feedback', Icon: PresentationChartLineIcon, link: '/GradesAndFeedback', description: "Check your grades." },
+        { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/voice-chat', description: "Discuss with peers." },
+        { title: 'Ask Sparky', Icon: QuestionMarkCircleIcon, link: '/chatbot-access', description: "Your AI study assistant." },
+        { title: 'AI Questions', Icon: LightBulbIcon, link: '/ai-generated-questions', description: "Practice with AI questions." },
+        { title: 'Educational News', Icon: NewspaperIcon, link: '/educational-news', description: "Latest in education." },
+        { title: 'Smart Review', Icon: WrenchScrewdriverIcon, link: '/smart-review', description: "Enhance your writing." },
+        { title: 'Virtual Meetings', Icon: VideoCameraIcon, link: '/meeting-participation', description: "Join online classes." },
+        { title: 'Chat Platform', Icon: ChatBubbleLeftRightIcon, link: '/chat-functionality', description: "Connect with peers." },
+        { title: 'My Inbox', Icon: EnvelopeIcon, link: '/inbox-for-suggestions', description: "Messages & suggestions." },
+        { title: 'Upgrade to Pro', Icon: SparklesIcon, link: '/pricing', special: true, description: "Unlock premium features." },
+    ];
 
     useEffect(() => {
         if (currentView === 'takeTest' && timeRemaining > 0) {
@@ -213,8 +250,88 @@ const StudentTests = () => {
     };
 
     return (
-        <div className="font-sans p-6 w-full min-h-screen bg-slate-900">
-            {renderContent()}
+        <div className="font-sans min-h-screen bg-slate-900 flex">
+            {/* Mobile sidebar */}
+            <div className={`fixed inset-0 z-40 lg:hidden ${sidebarOpen ? 'block' : 'hidden'}`}>
+                <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)}></div>
+                <div className="relative flex flex-col w-72 max-w-xs h-full bg-slate-800">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700">
+                        <h2 className="text-xl font-bold text-white">SPARK-IQ</h2>
+                        <button
+                            type="button"
+                            className="rounded-md p-2 text-slate-400 hover:text-white focus:outline-none"
+                            onClick={() => setSidebarOpen(false)}
+                        >
+                            <XMarkIcon className="h-6 w-6" />
+                        </button>
+                    </div>
+                    <nav className="flex-1 overflow-y-auto p-4 space-y-1">
+                        {studentMenu.map((item) => (
+                            <a
+                                key={item.title}
+                                href={item.link}
+                                className={`flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors duration-200 ${
+                                    item.title === 'Tests' 
+                                        ? 'bg-indigo-700 text-white' 
+                                        : 'text-slate-300 hover:bg-slate-700/50'
+                                } ${item.special ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white' : ''}`}
+                            >
+                                <item.Icon className="flex-shrink-0 h-5 w-5 mr-3" />
+                                {item.title}
+                                {item.special && (
+                                    <span className="ml-auto px-2 py-0.5 text-xs rounded-full bg-white/20">PRO</span>
+                                )}
+                            </a>
+                        ))}
+                    </nav>
+                </div>
+            </div>
+
+            {/* Desktop sidebar */}
+            <div className="hidden lg:flex lg:flex-shrink-0">
+                <div className="flex flex-col w-72 border-r border-slate-700 bg-slate-800">
+                    <div className="flex items-center h-16 px-4 border-b border-slate-700">
+                        <h2 className="text-xl font-bold text-white">SPARK-IQ</h2>
+                    </div>
+                    <nav className="flex-1 overflow-y-auto p-4 space-y-1">
+                        {studentMenu.map((item) => (
+                            <a
+                                key={item.title}
+                                href={item.link}
+                                className={`flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors duration-200 ${
+                                    item.title === 'Tests' 
+                                        ? 'bg-indigo-700 text-white' 
+                                        : 'text-slate-300 hover:bg-slate-700/50'
+                                } ${item.special ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white' : ''}`}
+                            >
+                                <item.Icon className="flex-shrink-0 h-5 w-5 mr-3" />
+                                {item.title}
+                                {item.special && (
+                                    <span className="ml-auto px-2 py-0.5 text-xs rounded-full bg-white/20">PRO</span>
+                                )}
+                            </a>
+                        ))}
+                    </nav>
+                </div>
+            </div>
+
+            {/* Main content */}
+            <div className="flex-1 overflow-auto">
+                <div className="lg:hidden sticky top-0 z-10 bg-slate-800 p-4 border-b border-slate-700 flex items-center justify-between">
+                    <button
+                        type="button"
+                        className="rounded-md p-2 text-slate-400 hover:text-white focus:outline-none"
+                        onClick={() => setSidebarOpen(true)}
+                    >
+                        <Bars3Icon className="h-6 w-6" />
+                    </button>
+                    <h1 className="text-xl font-bold text-white">Tests</h1>
+                </div>
+                
+                <div className="p-6 w-full">
+                    {renderContent()}
+                </div>
+            </div>
         </div>
     );
 };
