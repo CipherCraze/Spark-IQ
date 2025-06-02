@@ -17,7 +17,8 @@ import ChatbotAccess from './Components/Chatbot/Chatbot'; // Import the Chatbot 
 import ChatbotEducation from './Components/Chatbot/Chatbot-Educator'; // Import the ChatbotEducation component
 import AssignmentSubmission from './Components/Features/AssignmentSubmission'; // Import the AssignmentSubmission component
 import ChatFunctionality from './Components/Features/ChatFunctionality';
-
+import StudentTests from './Components/Features/StudentTests'; // Import StudentTests component
+import TeacherTests from './Components/Features/TeacherTests'; // Import TeacherTests component
 
 import AttendanceMonitoring from './Components/Features/AttendanceMonitoring';
 import ResourceUtilization from './Components/Features/ResourceUtilization';
@@ -406,6 +407,25 @@ function App() {
           element={
             <Layout showHeaderFooter={false}>
               <GradesAndFeedback />
+            </Layout>
+          }
+        />
+        {/* Student Tests */}
+        <Route
+          path="/student-tests"
+          element={
+            <Layout showHeaderFooter={false}>
+              <StudentTests />
+            </Layout>
+          }
+        />
+
+        {/* Teacher Tests */}
+        <Route
+          path="/teacher-tests"
+          element={
+            <Layout showHeaderFooter={false}>
+              <TeacherTests />
             </Layout>
           }
         />
