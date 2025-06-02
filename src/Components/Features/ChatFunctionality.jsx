@@ -49,10 +49,10 @@ const getChatParticipantsInfo = async (participantIds) => {
   return profiles.filter(p => p !== null);
 };
 
-const createChatInFirebase = async (participants) => { 
-  const chatRef = doc(chatsCollection); 
+const createChatInFirebase = async (participants) => {
+  const chatRef = doc(chatsCollection);
   await setDoc(chatRef, {
-    participants: participants.sort(), 
+    participants: participants.sort(),
     createdAt: serverTimestamp(),
     lastMessageAt: serverTimestamp(),
     typing: {}
@@ -66,12 +66,12 @@ const sendMessageToFirebase = async (chatId, senderId, textContent, files = [], 
       name: file.name,
       type: file.type,
       size: file.size,
-      url: `placeholder_url_for_${file.name}` 
+      url: `placeholder_url_for_${file.name}`
   }));
 
   // textContent here is expected to be ALREADY ENCRYPTED (and potentially censored before encryption)
   const messageData = {
-    chatId, 
+    chatId,
     sender: senderId,
     text: textContent, // This will store the encrypted (and pre-censored) text
     timestamp: serverTimestamp(),
@@ -93,13 +93,13 @@ const sendMessageToFirebase = async (chatId, senderId, textContent, files = [], 
   return newMsgRef.id;
 };
 
-const subscribeToFirebaseMessages = (chatId, callback) => { 
+const subscribeToFirebaseMessages = (chatId, callback) => {
   const messagesQuery = query(
     collection(db, 'messages'),
     where('chatId', '==', chatId),
     orderBy('timestamp', 'asc')
   );
-  
+
   return onSnapshot(messagesQuery, (snapshot) => {
     const newMessages = snapshot.docs.map(docSnap => ({ // Renamed doc to docSnap to avoid conflict
       id: docSnap.id,
@@ -122,30 +122,30 @@ const ChatFunctionality = () => {
   const [fbCurrentUserProfile, setFbCurrentUserProfile] = useState(null);
 
   // UI States
-  const [messageInputText, setMessageInputText] = useState(''); 
-  const [displayedMessages, setDisplayedMessages] = useState([]); 
-  const [activeChat, setActiveChat] = useState(null); 
-  
-  const [searchQueryConnections, setSearchQueryConnections] = useState(''); 
+  const [messageInputText, setMessageInputText] = useState('');
+  const [displayedMessages, setDisplayedMessages] = useState([]);
+  const [activeChat, setActiveChat] = useState(null);
+
+  const [searchQueryConnections, setSearchQueryConnections] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [typingUsersDisplay, setTypingUsersDisplay] = useState(''); 
-  
+  const [typingUsersDisplay, setTypingUsersDisplay] = useState('');
+
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
-  const [pinnedMessagesDisplay, setPinnedMessagesDisplay] = useState([]); 
+  const [pinnedMessagesDisplay, setPinnedMessagesDisplay] = useState([]);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [replyingToMessage, setReplyingToMessage] = useState(null); 
-  const [selectedFilesForUpload, setSelectedFilesForUpload] = useState([]); 
-  const [activeMainTab, setActiveMainTab] = useState('friends'); 
-  const [showChatInfoPanel, setShowChatInfoPanel] = useState(false); 
+  const [replyingToMessage, setReplyingToMessage] = useState(null);
+  const [selectedFilesForUpload, setSelectedFilesForUpload] = useState([]);
+  const [activeMainTab, setActiveMainTab] = useState('friends');
+  const [showChatInfoPanel, setShowChatInfoPanel] = useState(false);
   const [messageSearchOpen, setMessageSearchOpen] = useState(false);
   const [messageSearchQuery, setMessageSearchQuery] = useState('');
 
   // Firebase Data States
-  const [connections, setConnections] = useState([]); 
+  const [connections, setConnections] = useState([]);
   const [pendingReceivedRequests, setPendingReceivedRequests] = useState([]);
   const [sentRequests, setSentRequests] = useState([]);
   const [activeFirebaseChatId, setActiveFirebaseChatId] = useState(null);
-  const [chatParticipantInfo, setChatParticipantInfo] = useState([]); 
+  const [chatParticipantInfo, setChatParticipantInfo] = useState([]);
 
   // Loading & Error States
   const [loadingAuth, setLoadingAuth] = useState(true);
@@ -153,7 +153,7 @@ const ChatFunctionality = () => {
   const [loadingRequests, setLoadingRequests] = useState(true);
   const [loadingChatMessages, setLoadingChatMessages] = useState(false);
   const [chatError, setChatError] = useState(null);
-  
+
   // Refs
   const chatContainerRef = useRef(null);
   const messageInputRef = useRef(null);
@@ -162,7 +162,7 @@ const ChatFunctionality = () => {
   // Encryption
   const encryptionKey = 'secure-encryption-key-v2'; // Store securely in a real app
   const encryptMessage = (text) => CryptoJS.AES.encrypt(text, encryptionKey).toString();
-  const decryptMessage = (ciphertext) => {
+  const decryptMessage = useCallback((ciphertext) => {
     try {
       if (!ciphertext) return '';
       const bytes = CryptoJS.AES.decrypt(ciphertext, encryptionKey);
@@ -172,9 +172,10 @@ const ChatFunctionality = () => {
       console.warn("Decryption error or already plain text:", e.message, ciphertext);
       return ciphertext || '[Error Decrypting]';
     }
-  };
-  
-  const navigate = useNavigate(); 
+  }, [encryptionKey]); // Added encryptionKey to useCallback dependencies
+
+
+  const navigate = useNavigate();
 
   // --- Firebase Auth Effect ---
   useEffect(() => {
@@ -217,10 +218,10 @@ const ChatFunctionality = () => {
       const userProfile = await getUserProfile(otherUserId);
       return {
         firebaseConnectionId: connectionDoc.id,
-        id: otherUserId, 
+        id: otherUserId,
         name: userProfile?.name || (connectionData.senderId === fbCurrentUserId ? connectionData.receiverName : connectionData.senderName) || 'Unknown User',
         avatar: userProfile?.avatar || null,
-        status: userProfile?.status || 'offline', 
+        status: userProfile?.status || 'offline',
       };
     };
     const q = query(
@@ -235,7 +236,7 @@ const ChatFunctionality = () => {
     );
     const unsubscribe = onSnapshot(q, async (snapshot) => {
         const fetchedConnections = await Promise.all(snapshot.docs.map(fetchConnectionDetails));
-        setConnections(fetchedConnections.filter(c => c.id)); 
+        setConnections(fetchedConnections.filter(c => c.id));
         setLoadingConnections(false);
     }, (error) => {
         console.error("Error fetching connections:", error);
@@ -262,7 +263,7 @@ const ChatFunctionality = () => {
     );
     const unsubReceived = onSnapshot(receivedQuery, (snapshot) => {
       setPendingReceivedRequests(snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }))); // Renamed doc to docSnap
-      setLoadingRequests(false); 
+      setLoadingRequests(false);
     }, (error) => { console.error('Error fetching received requests:', error); setLoadingRequests(false);});
 
     const sentQuery = query(
@@ -291,7 +292,7 @@ const ChatFunctionality = () => {
     };
 
     const setupActiveChat = async () => {
-      if (!fbCurrentUserId || !activeChat?.id) { 
+      if (!fbCurrentUserId || !activeChat?.id) {
         setDisplayedMessages([]);
         setActiveFirebaseChatId(null);
         setChatParticipantInfo([]);
@@ -320,7 +321,7 @@ const ChatFunctionality = () => {
           messageSubscriptionRef.current = subscribeToFirebaseMessages(currentChatDocId, (newMessages) => {
             setDisplayedMessages(newMessages.map(msg => ({
               ...msg,
-              text: decryptMessage(msg.text), 
+              text: decryptMessage(msg.text),
             })));
             setLoadingChatMessages(false);
           });
@@ -342,9 +343,8 @@ const ChatFunctionality = () => {
               }
               setIsTyping(currentlyTyping);
               setTypingUsersDisplay(typingString);
-              if (chatData.pinnedMessageIds && Array.isArray(chatData.pinnedMessageIds)) {
-                // Pinned messages logic
-              }
+              // Pinned messages logic can be enhanced here if needed from Firestore
+              // For example, fetch message details for chatData.pinnedMessageIds
             }
           });
         }
@@ -356,7 +356,7 @@ const ChatFunctionality = () => {
     };
     setupActiveChat();
     return cleanupSubscriptions;
-  }, [fbCurrentUserId, activeChat?.id, decryptMessage]); // Added decryptMessage to dependencies if it changes, though it's stable
+  }, [fbCurrentUserId, activeChat?.id, decryptMessage]);
 
 
   // --- Send Message ---
@@ -371,36 +371,32 @@ const ChatFunctionality = () => {
       const censoredText = censorText(originalText);
       if (censoredText !== originalText) {
         console.log("Original:", originalText, "Censored:", censoredText); // For debugging
-        // Optionally, inform user their message was modified, or show them the censored version in input
       }
       textToSend = censoredText;
     }
 
     const encryptedText = textToSend ? encryptMessage(textToSend) : '';
-    
+
     try {
-      // setLoadingChatMessages(true); // Indicate sending - might be better to remove this if snapshots are quick
       await sendMessageToFirebase(activeFirebaseChatId, fbCurrentUserId, encryptedText, selectedFilesForUpload, replyingToMessage?.id || null);
       setMessageInputText('');
       setSelectedFilesForUpload([]);
       setReplyingToMessage(null);
       if (messageInputRef.current) messageInputRef.current.focus();
-      
+
       if (activeFirebaseChatId && fbCurrentUserId) {
         await updateDoc(doc(db, 'chats', activeFirebaseChatId), { [`typing.${fbCurrentUserId}`]: false });
       }
     } catch (error) {
       console.error("Error sending message:", error);
       setChatError("Failed to send message.");
-    } 
-    // finally { setLoadingChatMessages(false); } // Usually handled by snapshot listener
+    }
   };
 
   // --- Typing Indicator ---
   const typingTimeoutRef = useRef(null);
   const handleTypingInputChange = async () => {
     if (!activeFirebaseChatId || !fbCurrentUserId) return;
-    // No need to await these for typing indicator, can be fire-and-forget
     updateDoc(doc(db, 'chats', activeFirebaseChatId), { [`typing.${fbCurrentUserId}`]: true });
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
@@ -417,22 +413,18 @@ const ChatFunctionality = () => {
   // --- Message Reactions ---
   const handleMessageReaction = async (messageId, reactionEmoji) => {
     if (!activeFirebaseChatId || !fbCurrentUserId || !messageId) return;
-    // NOTE: Message IDs are for messages in 'messages' collection, not 'chats/../messages' subcollection
-    // The `messageRef` path needs to be corrected if messages are in a subcollection
-    // Assuming 'messages' is a top-level collection and messages have a 'chatId' field.
-    const messageRef = doc(db, 'messages', messageId); // Corrected path assuming top-level 'messages' collection
-    
+    const messageRef = doc(db, 'messages', messageId);
+
     try {
       const messageSnap = await getDoc(messageRef);
       if (messageSnap.exists()) {
         const messageData = messageSnap.data();
-        // Ensure chatId matches, otherwise this is a security risk or bug
         if (messageData.chatId !== activeFirebaseChatId) {
             console.error("Message reaction chatId mismatch!");
             return;
         }
 
-        const currentReactions = { ...(messageData.reactions || {}) }; 
+        const currentReactions = { ...(messageData.reactions || {}) };
         const usersForThisReaction = currentReactions[reactionEmoji] || [];
         const userHasReactedWithThis = usersForThisReaction.includes(fbCurrentUserId);
 
@@ -451,18 +443,26 @@ const ChatFunctionality = () => {
 
   // --- Pin Message (UI only for now) ---
   const pinMessageToDisplay = (messageToPin) => {
-    setPinnedMessagesDisplay(prev => prev.find(p => p.id === messageToPin.id) ? prev : [messageToPin, ...prev].slice(0,3));
+    // TODO: Implement actual pinning in Firestore if desired
+    // This currently only updates local UI state for pinned messages.
+    setPinnedMessagesDisplay(prev => {
+        const isAlreadyPinned = prev.find(p => p.id === messageToPin.id);
+        if (isAlreadyPinned) {
+            return prev.filter(p => p.id !== messageToPin.id); // Unpin
+        } else {
+            return [messageToPin, ...prev].slice(0,3); // Pin, max 3
+        }
+    });
   };
 
   // --- Delete Message ---
   const deleteFirebaseMessage = async (messageId, senderId) => {
-    if (!fbCurrentUserId || fbCurrentUserId !== senderId) return; 
-    // Assuming 'messages' is a top-level collection
-    const messageRef = doc(db, 'messages', messageId); 
-    try { 
+    if (!fbCurrentUserId || fbCurrentUserId !== senderId) return;
+    const messageRef = doc(db, 'messages', messageId);
+    try {
         const msgDoc = await getDoc(messageRef);
         if (msgDoc.exists() && msgDoc.data().chatId === activeFirebaseChatId) { // Additional check
-            await deleteDoc(messageRef); 
+            await deleteDoc(messageRef);
         } else {
             console.warn("Attempted to delete message not in active chat or not found.");
         }
@@ -472,35 +472,49 @@ const ChatFunctionality = () => {
   // --- Start New Chat (Select a Connection) ---
   const handleStartNewChat = (connection) => {
     setActiveChat({
-      id: connection.id, 
+      id: connection.id,
       type: 'dm',
       name: connection.name,
       avatar: connection.avatar,
       status: connection.status,
     });
-    setDisplayedMessages([]); 
+    setDisplayedMessages([]);
     setShowChatInfoPanel(false);
     setReplyingToMessage(null);
+    setMessageSearchQuery('');
+    setMessageSearchOpen(false);
     if (window.innerWidth < 768) setIsSidebarCollapsed(true);
   };
 
   // Toggle favorite (UI only)
   const toggleFavoriteConnection = (id) => {
+    // TODO: This should interact with Firestore if favorites are persisted
     setConnections(prev => prev.map(conn => conn.id === id ? { ...conn, isFavorite: !conn.isFavorite } : conn));
   };
 
   // Filtered lists for display
   const filteredConnections = connections.filter((conn) =>
-    conn.name?.toLowerCase().includes(searchQueryConnections.toLowerCase()) // Added optional chaining for conn.name
+    conn.name?.toLowerCase().includes(searchQueryConnections.toLowerCase())
   );
   const filteredDisplayedMessages = messageSearchQuery ? displayedMessages.filter(msg =>
-    msg.text?.toLowerCase().includes(messageSearchQuery.toLowerCase())
+    (msg.text && typeof msg.text === 'string' && msg.text.toLowerCase().includes(messageSearchQuery.toLowerCase())) ||
+    (msg.files && msg.files.some(file => file.name.toLowerCase().includes(messageSearchQuery.toLowerCase())))
   ) : displayedMessages;
 
   // Scroll to bottom & Focus input effects
-  useEffect(() => { if (chatContainerRef.current) chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight; }, [displayedMessages, replyingToMessage, isTyping]);
-  useEffect(() => { if (activeChat && messageInputRef.current) messageInputRef.current.focus(); }, [activeChat, replyingToMessage]);
-  
+  useEffect(() => {
+    if (chatContainerRef.current) {
+        // Only scroll if not actively searching or if scrolled near bottom
+        const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+        const isScrolledToBottom = scrollHeight - scrollTop <= clientHeight + 100; // Add some tolerance
+        if (isScrolledToBottom || displayedMessages.length < 10) { // Also scroll for few messages
+             chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        }
+    }
+  }, [displayedMessages, replyingToMessage, isTyping]); // Removed messageSearchQuery to prevent auto-scroll during search
+
+  useEffect(() => { if (activeChat && messageInputRef.current && !emojiPickerOpen) messageInputRef.current.focus(); }, [activeChat, replyingToMessage, emojiPickerOpen]);
+
   // Responsive sidebar
   useEffect(() => {
     const handleResize = () => setIsSidebarCollapsed(window.innerWidth < 768);
@@ -537,7 +551,7 @@ const ChatFunctionality = () => {
         const tQuery = query(teachersCollection, where('email', '==', targetEmail));
         userSnap = await getDocs(tQuery);
       }
-      if (userSnap.empty) { setSendReqError('No user found with this email.'); setSendReqLoading(false); return; } // Make sure to stop loading
+      if (userSnap.empty) { setSendReqError('No user found with this email.'); setSendReqLoading(false); return; }
 
       const receiverDoc = userSnap.docs[0];
       const receiverId = receiverDoc.id;
@@ -545,16 +559,15 @@ const ChatFunctionality = () => {
 
       if (receiverId === fbCurrentUserId) { setSendReqError('Cannot send request to yourself.'); setSendReqLoading(false); return; }
 
-      // Check for existing connections or requests
-      const qExistingOr1 = query(connectionsCollection, 
-        where('senderId', '==', fbCurrentUserId), 
+      const qExistingOr1 = query(connectionsCollection,
+        where('senderId', '==', fbCurrentUserId),
         where('receiverId', '==', receiverId)
       );
-      const qExistingOr2 = query(connectionsCollection, 
-        where('senderId', '==', receiverId), 
+      const qExistingOr2 = query(connectionsCollection,
+        where('senderId', '==', receiverId),
         where('receiverId', '==', fbCurrentUserId)
       );
-      
+
       const [snap1, snap2] = await Promise.all([getDocs(qExistingOr1), getDocs(qExistingOr2)]);
 
       if (!snap1.empty || !snap2.empty) {
@@ -569,6 +582,7 @@ const ChatFunctionality = () => {
         status: 'pending', createdAt: serverTimestamp()
       });
       setSendReqSuccess(true); setReceiverEmailInput('');
+      setTimeout(() => setSendReqSuccess(false), 3000); // Clear success message
     } catch (err) { console.error('Error sending request:', err); setSendReqError('Failed to send request.');
     } finally { setSendReqLoading(false); }
   };
@@ -587,24 +601,24 @@ const ChatFunctionality = () => {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-900">
         <p className="text-white text-xl">Please Log In to use SparkChat.</p>
-        {/* Login component or redirect */}
+        {/* Consider adding a login button or redirect logic here */}
+        {/* Example: <button onClick={() => navigate('/login')} className="mt-4 px-4 py-2 bg-indigo-600 rounded hover:bg-indigo-700">Login</button> */}
       </div>
     );
   }
 
   const activeChatOtherParticipant = chatParticipantInfo.find(p => p.id === activeChat?.id);
-  // const currentChatUserParticipant = chatParticipantInfo.find(p => p.id === fbCurrentUserId); // Not used, can remove
 
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-100 flex overflow-hidden">
+    <div className="h-screen bg-gray-900 text-gray-100 flex overflow-hidden"> {/* Changed min-h-screen to h-screen */}
       {/* Left Sidebar */}
-      <div 
+      <div
         className={`bg-gray-800 border-r border-gray-700 transition-all duration-300 flex flex-col ${
-          isSidebarCollapsed ? 'hidden md:flex md:w-20' : 'w-80'
-        }`}
+          isSidebarCollapsed ? 'hidden md:flex md:w-20' : 'w-full md:w-80' // Full width on small screens if not collapsed
+        } ${isSidebarCollapsed && window.innerWidth < 768 ? 'hidden' : 'flex'}`} // Ensure sidebar can be hidden on mobile
       >
         {/* Sidebar Header */}
-        <div className="p-4 border-b border-gray-700 flex items-center justify-between">
+        <div className="p-4 border-b border-gray-700 flex items-center justify-between shrink-0"> {/* Added shrink-0 */}
           {!isSidebarCollapsed ? (
             <>
               <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
@@ -622,10 +636,10 @@ const ChatFunctionality = () => {
         </div>
 
         {/* Search Input for Connections */}
-        <div className="p-3 border-b border-gray-700">
+        <div className="p-3 border-b border-gray-700 shrink-0"> {/* Added shrink-0 */}
           {!isSidebarCollapsed ? (
             <div className="relative">
-              <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-3" />
+              <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text" placeholder="Search connections..." value={searchQueryConnections}
                 onChange={(e) => setSearchQueryConnections(e.target.value)}
@@ -633,16 +647,16 @@ const ChatFunctionality = () => {
               />
             </div>
           ) : (
-            <button className="p-2 rounded-lg hover:bg-gray-700 mx-auto block" title="Search Connections">
+            <button className="p-2 rounded-lg hover:bg-gray-700 mx-auto block" title="Search Connections" onClick={() => { setIsSidebarCollapsed(false); /* TODO: Focus search? */ }}>
               <MagnifyingGlassIcon className="w-6 h-6 text-gray-400" />
             </button>
           )}
         </div>
 
         {/* Tabs for Friends/Requests/Groups */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto min-h-0"> {/* Added min-h-0 for proper flex scroll */}
           {!isSidebarCollapsed && (
-            <div className="flex border-b border-gray-700">
+            <div className="flex border-b border-gray-700 shrink-0"> {/* Added shrink-0 */}
               <button onClick={() => setActiveMainTab('friends')} className={`flex-1 py-3 text-sm font-medium ${activeMainTab === 'friends' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-gray-400 hover:text-gray-300'}`}>
                 Connections {connections.length > 0 && `(${connections.length})`}
               </button>
@@ -666,7 +680,7 @@ const ChatFunctionality = () => {
                     key={conn.id} onClick={() => handleStartNewChat(conn)}
                     className={`flex items-center p-3 cursor-pointer transition-all ${activeChat?.id === conn.id ? 'bg-gray-700/50' : 'hover:bg-gray-700/30'}`}
                   >
-                    <div className="relative">
+                    <div className="relative shrink-0">
                         {conn.avatar ? <img src={conn.avatar} alt={conn.name} className="w-10 h-10 rounded-full object-cover"/> : <UserCircleIcon className="w-10 h-10 text-gray-500"/>}
                         {/* TODO: Add online status dot based on conn.status */}
                     </div>
@@ -676,14 +690,14 @@ const ChatFunctionality = () => {
                           <p className="text-white font-medium truncate">{conn.name}</p>
                           {/* Optional: Favorite button or last message time */}
                         </div>
-                        <p className="text-xs text-gray-400 truncate">{conn.lastMessage || "Start a conversation"}</p>
+                        <p className="text-xs text-gray-400 truncate">{conn.lastMessageText || "Start a conversation"}</p>
                       </div>
                     )}
                   </div>
               ))}
             </div>
           )}
-          
+
           {/* Requests Tab Content */}
           {activeMainTab === 'requests' && !isSidebarCollapsed && (
              <div className="p-4 space-y-6">
@@ -693,7 +707,7 @@ const ChatFunctionality = () => {
                     <div className="space-y-3">
                       <input type="email" value={receiverEmailInput} onChange={(e) => setReceiverEmailInput(e.target.value)} placeholder="Enter user's email..."
                         className="w-full p-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500" disabled={sendReqLoading}/>
-                      <button type="submit" className="w-full px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 disabled:opacity-50" disabled={sendReqLoading || !receiverEmailInput.trim()}>
+                      <button type="submit" className="w-full px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 disabled:opacity-50 transition-opacity" disabled={sendReqLoading || !receiverEmailInput.trim()}>
                         {sendReqLoading ? 'Sending...' : 'Send Request'}
                       </button>
                     </div>
@@ -708,22 +722,22 @@ const ChatFunctionality = () => {
                   {!loadingRequests && pendingReceivedRequests.length === 0 && <p className="text-gray-400">No pending requests.</p>}
                   {pendingReceivedRequests.map((req) => (
                       <div key={req.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg mb-2">
-                        <span className="font-medium text-white">{req.senderName}</span>
-                        <div className="space-x-2">
+                        <span className="font-medium text-white truncate">{req.senderName}</span>
+                        <div className="space-x-2 shrink-0">
                           <button onClick={() => handleAcceptRequest(req.id)} className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm">Accept</button>
                           <button onClick={() => handleRejectRequest(req.id)} className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm">Reject</button>
                         </div>
                       </div>
                   ))}
                 </div>
-                
+
                 <div>
                   <h3 className="text-lg font-medium mb-3 text-gray-200">Sent Requests ({sentRequests.length})</h3>
                    {sentRequests.length === 0 && <p className="text-gray-400">No sent requests.</p>}
                    {sentRequests.map((req) => (
                         <div key={req.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg mb-2">
-                          <span className="font-medium text-white">{req.receiverName || req.receiverEmail}</span>
-                          <span className="text-gray-300 text-sm">Pending</span>
+                          <span className="font-medium text-white truncate">{req.receiverName || req.receiverEmail}</span>
+                          <span className="text-gray-300 text-sm shrink-0">Pending</span>
                         </div>
                     ))}
                 </div>
@@ -742,11 +756,11 @@ const ChatFunctionality = () => {
 
         {/* User Profile Footer */}
         {!isSidebarCollapsed && fbCurrentUserProfile && (
-          <div className="p-3 border-t border-gray-700 flex items-center">
-            {fbCurrentUserProfile.avatar ? <img src={fbCurrentUserProfile.avatar} alt="User" className="w-10 h-10 rounded-full object-cover"/> : <UserCircleIcon className="w-10 h-10 text-gray-400"/>}
-            <div className="ml-3 flex-1">
-              <p className="text-white font-medium">{fbCurrentUserName}</p>
-              <p className="text-xs text-green-400">Online</p> 
+          <div className="p-3 border-t border-gray-700 flex items-center shrink-0"> {/* Added shrink-0 */}
+            {fbCurrentUserProfile.avatar ? <img src={fbCurrentUserProfile.avatar} alt="User" className="w-10 h-10 rounded-full object-cover shrink-0"/> : <UserCircleIcon className="w-10 h-10 text-gray-400 shrink-0"/>}
+            <div className="ml-3 flex-1 min-w-0">
+              <p className="text-white font-medium truncate">{fbCurrentUserName}</p>
+              <p className="text-xs text-green-400">Online</p>
             </div>
             {/* TODO: Settings/Logout button */}
           </div>
@@ -754,20 +768,20 @@ const ChatFunctionality = () => {
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col">
-        {activeChat && activeFirebaseChatId ? ( 
+      <div className="flex-1 flex flex-col overflow-hidden"> {/* Added overflow-hidden here too */}
+        {activeChat && activeFirebaseChatId ? (
           <>
             {/* Chat Header */}
-            <div className="p-4 border-b border-gray-700 flex items-center justify-between bg-gray-800">
-              <div className="flex items-center gap-3">
-                <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="md:hidden p-2 hover:bg-gray-700 rounded-lg"><Bars3Icon className="w-5 h-5 text-gray-400" /></button>
-                {activeChatOtherParticipant?.avatar ? <img src={activeChatOtherParticipant.avatar} alt={activeChat.name} className="w-10 h-10 rounded-full object-cover"/> : <UserCircleIcon className="w-10 h-10 text-gray-400"/>}
-                <div>
-                  <h2 className="text-lg font-bold text-white">{activeChat.name}</h2>
-                  <p className="text-xs text-gray-400">{activeChat.status || 'Offline'}</p>
+            <div className="p-4 border-b border-gray-700 flex items-center justify-between bg-gray-800 shrink-0"> {/* Added shrink-0 */}
+              <div className="flex items-center gap-3 min-w-0">
+                <button onClick={() => setIsSidebarCollapsed(prev => !prev)} className="md:hidden p-2 hover:bg-gray-700 rounded-lg"><Bars3Icon className="w-5 h-5 text-gray-400" /></button>
+                {activeChatOtherParticipant?.avatar ? <img src={activeChatOtherParticipant.avatar} alt={activeChat.name} className="w-10 h-10 rounded-full object-cover shrink-0"/> : <UserCircleIcon className="w-10 h-10 text-gray-400 shrink-0"/>}
+                <div className="min-w-0">
+                  <h2 className="text-lg font-bold text-white truncate">{activeChat.name}</h2>
+                  <p className="text-xs text-gray-400 truncate">{isTyping ? typingUsersDisplay : (activeChat.status || 'Offline')}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <button onClick={() => setMessageSearchOpen(!messageSearchOpen)} className="p-2 hover:bg-gray-700 rounded-lg" title="Search Messages"><MagnifyingGlassIcon className="w-5 h-5 text-gray-400" /></button>
                 <button className="p-2 hover:bg-gray-700 rounded-lg" title="Start Call (Not Implemented)"><PhoneIcon className="w-5 h-5 text-gray-400" /></button>
                 <button className="p-2 hover:bg-gray-700 rounded-lg" title="Start Video Call (Not Implemented)"><VideoCameraIcon className="w-5 h-5 text-gray-400" /></button>
@@ -775,37 +789,39 @@ const ChatFunctionality = () => {
               </div>
             </div>
 
-            {/* Message Search Bar - Placeholder */}
             {messageSearchOpen && (
-              <div className="p-2 border-b border-gray-700 bg-gray-800">
-                  <input 
-                    type="text" 
-                    placeholder="Search in chat..." 
+              <div className="p-2 border-b border-gray-700 bg-gray-800 shrink-0"> {/* Added shrink-0 */}
+                  <input
+                    type="text"
+                    placeholder="Search in chat..."
                     value={messageSearchQuery}
                     onChange={(e) => setMessageSearchQuery(e.target.value)}
                     className="w-full p-2 bg-gray-700 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
               </div>
             )}
-
-            <div className="flex-1 flex overflow-hidden">
-              <div ref={chatContainerRef} className={`flex-1 overflow-y-auto p-4 bg-gray-900/50 ${showChatInfoPanel ? 'hidden md:block md:w-2/3' : 'w-full'}`}>
+            
+            {/* THIS IS THE CORRECTED PART for scrolling */}
+            <div className="flex-1 flex overflow-hidden min-h-0"> {/* Added min-h-0 */}
+              <div ref={chatContainerRef} className={`flex-1 overflow-y-auto p-4 bg-gray-900/50 scroll-smooth ${showChatInfoPanel ? 'hidden md:flex md:flex-col' : 'flex flex-col'}`}> {/* Ensure it's a flex column for proper spacing of items */}
                 {loadingChatMessages && displayedMessages.length === 0 && <p className="text-gray-400 text-center py-4">Loading messages...</p>}
                 {chatError && <p className="text-red-400 text-center py-4">{chatError}</p>}
-                
-                {/* Pinned Messages Display - Placeholder */}
+
                 {pinnedMessagesDisplay.length > 0 && (
                     <div className="sticky top-0 bg-gray-900/80 backdrop-blur-sm p-2 mb-2 rounded-lg shadow z-10">
                         {pinnedMessagesDisplay.map(pinMsg => (
-                            <div key={pinMsg.id} className="text-xs text-gray-300 p-1 border-b border-gray-700/50 last:border-b-0">
-                                <SolidPinIcon className="w-3 h-3 inline mr-1 text-yellow-400"/>
-                                {pinMsg.text.substring(0,50)}{pinMsg.text.length > 50 && '...'}
+                            <div key={pinMsg.id} className="text-xs text-gray-300 p-1 border-b border-gray-700/50 last:border-b-0 flex items-center">
+                                <SolidPinIcon className="w-3 h-3 inline mr-2 text-yellow-400 shrink-0"/>
+                                <span className="truncate">{pinMsg.text.substring(0,50)}{pinMsg.text.length > 50 && '...'}</span>
                             </div>
                         ))}
                     </div>
                 )}
+                
+                {/* Spacer to push messages to bottom if few */}
+                {filteredDisplayedMessages.length > 0 && <div className="mt-auto" />} 
 
-                {isTyping && typingUsersDisplay && (
+                {isTyping && typingUsersDisplay && !messageSearchQuery && ( // Hide typing indicator during search
                   <div className="flex items-center gap-2 mb-4 px-2">
                     <div className="p-2 bg-gray-800 rounded-full flex space-x-1">
                         <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
@@ -817,59 +833,61 @@ const ChatFunctionality = () => {
                 )}
 
                 {filteredDisplayedMessages.map((msg) => (
-                  <MessageItem 
+                  <MessageItem
                     key={msg.id} msg={msg} currentUserId={fbCurrentUserId}
                     participantInfo={chatParticipantInfo}
+                    decryptMessage={decryptMessage}
                     handleReaction={handleMessageReaction}
                     setReplyingTo={setReplyingToMessage}
-                    pinMessage={pinMessageToDisplay} 
+                    pinMessage={pinMessageToDisplay}
                     deleteMessage={(messageId) => deleteFirebaseMessage(messageId, msg.sender)}
-                    isSearchResult={messageSearchOpen && messageSearchQuery && msg.text?.toLowerCase().includes(messageSearchQuery.toLowerCase())}
+                    isSearchResult={messageSearchOpen && messageSearchQuery && ((msg.text && typeof msg.text === 'string' && msg.text.toLowerCase().includes(messageSearchQuery.toLowerCase())) || (msg.files && msg.files.some(f => f.name.toLowerCase().includes(messageSearchQuery.toLowerCase()))))}
                   />
                 ))}
                  {!loadingChatMessages && displayedMessages.length === 0 && !chatError && (
-                    <p className="text-gray-500 text-center py-10">No messages yet. Be the first to say hi!</p>
+                    <div className="flex-1 flex items-center justify-center">
+                        <p className="text-gray-500 text-center py-10">No messages yet. Be the first to say hi!</p>
+                    </div>
                 )}
               </div>
 
               {showChatInfoPanel && activeChatOtherParticipant && (
-                 <div className="w-full md:w-1/3 bg-gray-800 border-l border-gray-700 overflow-y-auto p-4">
-                    <div className="flex items-center justify-between mb-4">
+                 <div className="w-full md:w-1/3 bg-gray-800 border-l border-gray-700 overflow-y-auto p-4 flex flex-col shrink-0"> {/* Added shrink-0 and flex-col */}
+                    <div className="flex items-center justify-between mb-4 shrink-0">
                         <h3 className="text-lg font-bold text-white">Chat Info</h3>
                         <button onClick={() => setShowChatInfoPanel(false)} className="p-1 hover:bg-gray-700 rounded-lg"><XMarkIcon className="w-5 h-5 text-gray-400" /></button>
                     </div>
-                    <div className="flex flex-col items-center mb-6">
-                        {activeChatOtherParticipant.avatar ? 
-                            <img src={activeChatOtherParticipant.avatar} alt={activeChatOtherParticipant.name} className="w-24 h-24 rounded-full object-cover mb-3"/> : 
+                    <div className="flex flex-col items-center mb-6 shrink-0">
+                        {activeChatOtherParticipant.avatar ?
+                            <img src={activeChatOtherParticipant.avatar} alt={activeChatOtherParticipant.name} className="w-24 h-24 rounded-full object-cover mb-3"/> :
                             <UserCircleIcon className="w-24 h-24 text-gray-500 mb-3"/>}
                         <h4 className="text-xl font-bold text-white">{activeChatOtherParticipant.name}</h4>
                         <p className="text-sm text-gray-400 mb-4">{activeChat.status || 'Offline'}</p>
-                        {/* More user details can go here */}
                     </div>
-                    {/* TODO: Sections for Media, Links, Docs shared in chat */}
-                    <div className="mt-4">
+                    <div className="mt-4 overflow-y-auto flex-1 min-h-0"> {/* Make this part scrollable if content exceeds */}
                         <h4 className="text-md font-semibold text-gray-300 mb-2">Shared Media</h4>
                         <p className="text-xs text-gray-500">No media shared yet.</p>
+                        {/* TODO: Placeholder for media items */}
                     </div>
                 </div>
               )}
             </div>
 
             {replyingToMessage && (
-              <div className="px-4 pt-2 pb-1 bg-gray-800 border-t border-gray-700 flex items-start justify-between">
-                <div className="flex-1 overflow-hidden"> {/* Added overflow-hidden for better truncation */}
+              <div className="px-4 pt-2 pb-1 bg-gray-800 border-t border-gray-700 flex items-start justify-between shrink-0"> {/* Added shrink-0 */}
+                <div className="flex-1 overflow-hidden">
                   <div className="flex items-center mb-1">
                     <ArrowUturnLeftIcon className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
                     <span className="text-xs font-medium text-gray-400">Replying to {replyingToMessage.sender === fbCurrentUserId ? 'yourself' : chatParticipantInfo.find(p=>p.id === replyingToMessage.sender)?.name || 'them'}</span>
                   </div>
-                  <p className="text-sm text-gray-300 truncate">{decryptMessage(replyingToMessage.text) || '[File]'}</p>
+                  <p className="text-sm text-gray-300 truncate">{decryptMessage(replyingToMessage.text) || (replyingToMessage.files && replyingToMessage.files.length > 0 ? replyingToMessage.files[0].name : '[Message]')}</p>
                 </div>
                 <button onClick={() => setReplyingToMessage(null)} className="p-1 hover:bg-gray-700 rounded-lg ml-2"><XMarkIcon className="w-4 h-4 text-gray-400" /></button>
               </div>
             )}
 
             {selectedFilesForUpload.length > 0 && (
-             <div className="px-4 py-2 bg-gray-800 border-t border-gray-700">
+             <div className="px-4 py-2 bg-gray-800 border-t border-gray-700 shrink-0"> {/* Added shrink-0 */}
                 <p className="text-xs text-gray-400 mb-1">Files to send:</p>
                 <div className="flex flex-wrap gap-2">
                     {selectedFilesForUpload.map((file, idx) => (
@@ -889,8 +907,8 @@ const ChatFunctionality = () => {
               </div>
             )}
 
-            <div className="p-4 border-t border-gray-700 bg-gray-800">
-              <div className="flex items-end gap-3"> {/* Changed to items-end for better alignment with multiline input */}
+            <div className="p-4 border-t border-gray-700 bg-gray-800 shrink-0"> {/* Added shrink-0 */}
+              <div className="flex items-end gap-3">
                 <div className="flex items-center gap-1">
                   <button onClick={() => fileInputRef.current.click()} className="p-2 hover:bg-gray-700 rounded-lg" title="Attach File"><PaperClipIcon className="w-5 h-5 text-gray-400" /></button>
                   <input type="file" ref={fileInputRef} onChange={handleFileSelect} multiple className="hidden"/>
@@ -898,7 +916,7 @@ const ChatFunctionality = () => {
                     <FaceSmileIcon className="w-5 h-5 text-gray-400" />
                     {emojiPickerOpen && (
                       <div className="absolute bottom-full left-0 mb-2 z-20">
-                        <EmojiPicker 
+                        <EmojiPicker
                           onEmojiClick={(emojiData) => {setMessageInputText(prev => prev + emojiData.emoji); setEmojiPickerOpen(false); messageInputRef.current?.focus();}}
                           theme="dark" width={300} height={350} previewConfig={{ showPreview: false }} lazyLoadEmojis={true}
                         />
@@ -907,14 +925,14 @@ const ChatFunctionality = () => {
                   </button>
                 </div>
                 <div className="flex-1 relative">
-                  <textarea // Changed to textarea for multiline support
+                  <textarea
                     ref={messageInputRef} placeholder="Type your message..." value={messageInputText}
                     onChange={(e) => setMessageInputText(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { handleSendMessage(); e.preventDefault();}}} // Use onKeyDown for Enter
-                    onKeyUp={handleTypingInputChange} // Still use onKeyUp for general typing
-                    rows={1} // Start with 1 row
-                    className="w-full px-4 py-3 bg-gray-700 rounded-xl text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none overflow-y-auto max-h-28" // Added resize-none, overflow-y-auto, max-h
-                    style={{lineHeight: '1.5rem'}} // Adjust line height if needed
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { handleSendMessage(); e.preventDefault();}}}
+                    onKeyUp={handleTypingInputChange}
+                    rows={1}
+                    className="w-full px-4 py-3 bg-gray-700 rounded-xl text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none overflow-y-auto max-h-28"
+                    style={{lineHeight: '1.5rem'}}
                   />
                 </div>
                 <button onClick={handleSendMessage} disabled={(!messageInputText.trim() && selectedFilesForUpload.length === 0) || loadingChatMessages}
@@ -951,15 +969,15 @@ const ChatFunctionality = () => {
 };
 
 // --- MessageItem Component (Adapted) ---
-const MessageItem = ({ msg, currentUserId, participantInfo, handleReaction, setReplyingTo, pinMessage, deleteMessage, isSearchResult }) => {
+const MessageItem = ({ msg, currentUserId, participantInfo, decryptMessage, handleReaction, setReplyingTo, pinMessage, deleteMessage, isSearchResult }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const messageItemRef = useRef(null);
-  const reactionsEmojis = ['👍', '❤️', '😂', '😮', '😢', '🙏']; 
+  const reactionsEmojis = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
   const senderIsCurrentUser = msg.sender === currentUserId;
   const senderProfile = participantInfo.find(p => p.id === msg.sender);
 
-  useEffect(() => { 
+  useEffect(() => {
     const handleClickOutside = (event) => {
       if (messageItemRef.current && !messageItemRef.current.contains(event.target)) setMenuOpen(false);
     };
@@ -968,48 +986,54 @@ const MessageItem = ({ msg, currentUserId, participantInfo, handleReaction, setR
   }, []);
 
   const msgTimestamp = typeof msg.timestamp === 'string' ? msg.timestamp : msg.timestamp?.toDate?.().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || '...';
+  
+  // Decrypt reply text if needed
+  const decryptedReplyText = msg.replyTo && msg.replyToMessageText ? decryptMessage(msg.replyToMessageText) : msg.replyToMessageText;
+
 
   return (
-    <div 
+    <div
       ref={messageItemRef}
-      className={`flex ${senderIsCurrentUser ? 'justify-end' : 'justify-start'} mb-1 group relative ${isSearchResult ? 'bg-indigo-900/30 rounded-lg p-1 my-1 ring-1 ring-indigo-600' : ''}`}
-      onContextMenu={(e) => { e.preventDefault(); setMenuOpen(prev => !prev);}} // Toggle menu
+      className={`flex ${senderIsCurrentUser ? 'justify-end' : 'justify-start'} mb-1 group relative w-full ${isSearchResult ? 'bg-indigo-900/30 rounded-lg p-1 my-1 ring-1 ring-indigo-600' : ''}`}
+      onContextMenu={(e) => { e.preventDefault(); setMenuOpen(prev => !prev);}}
     >
-      <div className={`flex items-end gap-2 ${senderIsCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}>
+      <div className={`flex items-end gap-2 max-w-full ${senderIsCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}>
         {!senderIsCurrentUser && (
-            senderProfile?.avatar ? 
-            <img src={senderProfile.avatar} alt={senderProfile.name} className="w-6 h-6 rounded-full object-cover self-end mb-1"/> : 
-            <UserCircleIcon className="w-6 h-6 text-gray-500 self-end mb-1"/>
+            senderProfile?.avatar ?
+            <img src={senderProfile.avatar} alt={senderProfile.name} className="w-6 h-6 rounded-full object-cover self-end mb-1 shrink-0"/> :
+            <UserCircleIcon className="w-6 h-6 text-gray-500 self-end mb-1 shrink-0"/>
         )}
-        <div 
+        <div
           className={`max-w-[85%] md:max-w-[70%] p-2.5 rounded-xl relative transition-all ${
             senderIsCurrentUser ? 'bg-gradient-to-br from-indigo-500 to-purple-500 text-white rounded-br-none' : 'bg-gray-700 text-gray-100 rounded-bl-none'
-          } ${isSearchResult ? '!bg-indigo-700' : ''}`}
+          } ${isSearchResult ? '!bg-indigo-700 shadow-lg' : 'shadow-md'}`}
         >
           {!senderIsCurrentUser && senderProfile && (<p className="text-xs font-medium text-indigo-300 mb-0.5">{senderProfile.name}</p>)}
-          
-          {msg.replyTo && msg.replyToMessageText && ( // Check if replyToMessageText exists
+
+          {msg.replyTo && (
             <div className="mb-1.5 p-1.5 bg-black/20 rounded text-xs text-indigo-200/80 border-l-2 border-indigo-400">
               <p className="font-medium text-indigo-300/90 mb-0.5">
-                Replying to: {msg.replyToSenderName || 'Unknown'}
+                Replying to: {msg.replyToSenderName || participantInfo.find(p=>p.id === msg.replyToSenderId)?.name || 'Unknown'}
               </p>
-              <p className="truncate">{msg.replyToMessageText}</p>
+              <p className="truncate">{decryptedReplyText || (msg.replyToHasFiles ? '[File Attachment]' : '[Original message not available]')}</p>
             </div>
           )}
-          {msg.files?.map((file, i) => ( 
+
+          {msg.files?.map((file, i) => (
             <div key={i} className="text-xs my-1 p-1.5 bg-black/20 rounded flex items-center gap-2 hover:bg-black/30 cursor-pointer">
-                <DocumentTextIcon className="w-4 h-4 text-indigo-300"/>
-                <span>{file.name} ({Math.round(file.size / 1024)}KB)</span>
-            </div> 
+                {file.type?.startsWith('image/') ? <PhotoIcon className="w-4 h-4 text-indigo-300 shrink-0"/> : <DocumentTextIcon className="w-4 h-4 text-indigo-300 shrink-0"/>}
+                <span className="truncate">{file.name} ({file.size ? Math.round(file.size / 1024) : 'N/A'}KB)</span>
+                {/* TODO: Add download/preview link for file.url */}
+            </div>
           ))}
-          
-          {msg.text && <p className="text-sm whitespace-pre-wrap break-words">{msg.text}</p>} 
+
+          {msg.text && <p className="text-sm whitespace-pre-wrap break-words">{msg.text}</p>}
 
           <div className="flex items-center justify-end mt-1 space-x-2">
-            {msg.reactions && Object.entries(msg.reactions).map(([emoji, users]) => 
+            {msg.reactions && Object.entries(msg.reactions).map(([emoji, users]) =>
                 (users && users.length > 0) && (
-                <span 
-                    key={emoji} 
+                <span
+                    key={emoji}
                     className={`text-xs rounded-full px-1.5 py-0.5 cursor-pointer transition-all ${
                         users.includes(currentUserId) ? 'bg-indigo-400/50 hover:bg-indigo-400/70' : 'bg-black/20 hover:bg-black/40'
                     }`}
@@ -1020,9 +1044,9 @@ const MessageItem = ({ msg, currentUserId, participantInfo, handleReaction, setR
                 </span>
             ))}
             <span className="text-xs text-gray-400/80 leading-none">{msgTimestamp}</span>
-            {senderIsCurrentUser && (<CheckIcon className={`w-3.5 h-3.5 ${msg.isReadBy && Object.keys(msg.isReadBy).length > 1 ? 'text-blue-300' : 'text-gray-400/80'}`} />)}
+            {senderIsCurrentUser && (<CheckIcon className={`w-3.5 h-3.5 ${msg.isReadBy && Object.keys(msg.isReadBy).length > (msg.isGroupChat ? 1 : 1) ? 'text-blue-300' : 'text-gray-400/80'}`} />)} {/* Adjust for group chat reads */}
           </div>
-          
+
           {!isSearchResult && (
             <div className={`absolute opacity-0 group-hover:opacity-100 transition-opacity flex bg-gray-800/80 backdrop-blur-sm rounded-md shadow-lg overflow-hidden z-10 ${senderIsCurrentUser ? 'right-0 -top-7 transform -translate-y-0.5' : 'left-0 -top-7 transform -translate-y-0.5'}`}>
               {reactionsEmojis.slice(0, 3).map((r) => (<button key={r} onClick={() => handleReaction(msg.id, r)} className="p-1.5 hover:bg-gray-700"><span className="text-sm">{r}</span></button>))}
@@ -1031,12 +1055,21 @@ const MessageItem = ({ msg, currentUserId, participantInfo, handleReaction, setR
           )}
         </div>
       </div>
-      
+
       {menuOpen && (
-        <div className={`absolute z-20 mt-1 w-48 origin-top rounded-md bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none ${senderIsCurrentUser ? 'right-0' : 'left-8' }`} style={{top: '10px'}}> {/* Adjusted styling and ring */}
+        <div className={`absolute z-20 mt-1 w-48 origin-top rounded-md bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none ${senderIsCurrentUser ? 'right-0 top-full md:right-auto md:left-full md:ml-[-12rem] md:top-0' : 'left-8 top-full md:left-full md:top-0' }`} style={{top: senderIsCurrentUser && window.innerWidth < 768 ? 'auto' : '10px', bottom: senderIsCurrentUser && window.innerWidth < 768 ? '100%' : 'auto'}}>
           <div className="py-1">
-            <button onClick={() => { setReplyingTo(msg); setMenuOpen(false); }} className="flex items-center w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 hover:text-white"><ArrowUturnLeftIcon className="w-3.5 h-3.5 mr-2" />Reply</button>
-            <button onClick={() => { pinMessage(msg); setMenuOpen(false); }} className="flex items-center w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 hover:text-white"><MapPinIcon className="w-3.5 h-3.5 mr-2" />Pin Message</button>
+            <button onClick={() => { setReplyingTo({ // Pass more complete reply info
+                id: msg.id,
+                text: msg.text, // Original encrypted text for display consistency if needed, or decrypted
+                sender: msg.sender,
+                senderName: senderProfile?.name || 'User', // Get sender name for reply preview
+                files: msg.files 
+            }); setMenuOpen(false); }} className="flex items-center w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 hover:text-white"><ArrowUturnLeftIcon className="w-3.5 h-3.5 mr-2" />Reply</button>
+            <button onClick={() => { pinMessage(msg); setMenuOpen(false); }} className="flex items-center w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 hover:text-white">
+                {pinnedMessagesDisplay.find(p => p.id === msg.id) ? <SolidPinIcon className="w-3.5 h-3.5 mr-2 text-yellow-400"/> : <MapPinIcon className="w-3.5 h-3.5 mr-2" />}
+                {pinnedMessagesDisplay.find(p => p.id === msg.id) ? 'Unpin' : 'Pin Message'}
+            </button>
             {msg.text && <button onClick={() => { navigator.clipboard.writeText(msg.text); setMenuOpen(false); }} className="flex items-center w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 hover:text-white"><DocumentTextIcon className="w-3.5 h-3.5 mr-2" />Copy Text</button>}
             {senderIsCurrentUser && <button onClick={() => { deleteMessage(msg.id); setMenuOpen(false); }} className="flex items-center w-full text-left px-3 py-1.5 text-xs text-red-400 hover:bg-gray-700 hover:text-red-300"><TrashIcon className="w-3.5 h-3.5 mr-2" />Delete Message</button>}
           </div>
