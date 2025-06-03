@@ -10,7 +10,9 @@ import {
   ArrowPathIcon,
   XMarkIcon,
   ExclamationTriangleIcon,
-  TrashIcon
+  TrashIcon,
+  ChevronDownIcon, // For select dropdowns (optional, can be styled via CSS)
+  CheckCircleIcon, // For copied feedback
 } from '@heroicons/react/24/outline';
 import { auth } from '../../firebase/firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -19,7 +21,6 @@ import { saveQuestionHistory, getQuestionHistory, clearQuestionHistory } from '.
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 const AIGeneratedQuestions = () => {
-  // State management
   const [topic, setTopic] = useState('');
   const [questions, setQuestions] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -29,10 +30,9 @@ const AIGeneratedQuestions = () => {
   const [history, setHistory] = useState([]);
   const [error, setError] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
-  const [copiedId, setCopiedId] = useState(null);
+  const [copiedStates, setCopiedStates] = useState({}); // For individual copy confirmations
   const [userId, setUserId] = useState(null);
 
-  // Configuration options
   const questionTypes = [
     { value: 'mcq', label: 'Multiple Choice', icon: BookOpenIcon },
     { value: 'truefalse', label: 'True/False', icon: LightBulbIcon },
@@ -46,7 +46,6 @@ const AIGeneratedQuestions = () => {
     { value: 'hard', label: 'Advanced' },
   ];
 
-  // Check authentication status and load history
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
@@ -55,19 +54,16 @@ const AIGeneratedQuestions = () => {
       } else {
         setUserId(null);
         setHistory([]);
-        setQuestions([]); // Clear questions if user logs out
+        setQuestions([]);
       }
     });
-
     return () => unsubscribe();
   }, []);
 
-  // Load history from Firebase
   const loadHistoryFromFirebase = async (uid) => {
     if (!uid) return;
     try {
       const historyData = await getQuestionHistory(uid);
-      // Ensure timestamp is a Date object for consistent handling
       const formattedHistory = historyData.map(item => ({
         ...item,
         timestamp: item.timestamp instanceof Date ? item.timestamp : new Date(item.timestamp),
@@ -75,24 +71,23 @@ const AIGeneratedQuestions = () => {
       setHistory(formattedHistory);
     } catch (error) {
       console.error('Error loading history:', error);
-      setError('Failed to load question history. Please check console for details.');
+      setError('Failed to load question history. Check console for details.');
     }
   };
 
-  // Generate questions using Gemini
   const generateQuestions = async () => {
     if (!topic.trim()) {
-      setError('Please enter a topic');
+      setError('Please enter a topic to generate questions.');
       return;
     }
-
     if (!userId) {
-      setError('Please sign in to generate questions');
+      setError('Please sign in to generate questions.');
       return;
     }
     
     setIsLoading(true);
     setError(null);
+    setQuestions([]); // Clear previous questions
     
     try {
       const prompt = `Generate ${numQuestions} ${difficulty}-level ${questionType} questions about "${topic}" in strict JSON format. Follow this exact structure:
@@ -100,484 +95,408 @@ const AIGeneratedQuestions = () => {
   "questions": [
     {
       "text": "The actual question text here",
-      ${questionType === 'mcq' ? `"options": ["Option A", "Option B", "Option C", "Option D"],` : ''}
-      "answer": "The correct answer here. For MCQs, just the letter and option text like 'A) Option A'",
-      "explanation": "Explanation of the answer"
+      ${questionType === 'mcq' ? `"options": ["Option A text", "Option B text", "Option C text", "Option D text"],` : ''}
+      "answer": "The correct answer. For MCQs, use format like 'A) Option A text'",
+      "explanation": "A concise explanation of the answer."
     }
   ]
 }
 Requirements:
-- For MCQs: Provide exactly 4 options. The answer field should contain the correct option letter followed by the option text (e.g., "A) Correct Option Text").
-- For other types: Provide the answer and explanation as appropriate.
-- Clearly indicate the correct answer.
-- Include a brief explanation for all question types.
-- Difficulty level: ${difficulty}.
-- Make questions clear and test real understanding.
-- Do NOT include markdown like \`\`\`json or \`\`\` in the response. Output raw JSON only.`;
+- For MCQs: Provide exactly 4 options. The answer field must clearly indicate the correct option (e.g., "A) Correct Option Text").
+- For all types: Include a 'text' (question), 'answer', and 'explanation'.
+- Difficulty: ${difficulty}.
+- Ensure questions are clear, concise, and test understanding, not just recall.
+- Output raw JSON only. Do NOT use markdown like \`\`\`json or \`\`\`.`;
 
       const response = await axios.post(
         'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
-        {
-          contents: [{
-            role: 'user',
-            parts: [{ text: prompt }]
-          }],
-          generationConfig: {
-            responseMimeType: "application/json",
-            temperature: 0.7,
-            topP: 0.9
-          }
+        { contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: "application/json", temperature: 0.7, topP: 0.9 }
         },
-        {
-          params: { key: GEMINI_API_KEY },
-          headers: { 'Content-Type': 'application/json' },
-          timeout: 20000 // Increased timeout to 20 seconds
-        }
+        { params: { key: GEMINI_API_KEY }, headers: { 'Content-Type': 'application/json' }, timeout: 25000 }
       );
 
       const resultText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!resultText) {
-        throw new Error('No valid response from AI. The response might be empty or malformed.');
-      }
+      if (!resultText) throw new Error('No valid response from AI. The response might be empty or malformed.');
       
       let parsedData;
       try {
         parsedData = JSON.parse(resultText);
       } catch (e) {
-          console.error('Raw AI Response (failed to parse):', resultText);
-          throw new Error('Failed to parse AI response as JSON. The AI might have returned an invalid format. Check console for raw response.');
+        console.error('Raw AI Response (failed to parse):', resultText);
+        throw new Error('Failed to parse AI response as JSON. AI might have returned invalid format. Check console.');
       }
 
-      let generatedQuestions = parsedData.questions || [];
-      
-      if (!Array.isArray(generatedQuestions) || generatedQuestions.length === 0) {
-        console.warn('Parsed data did not yield an array of questions or the array was empty:', parsedData);
+      let genQuestions = parsedData.questions || [];
+      if (!Array.isArray(genQuestions) || genQuestions.length === 0) {
+        console.warn('Parsed data did not yield questions:', parsedData);
         throw new Error('AI generated no questions or data was in unexpected format.');
       }
       
-      // Add metadata to questions for UI display
-      const questionsWithMeta = generatedQuestions.map((q, i) => ({
+      const questionsWithMeta = genQuestions.map((q, i) => ({
         ...q,
-        id: `${Date.now()}-${i}`, // More robust client-side ID
+        id: `${Date.now()}-${i}`,
         type: questionType,
         difficulty,
         topic,
         date: new Date().toISOString(),
-        options: q.options || (questionType === 'mcq' ? [] : undefined) // Ensure options array exists for MCQ
+        options: q.options || (questionType === 'mcq' ? ['N/A', 'N/A', 'N/A', 'N/A'] : undefined)
       }));
 
       setQuestions(questionsWithMeta);
       
-      // Save each question to Firebase history
-      const savePromises = questionsWithMeta.map(q => {
-        const questionDataForDb = {
-          text: q.text,
-          options: q.options,
-          answer: q.answer,
-          explanation: q.explanation,
-          subject: q.topic, // Map UI 'topic' to DB 'subject'
-          difficulty: q.difficulty,
-          type: q.type,
-          // tags can be added here if implemented
-        };
-        return saveQuestionHistory(userId, questionDataForDb);
-      });
-
+      const savePromises = questionsWithMeta.map(q => 
+        saveQuestionHistory(userId, {
+          text: q.text, options: q.options, answer: q.answer, explanation: q.explanation,
+          subject: q.topic, difficulty: q.difficulty, type: q.type,
+        })
+      );
       await Promise.all(savePromises);
-      
-      // Refresh history from Firebase
       await loadHistoryFromFirebase(userId);
 
     } catch (error) {
       console.error('Generation error:', error);
-      let errorMessage = 'Failed to generate questions. ';
-      if (error.response) {
-        errorMessage += `Server responded with ${error.response.status}: ${JSON.stringify(error.response.data?.error?.message || error.response.data)}.`;
-      } else if (error.request) {
-        errorMessage += 'No response received from server. Check network connection or API endpoint.';
-      } else {
-        errorMessage += error.message || 'An unknown error occurred.';
-      }
-      setError(errorMessage);
+      setError(`Generation failed: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Regenerate a single question (client-side only for now)
   const regenerateQuestion = async (questionId) => {
-    const questionToRegen = questions.find(q => q.id === questionId);
-    if (!questionToRegen) return;
+    const qToRegen = questions.find(q => q.id === questionId);
+    if (!qToRegen) return;
     
-    // This is a simplified regeneration, ideally it would call the API again
-    // For now, it just marks it for user to know it's a placeholder for regeneration
-    // A full implementation would be similar to generateQuestions but for a single item.
-    setIsLoading(true); // Consider a specific loading state for regeneration
+    setIsLoading(true); // Or a specific regen loading state
     setError(null);
     try {
-       // Construct prompt for regenerating a single question
-       const prompt = `Regenerate the following ${questionToRegen.type} question about "${questionToRegen.topic}" at ${questionToRegen.difficulty} level.
-Original question:
-Text: "${questionToRegen.text}"
-${questionToRegen.options ? `Options: ${JSON.stringify(questionToRegen.options)}` : ''}
-Answer: "${questionToRegen.answer}"
-
-Provide the regenerated question in strict JSON format:
-{
-  "question": {
-    "text": "New question text here",
-    ${questionToRegen.type === 'mcq' ? `"options": ["New Option A", "New Option B", "New Option C", "New Option D"],` : ''}
-    "answer": "New correct answer here",
-    "explanation": "New explanation here"
-  }
-}
-Requirements:
-- For MCQs: Provide exactly 4 options. The answer field should contain the correct option letter followed by the option text.
-- Include a brief explanation.
-- Difficulty level: ${questionToRegen.difficulty}.
-- Make the new question distinct from the original but cover a similar concept if possible.
-- Do NOT include markdown like \`\`\`json or \`\`\` in the response. Output raw JSON only.`;
-
+       const prompt = `Regenerate the following ${qToRegen.type} question about "${qToRegen.topic}" at ${qToRegen.difficulty} level.
+Original: Text: "${qToRegen.text}", Answer: "${qToRegen.answer}"
+Provide new question in strict JSON: { "question": { "text": "...", ${qToRegen.type === 'mcq' ? `"options": ["...", "...", "...", "..."],` : ''} "answer": "...", "explanation": "..." } }
+Requirements: New, distinct question. For MCQs, 4 options. Raw JSON.`;
 
       const response = await axios.post(
         'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
-        {
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        { contents: [{ role: 'user', parts: [{ text: prompt }] }],
           generationConfig: { responseMimeType: "application/json", temperature: 0.8, topP: 0.95 }
         },
         { params: { key: GEMINI_API_KEY }, headers: { 'Content-Type': 'application/json' }, timeout: 15000 }
       );
 
       const resultText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!resultText) throw new Error('No valid response from AI for regeneration.');
+      if (!resultText) throw new Error('No AI response for regeneration.');
       
-      const parsedData = JSON.parse(resultText);
-      const newQuestionData = parsedData.question;
+      const newQData = JSON.parse(resultText).question;
+      if (!newQData || !newQData.text) throw new Error('Invalid new question structure from AI.');
 
-      if (!newQuestionData || !newQuestionData.text) throw new Error('AI did not return a valid new question structure.');
-
-      setQuestions(prevQs => 
-        prevQs.map(q => 
-          q.id === questionId 
-            ? { 
-                ...q, // Retain original id, type, difficulty, topic, date
-                text: newQuestionData.text, 
-                options: newQuestionData.options || (q.type === 'mcq' ? [] : undefined),
-                answer: newQuestionData.answer,
-                explanation: newQuestionData.explanation,
-                // Potentially mark as regenerated or update timestamp
-              }
-            : q
-        )
-      );
-      // Note: This regenerated question is NOT automatically saved back to Firebase history.
-      // An explicit save/update mechanism would be needed if desired.
-
+      setQuestions(prevQs => prevQs.map(q => q.id === questionId ? { 
+        ...q, text: newQData.text, 
+        options: newQData.options || (q.type === 'mcq' ? [] : undefined),
+        answer: newQData.answer, explanation: newQData.explanation,
+      } : q));
     } catch (error) {
       console.error('Regeneration error:', error);
-      setError(`Failed to regenerate question: ${error.message}`);
+      setError(`Regeneration failed: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
   };
 
   const copyToClipboard = (text, id) => {
-    if (typeof text !== 'string') {
-      console.warn('Attempted to copy non-string data:', text);
-      text = JSON.stringify(text, null, 2); // Fallback for non-string
-    }
+    if (typeof text !== 'string') text = JSON.stringify(text, null, 2);
     navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
+    setCopiedStates(prev => ({ ...prev, [id]: true }));
+    setTimeout(() => setCopiedStates(prev => ({ ...prev, [id]: false })), 2000);
   };
 
   const handleKeyPress = (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-      e.preventDefault(); // Prevent default form submission if any
-      generateQuestions();
+      e.preventDefault(); generateQuestions();
     }
   };
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topic, questionType, difficulty, numQuestions, userId]); // Add userId to dependencies
+  }, [topic, questionType, difficulty, numQuestions, userId, generateQuestions]); // Added generateQuestions to deps
 
   const clearHistoryAction = async () => {
-    if (!userId) {
-      setError('Please sign in to clear history');
-      return;
-    }
-    if (window.confirm("Are you sure you want to clear all your question history? This cannot be undone.")) {
+    if (!userId) { setError('Sign in to clear history.'); return; }
+    if (window.confirm("Clear all question history? This is irreversible.")) {
       try {
-        await clearQuestionHistory(userId);
-        setHistory([]);
-        // setError(null); // Clear any previous error
+        await clearQuestionHistory(userId); setHistory([]);
       } catch (error) {
         console.error('Error clearing history:', error);
-        setError('Failed to clear history. Please try again.');
+        setError('Failed to clear history.');
       }
     }
   };
+  
+  const commonInputClass = "w-full bg-slate-800/60 border border-slate-700 rounded-lg px-4 py-2.5 text-gray-200 placeholder-slate-500 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 focus:outline-none transition-all shadow-sm hover:border-slate-600";
+  const commonLabelClass = "block text-sm font-medium text-slate-400 mb-1 flex items-center gap-1.5";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 p-4 md:p-8 text-gray-100">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-gray-900 to-slate-950 p-4 md:p-8 text-gray-200 font-sans selection:bg-purple-500 selection:text-white">
+      <div className="max-w-5xl mx-auto">
         {/* Header */}
-        <div className="mb-8 text-center relative">
-          <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent mb-3">
-            AI Question Generator
+        <header className="mb-10 text-center relative">
+          <div className="inline-block p-1 rounded-full bg-gradient-to-r from-purple-600 via-pink-500 to-blue-500 mb-4">
+            <div className="bg-slate-900 p-2 rounded-full">
+              <SparklesIcon className="w-10 h-10 text-purple-400" />
+            </div>
+          </div>
+          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent mb-2">
+            IntelliQuest AI
           </h1>
-          <p className="text-gray-300">Powered by Gemini 1.5 Flash - Fast, accurate question generation</p>
+          <p className="text-slate-400 text-lg">Craft Perfect Questions with Gemini 1.5 Flash</p>
           
           {userId && (
             <button 
               onClick={() => setShowHistory(!showHistory)}
-              className="absolute right-0 top-0 px-3 py-2 bg-gray-700/50 rounded-lg text-sm text-gray-300 hover:bg-gray-600/50 flex items-center gap-2"
-              title={showHistory ? "Hide generation history" : "Show generation history"}
+              className="absolute right-0 top-0 px-4 py-2 bg-slate-800/70 hover:bg-slate-700/70 border border-slate-700 rounded-lg text-sm text-slate-300 hover:text-white flex items-center gap-2 transition-all shadow-md hover:shadow-purple-500/30"
+              title={showHistory ? "Hide History" : "Show History"}
             >
-              {showHistory ? (
-                <> <XMarkIcon className="w-4 h-4" /> Hide History </>
-              ) : (
-                <> <BookOpenIcon className="w-4 h-4" /> Show History </>
-              )}
+              {showHistory ? <XMarkIcon className="w-5 h-5" /> : <BookOpenIcon className="w-5 h-5" />}
+              {showHistory ? "Close" : "History"}
             </button>
           )}
-        </div>
+        </header>
 
         {/* Error Message */}
         {error && (
-          <div className="mb-4 p-3 bg-red-900/60 border border-red-700 rounded-lg text-red-200 flex items-start gap-2">
-            <ExclamationTriangleIcon className="w-5 h-5 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="font-medium">An Error Occurred</p>
+          <div className="mb-6 p-4 bg-red-900/30 border border-red-700/50 rounded-lg text-red-300 flex items-start gap-3 shadow-lg animate-shake">
+            <ExclamationTriangleIcon className="w-6 h-6 mt-0.5 flex-shrink-0 text-red-400" />
+            <div className="flex-grow">
+              <p className="font-semibold">Oops! An Error Occurred</p>
               <p className="text-sm break-words">{error}</p>
             </div>
-            <button onClick={() => setError(null)} className="ml-auto p-1 hover:bg-red-800/50 rounded">
-              <XMarkIcon className="w-4 h-4"/>
+            <button onClick={() => setError(null)} className="p-1.5 -m-1.5 hover:bg-red-700/30 rounded-full text-red-400 hover:text-red-200 transition-colors">
+              <XMarkIcon className="w-5 h-5"/>
             </button>
           </div>
         )}
 
         {/* History Panel */}
         {userId && showHistory && (
-          <div className="bg-gray-800/70 rounded-xl p-4 mb-6 border border-gray-700/50 shadow-lg">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium text-gray-200">Generation History</h3>
-              <div className="flex items-center gap-2">
-                {history.length > 0 && (
-                  <button 
-                    onClick={clearHistoryAction}
-                    className="text-sm text-red-400 hover:text-red-300 flex items-center gap-1 px-2 py-1 rounded hover:bg-red-900/30"
-                    title="Clear all history"
-                  >
-                    <TrashIcon className="w-4 h-4" /> Clear All
-                  </button>
-                )}
-                <button 
-                  onClick={() => setShowHistory(false)}
-                  className="p-1 hover:bg-gray-700/50 rounded-lg"
-                  title="Close history panel"
-                >
-                  <XMarkIcon className="w-5 h-5 text-gray-400 hover:text-white" />
+          <section className="fixed inset-0 bg-slate-950/70 backdrop-blur-md z-40 flex justify-end animate-slideInRight">
+            <div className="w-full max-w-md bg-slate-900/90 border-l border-slate-700/50 shadow-2xl flex flex-col h-full">
+              <header className="p-5 border-b border-slate-700/50 flex justify-between items-center">
+                <h3 className="text-xl font-semibold text-purple-400 flex items-center gap-2"><BookOpenIcon className="w-6 h-6"/> Generation History</h3>
+                <button onClick={() => setShowHistory(false)} className="p-2 -m-2 hover:bg-slate-700/50 rounded-full text-slate-400 hover:text-white transition-colors" title="Close History">
+                  <XMarkIcon className="w-6 h-6" />
                 </button>
-              </div>
-            </div>
-            <div className="space-y-3 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
-              {history.length > 0 ? (
-                history.sort((a, b) => b.timestamp - a.timestamp).map((item) => ( // item is from Firebase
-                  <div 
-                    key={item.id} 
-                    className="p-3 bg-gray-700/40 rounded-lg hover:bg-gray-700/60 cursor-pointer transition-colors border border-transparent hover:border-purple-500/30"
-                    onClick={() => {
-                      setTopic(item.subject); // History item has 'subject'
-                      setQuestionType(item.type); 
-                      setDifficulty(item.difficulty); 
-                      
-                      const questionFromHistory = {
-                          id: item.id, // Use Firebase ID
-                          text: item.question, 
-                          options: item.options,
-                          answer: item.answer,
-                          explanation: item.explanation,
-                          type: item.type,
-                          difficulty: item.difficulty,
-                          topic: item.subject, // Map 'subject' back to 'topic' for UI
-                          date: item.timestamp.toISOString(), // Map 'timestamp' back to 'date'
-                      };
-                      setQuestions([questionFromHistory]); 
-                      setShowHistory(false);
-                      setError(null);
-                    }}
-                  >
-                    <div className="flex justify-between items-center">
-                      <span className="text-purple-300 font-medium truncate" title={item.subject}>{item.subject}</span>
-                      <span className="text-xs text-gray-400 flex-shrink-0 ml-2">
-                        {item.timestamp.toLocaleDateString()}
-                      </span>
+              </header>
+              <div className="flex-grow overflow-y-auto p-5 space-y-3 custom-scrollbar">
+                {history.length > 0 ? (
+                  history.sort((a, b) => b.timestamp - a.timestamp).map((item) => (
+                    <div 
+                      key={item.id} 
+                      className="p-4 bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700 rounded-lg cursor-pointer transition-all group hover:shadow-md hover:border-purple-600/50"
+                      onClick={() => {
+                        setTopic(item.subject); setQuestionType(item.type); setDifficulty(item.difficulty);
+                        setQuestions([{
+                          id: item.id, text: item.question, options: item.options, answer: item.answer,
+                          explanation: item.explanation, type: item.type, difficulty: item.difficulty,
+                          topic: item.subject, date: item.timestamp.toISOString(),
+                        }]);
+                        setShowHistory(false); setError(null);
+                      }}
+                    >
+                      <div className="flex justify-between items-start">
+                        <span className="text-purple-400 font-medium text-md group-hover:text-purple-300 truncate pr-2" title={item.subject}>{item.subject}</span>
+                        <span className="text-xs text-slate-500 group-hover:text-slate-400 flex-shrink-0">
+                          {item.timestamp.toLocaleDateString()}
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-300 group-hover:text-slate-200 truncate mt-1.5" title={item.question}>{item.question}</p>
+                      <div className="flex gap-2 mt-2.5">
+                        {[item.type, item.difficulty].map(tag => (
+                          <span key={tag} className="text-xs px-2.5 py-1 bg-slate-700/70 group-hover:bg-purple-700/30 text-slate-400 group-hover:text-purple-300 rounded-full capitalize transition-colors">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                    <p className="text-sm text-gray-300 truncate mt-1" title={item.question}>{item.question}</p>
-                    <div className="flex gap-2 mt-2">
-                      <span className="text-xs px-2 py-0.5 bg-gray-600/50 rounded-full capitalize">
-                        {item.type}
-                      </span>
-                      <span className="text-xs px-2 py-0.5 bg-gray-600/50 rounded-full capitalize">
-                        {item.difficulty}
-                      </span>
-                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-10 text-slate-500">
+                    <BookOpenIcon className="w-12 h-12 mx-auto mb-3 opacity-30"/>
+                    <p>No history yet.</p>
+                    <p className="text-xs mt-1">Your generated questions will appear here.</p>
                   </div>
-                ))
-              ) : (
-                <div className="text-center py-4">
-                  <p className="text-gray-400">No generation history yet.</p>
-                  <p className="text-xs text-gray-500 mt-1">Generated questions will appear here.</p>
-                </div>
+                )}
+              </div>
+              {history.length > 0 && (
+                <footer className="p-4 border-t border-slate-700/50">
+                  <button onClick={clearHistoryAction} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-800/40 hover:bg-red-700/60 border border-red-700/50 rounded-lg text-sm text-red-300 hover:text-red-200 transition-all shadow-sm hover:shadow-red-500/20">
+                    <TrashIcon className="w-5 h-5" /> Clear All History
+                  </button>
+                </footer>
               )}
             </div>
-          </div>
+          </section>
         )}
 
         {/* Input Section */}
-        <div className="bg-gray-800/50 rounded-xl p-6 mb-8 border border-gray-700/50 shadow-md">
-          <div className="flex flex-col sm:flex-row gap-4 mb-4">
-            <input
-              type="text"
-              value={topic}
-              onChange={(e) => {
-                setTopic(e.target.value);
-                if (error && error.includes("topic")) setError(null);
-              }}
-              placeholder="Enter a topic (e.g., Quantum Physics)"
-              className="flex-1 bg-gray-700/60 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 border border-transparent focus:border-purple-500"
-            />
+        <section className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/60 rounded-xl p-6 md:p-8 mb-10 shadow-2xl shadow-purple-900/10">
+          <div className="flex flex-col lg:flex-row gap-5 mb-6">
+            <div className="flex-grow">
+              <label htmlFor="topicInput" className={commonLabelClass}><LightBulbIcon className="w-5 h-5 text-purple-400"/> Topic</label>
+              <input
+                id="topicInput" type="text" value={topic}
+                onChange={(e) => { setTopic(e.target.value); if (error && error.includes("topic")) setError(null); }}
+                placeholder="e.g., Quantum Entanglement, The Silk Road"
+                className={`${commonInputClass} text-lg`}
+              />
+            </div>
             <button
               onClick={generateQuestions}
               disabled={isLoading || !topic.trim() || !userId}
-              className="px-4 md:px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg text-white font-medium hover:opacity-90 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              title={!userId ? "Sign in to generate questions" : (isLoading ? "Generating..." : "Generate Questions (Ctrl+Enter)")}
+              className="lg:self-end px-6 py-3 h-[50px] bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 rounded-lg text-white font-semibold text-lg flex items-center justify-center gap-2.5 transition-all duration-300 ease-in-out shadow-lg hover:shadow-purple-500/40 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-purple-500/50"
+              title={!userId ? "Sign in to generate" : (isLoading ? "Generating..." : "Generate Questions (Ctrl+Enter)")}
             >
               {isLoading ? (
                 <>
-                  <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Generating...
+                  <span>Generating...</span>
                 </>
               ) : (
-                <> <SparklesIcon className="w-5 h-5" /> Generate </>
+                <> <SparklesIcon className="w-6 h-6" /> Generate </>
               )}
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Question Type Select */}
-            <div className="space-y-1">
-              <label htmlFor="questionTypeSelect" className="text-gray-300 text-sm flex items-center gap-1"><AdjustmentsHorizontalIcon className="w-4 h-4" /> Type</label>
-              <select id="questionTypeSelect" value={questionType} onChange={(e) => setQuestionType(e.target.value)} className="w-full bg-gray-700/60 rounded-lg px-3 py-2 text-white focus:ring-1 focus:ring-purple-500 focus:outline-none border border-transparent focus:border-purple-500">
-                {questionTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
-              </select>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div>
+              <label htmlFor="questionTypeSelect" className={commonLabelClass}><AdjustmentsHorizontalIcon className="w-5 h-5 text-purple-400"/> Question Type</label>
+              <div className="relative">
+                <select id="questionTypeSelect" value={questionType} onChange={(e) => setQuestionType(e.target.value)} className={`${commonInputClass} appearance-none pr-10`}>
+                  {questionTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
+                </select>
+                <ChevronDownIcon className="w-5 h-5 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"/>
+              </div>
             </div>
-            {/* Difficulty Select */}
-            <div className="space-y-1">
-              <label htmlFor="difficultySelect" className="text-gray-300 text-sm flex items-center gap-1"><BookOpenIcon className="w-4 h-4" /> Difficulty</label>
-              <select id="difficultySelect" value={difficulty} onChange={(e) => setDifficulty(e.target.value)} className="w-full bg-gray-700/60 rounded-lg px-3 py-2 text-white focus:ring-1 focus:ring-purple-500 focus:outline-none border border-transparent focus:border-purple-500">
-                {difficultyLevels.map((level) => <option key={level.value} value={level.value}>{level.label}</option>)}
-              </select>
+            <div>
+              <label htmlFor="difficultySelect" className={commonLabelClass}><BookOpenIcon className="w-5 h-5 text-purple-400"/> Difficulty</label>
+              <div className="relative">
+                <select id="difficultySelect" value={difficulty} onChange={(e) => setDifficulty(e.target.value)} className={`${commonInputClass} appearance-none pr-10`}>
+                  {difficultyLevels.map((level) => <option key={level.value} value={level.value}>{level.label}</option>)}
+                </select>
+                <ChevronDownIcon className="w-5 h-5 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"/>
+              </div>
             </div>
-            {/* Number of Questions Range */}
-            <div className="space-y-1">
-              <label htmlFor="numQuestionsRange" className="text-gray-300 text-sm flex items-center gap-1"><DocumentTextIcon className="w-4 h-4" /> Questions: {numQuestions}</label>
-              <input id="numQuestionsRange" type="range" min="1" max="10" value={numQuestions} onChange={(e) => setNumQuestions(parseInt(e.target.value))} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-purple-500 focus:outline-none" />
+            <div>
+              <label htmlFor="numQuestionsRange" className={commonLabelClass}><DocumentTextIcon className="w-5 h-5 text-purple-400"/> Number of Questions: <span className="font-bold text-purple-400">{numQuestions}</span></label>
+              <input id="numQuestionsRange" type="range" min="1" max="10" value={numQuestions} onChange={(e) => setNumQuestions(parseInt(e.target.value))} 
+                     className="w-full h-2.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 range-thumb:bg-purple-500" />
             </div>
           </div>
-        </div>
+        </section>
 
         {/* Generated Questions Display */}
-        <div className="space-y-6">
-          {isLoading && questions.length === 0 ? ( // Show skeletons only if no questions yet and loading
-            <div className="animate-pulse space-y-4">
-              {[...Array(parseInt(numQuestions))].map((_, i) => (
-                <div key={i} className="h-32 bg-gray-800/50 rounded-xl p-6">
-                  <div className="h-4 bg-gray-700/50 rounded w-3/4 mb-4"></div>
-                  <div className="h-3 bg-gray-700/50 rounded w-1/2 mb-2"></div>
-                  <div className="h-3 bg-gray-700/50 rounded w-1/2 mb-2"></div>
-                  <div className="h-3 bg-gray-700/50 rounded w-1/3"></div>
-                </div>
-              ))}
-            </div>
-          ) : questions.length > 0 ? (
-            questions.map((question) => (
-              <div key={question.id} className="bg-gray-800/60 p-5 md:p-6 rounded-xl border border-gray-700/60 hover:border-purple-500/40 transition-all group shadow-md">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 text-purple-300 mb-2">
-                      <LightBulbIcon className="w-5 h-5 flex-shrink-0" />
-                      <span className="text-xs sm:text-sm font-medium uppercase tracking-wider">
-                        {question.type} • {question.difficulty}
-                      </span>
-                    </div>
-                    <p className="text-gray-100 whitespace-pre-wrap break-words">{question.text}</p>
-                    
-                    {question.type === 'mcq' && question.options && question.options.length > 0 && (
-                      <div className="mt-3 space-y-1.5">
-                        {question.options.map((option, i) => (
-                          <div key={i} className="flex items-center text-sm">
-                            <span className="mr-2 text-gray-400 w-5">{String.fromCharCode(65 + i)})</span>
-                            <span className="text-gray-300 break-words">{typeof option === 'string' ? option : JSON.stringify(option)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex flex-col sm:flex-row gap-1 sm:gap-2 ml-2 sm:ml-4 flex-shrink-0">
-                    <button className="p-1.5 hover:bg-gray-700/50 rounded-lg relative" onClick={() => copyToClipboard(question.text, `qtext-${question.id}`)} title="Copy question text">
-                      <ClipboardDocumentIcon className="w-5 h-5 text-gray-300" />
-                      {copiedId === `qtext-${question.id}` && <span className="absolute -top-7 -right-1 bg-gray-900 text-xs px-1.5 py-0.5 rounded shadow-md">Copied!</span>}
-                    </button>
-                    <button className="p-1.5 hover:bg-gray-700/50 rounded-lg" onClick={() => regenerateQuestion(question.id)} title="Regenerate this question" disabled={isLoading}>
-                      <ArrowPathIcon className={`w-5 h-5 text-gray-300 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`} />
-                    </button>
-                  </div>
-                </div>
-                <div className="pl-6 border-l-2 border-purple-500/30 text-sm">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs text-gray-400 font-semibold">Answer:</span>
-                    <button className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1" onClick={() => copyToClipboard(question.answer, `ans-${question.id}`)} title="Copy answer">
-                      {copiedId === `ans-${question.id}` ? 'Copied!' : 'Copy'}
-                    </button>
-                  </div>
-                  <p className="text-gray-300 whitespace-pre-wrap break-words">{question.answer}</p>
-                  {question.explanation && (
-                    <>
-                      <div className="mt-2 flex justify-between items-center mb-1">
-                        <span className="text-xs text-gray-400 font-semibold">Explanation:</span>
-                        <button className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1" onClick={() => copyToClipboard(question.explanation, `exp-${question.id}`)} title="Copy explanation">
-                         {copiedId === `exp-${question.id}` ? 'Copied!' : 'Copy'}
-                        </button>
-                      </div>
-                      <p className="text-gray-400 whitespace-pre-wrap break-words">{question.explanation}</p>
-                    </>
-                  )}
-                </div>
+        <main className="space-y-8">
+          {isLoading && questions.length === 0 ? (
+            [...Array(parseInt(numQuestions))].map((_, i) => (
+              <div key={i} className="bg-slate-800/50 border border-slate-700/60 rounded-xl p-6 shadow-lg animate-pulse">
+                <div className="h-5 bg-slate-700/50 rounded w-3/4 mb-5"></div>
+                <div className="h-4 bg-slate-700/50 rounded w-1/2 mb-3"></div>
+                <div className="h-4 bg-slate-700/50 rounded w-5/6 mb-3"></div>
+                <div className="h-4 bg-slate-700/50 rounded w-2/3"></div>
               </div>
             ))
-          ) : !isLoading && ( // Show placeholder only if not loading and no questions
-            <div className="text-center py-12">
-              <div className="inline-block bg-gray-800/50 p-8 rounded-xl max-w-md w-full shadow-lg">
-                <SparklesIcon className="w-12 h-12 text-purple-400 mx-auto mb-4" />
-                <h3 className="text-xl text-gray-200 mb-2">Start Generating Questions</h3>
-                <p className="text-gray-400 mb-6">
-                  {userId ? "Enter a topic above and click generate." : "Please sign in to generate questions."}
+          ) : questions.length > 0 ? (
+            questions.map((q) => (
+              <article key={q.id} className="bg-gradient-to-br from-slate-800/70 to-slate-850/70 border border-slate-700/60 rounded-xl shadow-xl hover:shadow-purple-600/20 transition-shadow duration-300 ease-in-out overflow-hidden">
+                <header className="p-5 md:p-6 border-b border-slate-700/50 flex items-start justify-between gap-4">
+                  <div className="flex-grow">
+                    <div className="flex items-center gap-2 text-purple-400 mb-1.5">
+                      <LightBulbIcon className="w-6 h-6" />
+                      <span className="text-sm font-semibold uppercase tracking-wider">
+                        {q.type} • {q.difficulty} • <span className="text-slate-400 normal-case">{q.topic}</span>
+                      </span>
+                    </div>
+                    <h2 className="text-gray-100 text-lg md:text-xl leading-snug font-medium">{q.text}</h2>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0 relative">
+                    {[
+                      { id: `qtext-${q.id}`, text: q.text, Icon: ClipboardDocumentIcon, title: "Copy Question" },
+                      { id: `regen-${q.id}`, action: () => regenerateQuestion(q.id), Icon: ArrowPathIcon, title: "Regenerate", disabled: isLoading },
+                    ].map(btn => (
+                      <button 
+                        key={btn.id}
+                        className={`p-2.5 bg-slate-700/50 hover:bg-purple-600/30 rounded-md text-slate-400 hover:text-purple-300 transition-all duration-200 relative disabled:opacity-50 disabled:cursor-not-allowed ${isLoading && btn.id.startsWith('regen') ? 'animate-pulse' : ''}`}
+                        onClick={btn.action ? btn.action : () => copyToClipboard(btn.text, btn.id)}
+                        title={btn.title}
+                        disabled={btn.disabled}
+                      >
+                        <btn.Icon className="w-5 h-5" />
+                        {copiedStates[btn.id] && (
+                          <span className="absolute -top-9 left-1/2 -translate-x-1/2 bg-green-500 text-white text-xs px-2.5 py-1 rounded-md shadow-lg whitespace-nowrap flex items-center gap-1">
+                            <CheckCircleIcon className="w-4 h-4" /> Copied!
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </header>
+                
+                {q.type === 'mcq' && q.options && q.options.length > 0 && (
+                  <div className="p-5 md:p-6 space-y-2.5">
+                    {q.options.map((option, i) => (
+                      <div key={i} className="flex items-start text-gray-300 bg-slate-700/30 p-3 rounded-md border border-transparent hover:border-slate-600 transition-colors">
+                        <span className="mr-3 text-purple-400 font-semibold">{String.fromCharCode(65 + i)})</span>
+                        <span className="break-words">{typeof option === 'string' ? option : JSON.stringify(option)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <footer className="p-5 md:p-6 bg-slate-800/40 border-t border-slate-700/50">
+                  <div className="mb-3">
+                    <div className="flex justify-between items-center mb-1">
+                      <h3 className="text-sm font-semibold text-purple-400">Answer:</h3>
+                      <button className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 relative" onClick={() => copyToClipboard(q.answer, `ans-${q.id}`)} title="Copy Answer">
+                        {copiedStates[`ans-${q.id}`] ? <CheckCircleIcon className="w-4 h-4 text-green-400"/> : <ClipboardDocumentIcon className="w-4 h-4"/>}
+                        {copiedStates[`ans-${q.id}`] ? 'Copied!' : 'Copy'}
+                      </button>
+                    </div>
+                    <p className="text-gray-300 whitespace-pre-wrap break-words text-sm">{q.answer}</p>
+                  </div>
+                  {q.explanation && (
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <h3 className="text-sm font-semibold text-purple-400">Explanation:</h3>
+                        <button className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 relative" onClick={() => copyToClipboard(q.explanation, `exp-${q.id}`)} title="Copy Explanation">
+                          {copiedStates[`exp-${q.id}`] ? <CheckCircleIcon className="w-4 h-4 text-green-400"/> : <ClipboardDocumentIcon className="w-4 h-4"/>}
+                          {copiedStates[`exp-${q.id}`] ? 'Copied!' : 'Copy'}
+                        </button>
+                      </div>
+                      <p className="text-gray-400 whitespace-pre-wrap break-words text-sm leading-relaxed">{q.explanation}</p>
+                    </div>
+                  )}
+                </footer>
+              </article>
+            ))
+          ) : !isLoading && (
+            <div className="text-center py-16">
+              <div className="inline-block bg-slate-800/60 p-10 rounded-xl shadow-2xl max-w-lg w-full border border-slate-700/50">
+                <SparklesIcon className="w-16 h-16 text-purple-500 mx-auto mb-6" />
+                <h3 className="text-2xl text-gray-100 mb-3 font-semibold">Ready to Generate Some Questions?</h3>
+                <p className="text-slate-400 mb-8">
+                  {userId ? "Enter a topic above, choose your options, and let the AI work its magic!" : "Please sign in to unlock the power of AI question generation."}
                 </p>
                 {userId && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
-                    {[{t:"Machine Learning", qt:"mcq", d:"medium", n:3}, {t:"French Revolution", qt:"essay", d:"hard", n:2}].map(ex => (
-                      <div key={ex.t} className="p-3 bg-gray-700/30 rounded-lg hover:bg-gray-700/50 cursor-pointer transition-colors"
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
+                    {[
+                      {t:"Astrophysics", qt:"mcq", d:"hard", n:5}, 
+                      {t:"Ancient Rome", qt:"short", d:"medium", n:3}
+                    ].map(ex => (
+                      <div key={ex.t} className="p-4 bg-slate-700/40 hover:bg-purple-600/20 border border-slate-600 hover:border-purple-500/50 rounded-lg cursor-pointer transition-all duration-200 ease-in-out transform hover:scale-105"
                         onClick={() => { setTopic(ex.t); setQuestionType(ex.qt); setDifficulty(ex.d); setNumQuestions(ex.n); setError(null); }}>
-                        <p className="text-sm text-purple-300 font-medium">"{ex.t}"</p>
-                        <p className="text-xs text-gray-400">{ex.n} {questionTypes.find(q=>q.value===ex.qt)?.label}, {ex.d}</p>
+                        <p className="text-md text-purple-300 font-medium">"{ex.t}"</p>
+                        <p className="text-xs text-slate-400 mt-1">{ex.n} {questionTypes.find(q=>q.value===ex.qt)?.label}, {ex.d}</p>
                       </div>
                     ))}
                   </div>
@@ -585,25 +504,17 @@ Requirements:
               </div>
             </div>
           )}
-        </div>
+        </main>
 
-        <div className="mt-12 text-center text-gray-500 text-sm">
-          <p>Gemini 1.5 Flash • © {new Date().getFullYear()}</p>
-          <p className="mt-1">Tip: Press Ctrl+Enter (or Cmd+Enter) to generate.</p>
-        </div>
+        <footer className="mt-16 pt-8 border-t border-slate-700/50 text-center text-slate-500 text-sm">
+          <p>Powered by Gemini 1.5 Flash & React. Designed with Tailwind CSS.</p>
+          <p className="mt-1">© {new Date().getFullYear()} IntelliQuest AI. Press Ctrl+Enter to generate.</p>
+        </footer>
 
-        <div className="fixed bottom-4 right-4 text-sm text-gray-400 bg-gray-800/70 px-3 py-1.5 rounded-lg shadow-md">
-          {userId ? (
-            <span className="flex items-center gap-2 text-green-400">
-              <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-              Signed In
-            </span>
-          ) : (
-            <span className="flex items-center gap-2 text-red-400">
-              <span className="w-2 h-2 bg-red-400 rounded-full"></span>
-              Not Signed In
-            </span>
-          )}
+        <div className={`fixed bottom-5 right-5 text-xs px-3 py-1.5 rounded-full shadow-lg flex items-center gap-2 transition-all duration-300
+                        ${userId ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'}`}>
+          <span className={`w-2.5 h-2.5 rounded-full ${userId ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></span>
+          {userId ? 'Authenticated' : 'Not Signed In'}
         </div>
       </div>
     </div>
@@ -611,3 +522,53 @@ Requirements:
 };
 
 export default AIGeneratedQuestions;
+
+// Add to your global CSS (e.g., index.css or App.css) for custom scrollbar and animations:
+/*
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background-color: theme('colors.slate.800');
+    border-radius: 10px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: theme('colors.purple.600');
+    border-radius: 10px;
+    border: 2px solid theme('colors.slate.800');
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: theme('colors.purple.500');
+  }
+
+  .range-thumb\:bg-purple-500::-webkit-slider-thumb {
+    @apply bg-purple-500;
+  }
+  .range-thumb\:bg-purple-500::-moz-range-thumb {
+    @apply bg-purple-500;
+  }
+
+
+  @keyframes slideInRight {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  .animate-slideInRight {
+    animation: slideInRight 0.3s ease-out forwards;
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+    20%, 40%, 60%, 80% { transform: translateX(5px); }
+  }
+  .animate-shake {
+    animation: shake 0.5s ease-in-out;
+  }
+}
+*/
