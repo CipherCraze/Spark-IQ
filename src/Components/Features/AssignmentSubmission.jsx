@@ -17,6 +17,7 @@ import {
   PresentationChartLineIcon,
   EnvelopeIcon,
   ArrowUpTrayIcon,
+  DocumentMagnifyingGlassIcon,
   ChartBarIcon,
   FolderIcon,
   SparklesIcon,
@@ -256,18 +257,17 @@ const AssignmentSubmission = () => {
                 {[
                   { title: 'Dashboard', link: '/dashboard', Icon: ClipboardDocumentIcon },
                   { title: 'Assignments', link: '/assignment-submission', Icon: DocumentTextIcon, active: true },
-                  { title: 'Resources', link: '/resource-utilization', Icon: FolderIcon },
-                  { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-monitoring',  },
+                  { title: 'Tests', Icon: ClipboardDocumentIcon, link: '/teacher-tests' },
+                  { title: 'Resources', link: '/resource-utilization', Icon: FolderIcon, },
+                  { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-monitoring' },
                   { title: 'Grades & Feedback', Icon: PresentationChartLineIcon, link: '/GradesAndFeedback' },
+                  { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/teacher-voice-chat' },
                   { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-access' },
-                  { title: 'Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
-                  { title: 'News', Icon: UsersIcon, link: '/educational-news' },
-                  
-                  { title: 'Smart Review', Icon: UsersIcon, link: '/smart-review' },
+                  { title: 'AI Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
+                  { title: 'News Feed', Icon: UsersIcon, link: '/educational-news' },
+                  { title: 'Smart Review', Icon: DocumentMagnifyingGlassIcon, link: '/smart-review' },
                   { title: 'Meetings', Icon: VideoCameraIcon, link: '/meeting-participation' },
-                  { title: 'Social', Icon: ChatBubbleLeftRightIcon, link: '/chat-functionality' },
                   { title: 'Inbox', Icon: EnvelopeIcon, link: '/inbox-for-suggestions' },
-                  { title: 'Upgrade to Pro', Icon: SparklesIcon, link: '/pricing' },
                 ].map((item, index) => (
                   <li key={index}>
                     <Link

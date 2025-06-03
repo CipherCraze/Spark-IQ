@@ -271,19 +271,18 @@ const ResourceUtilization = () => {
               <ul className="space-y-1">
                 {[
                   { title: 'Dashboard', link: '/dashboard', Icon: ClipboardDocumentIcon },
-                  { title: 'Assignments', link: '/assignment-submission', Icon: DocumentTextIcon },
-                  { title: 'Resources', link: '/resource-utilization', Icon: FolderIcon, active: true },
-                  { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-monitoring' },
-                  { title: 'Grades & Feedback', Icon: PresentationChartLineIcon, link: '/GradesAndFeedback' },
-                  { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-access' },
-                  { title: 'Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
-                  { title: 'News', Icon: UsersIcon, link: '/educational-news' },
-                  
-                  { title: 'Smart Review', Icon: UsersIcon, link: '/smart-review' },
-                  { title: 'Meetings', Icon: VideoCameraIcon, link: '/meeting-participation' },
-                  { title: 'Social', Icon: ChatBubbleLeftRightIcon, link: '/chat-functionality' },
-                  { title: 'Inbox', Icon: EnvelopeIcon, link: '/inbox-for-suggestions' },
-                  { title: 'Upgrade to Pro', Icon: SparklesIcon, link: '/pricing' },
+            { title: 'Assignments', link: '/assignment-submission', Icon: DocumentTextIcon },
+            { title: 'Tests', Icon: ClipboardDocumentIcon, link: '/teacher-tests' },
+            { title: 'Resources', link: '/resource-utilization', Icon: FolderIcon, active: true },
+            { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-monitoring' },
+            { title: 'Grades & Feedback', Icon: PresentationChartLineIcon, link: '/GradesAndFeedback' },
+            { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/teacher-voice-chat' },
+            { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-access' },
+            { title: 'AI Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
+            { title: 'News Feed', Icon: UsersIcon, link: '/educational-news' },
+            { title: 'Smart Review', Icon: DocumentMagnifyingGlassIcon, link: '/smart-review' },
+            { title: 'Meetings', Icon: VideoCameraIcon, link: '/meeting-participation' },
+            { title: 'Inbox', Icon: EnvelopeIcon, link: '/inbox-for-suggestions' },
                 ].map((item, index) => (
                   <li key={index}>
                     <Link
