@@ -25,13 +25,12 @@ import {
   XCircleIcon
 } from '@heroicons/react/24/outline';
 import { storage, db } from '../../firebase/firebaseConfig';
-import { collection, getDocs, query, where, addDoc, updateDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, query, where, addDoc, updateDoc, doc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth } from '../../firebase/firebaseConfig';
 
 const AssignmentSubmission = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [file, setFile] = useState(null);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [activeTab, setActiveTab] = useState('current');
   const [isEvaluating, setIsEvaluating] = useState(false);
@@ -39,9 +38,10 @@ const AssignmentSubmission = () => {
   const [error, setError] = useState(null);
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState({}); // Map of assignmentId to selected file
+  const [submittingAssignments, setSubmittingAssignments] = useState({}); // Map of assignmentId to submission state
   const [feedback, setFeedback] = useState(null);
+  const [submissionStatus, setSubmissionStatus] = useState({});  // Add this state at the top with other states
 
   const submissionHistory = [
     {
@@ -120,22 +120,62 @@ const AssignmentSubmission = () => {
     }
   };
 
-  const handleFileChange = (selectedFile) => {
-    setFile(selectedFile);
+  const handleFileChange = (assignmentId, file) => {
+    setSelectedFiles(prev => ({
+      ...prev,
+      [assignmentId]: file
+    }));
   };
 
   const handleSubmit = async (assignmentId) => {
+    const selectedFile = selectedFiles[assignmentId];
     if (!selectedFile) {
       alert('Please select a file to submit');
       return;
     }
 
-    setSubmitting(true);
+    setSubmittingAssignments(prev => ({
+      ...prev,
+      [assignmentId]: true
+    }));
+
     try {
+      // Validate file type
+      const validTypes = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'image/jpeg',
+        'image/png',
+        'image/gif',
+        'application/zip',
+        'application/x-zip-compressed'
+      ];
+
+      if (!validTypes.includes(selectedFile.type)) {
+        throw new Error('Invalid file type. Please upload a PDF, Word document, image, or ZIP file.');
+      }
+
+      // Validate file size (50MB max)
+      const maxSize = 50 * 1024 * 1024; // 50MB in bytes
+      if (selectedFile.size > maxSize) {
+        throw new Error('File size exceeds 50MB limit.');
+      }
+
       // Upload submission file to Firebase Storage
       const storageRef = ref(storage, `submissions/${assignmentId}/${auth.currentUser.uid}/${selectedFile.name}`);
       await uploadBytes(storageRef, selectedFile);
       const fileUrl = await getDownloadURL(storageRef);
+
+      // Get current assignment data first
+      const assignmentRef = doc(db, 'assignments', assignmentId);
+      const assignmentSnap = await getDoc(assignmentRef);
+      
+      if (!assignmentSnap.exists()) {
+        throw new Error('Assignment not found');
+      }
+
+      const assignmentData = assignmentSnap.data();
 
       // Create submission document in Firestore
       const submissionData = {
@@ -144,53 +184,102 @@ const AssignmentSubmission = () => {
         studentName: auth.currentUser.displayName,
         fileUrl,
         fileName: selectedFile.name,
+        fileType: selectedFile.type,
+        fileSize: selectedFile.size,
         submittedAt: new Date(),
-        status: 'pending',
+        status: 'submitted',
         feedback: null,
         grade: null
       };
 
+      // Create the submission first
       const submissionRef = await addDoc(collection(db, 'submissions'), submissionData);
 
-      // Update assignment's total submissions count
-      const assignmentRef = doc(db, 'assignments', assignmentId);
+      // Update assignment's total submissions count using the actual current value
       await updateDoc(assignmentRef, {
-        totalSubmissions: assignments.find(a => a.id === assignmentId).totalSubmissions + 1
+        totalSubmissions: (assignmentData.totalSubmissions || 0) + 1
       });
 
-      // Process submission with Gemini
-      const response = await fetch('/api/grade-submission', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          submissionId: submissionRef.id,
-          assignmentId,
+      // Update submission status
+      setSubmissionStatus(prev => ({
+        ...prev,
+        [assignmentId]: {
+          status: 'submitted',
+          fileName: selectedFile.name,
           fileUrl,
-          rubric: assignments.find(a => a.id === assignmentId).rubric
-        }),
-      });
+          submittedAt: new Date(),
+        }
+      }));
 
-      const result = await response.json();
-      setFeedback(result);
+      // Process submission with Gemini API
+      try {
+        const response = await fetch('/api/grade-submission', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            submissionId: submissionRef.id,
+            assignmentId,
+            fileUrl,
+            studentId: auth.currentUser.uid,
+            rubric: assignmentData.rubric
+          }),
+        });
 
-      // Update submission with feedback
-      await updateDoc(doc(db, 'submissions', submissionRef.id), {
-        status: 'graded',
-        feedback: result.feedback,
-        grade: result.grade
-      });
+        if (response.ok) {
+          const result = await response.json();
+          setFeedback(result);
+        }
+      } catch (apiError) {
+        console.error('Error processing submission with Gemini:', apiError);
+      }
 
-      setSelectedFile(null);
-      fetchAssignments(); // Refresh assignments list
+      // Clear only the submitted assignment's file
+      setSelectedFiles(prev => ({
+        ...prev,
+        [assignmentId]: null
+      }));
+      
+      alert('Assignment submitted successfully!');
     } catch (error) {
       console.error('Error submitting assignment:', error);
-      alert('Error submitting assignment. Please try again.');
+      alert(error.message || 'Error submitting assignment. Please try again.');
     } finally {
-      setSubmitting(false);
+      setSubmittingAssignments(prev => ({
+        ...prev,
+        [assignmentId]: false
+      }));
     }
   };
+
+  // Add this function to fetch existing submissions when component mounts
+  const fetchSubmissions = async () => {
+    try {
+      const submissionsRef = collection(db, 'submissions');
+      const q = query(submissionsRef, where('studentId', '==', auth.currentUser.uid));
+      const querySnapshot = await getDocs(q);
+      
+      const submissionData = {};
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        submissionData[data.assignmentId] = {
+          status: data.status,
+          fileName: data.fileName,
+          fileUrl: data.fileUrl,
+          submittedAt: data.submittedAt.toDate(),
+        };
+      });
+      
+      setSubmissionStatus(submissionData);
+    } catch (error) {
+      console.error('Error fetching submissions:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchSubmissions();
+  }, []); // Add this useEffect
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -379,10 +468,27 @@ const AssignmentSubmission = () => {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="bg-gray-900/30 p-4 rounded-lg">
                               <h4 className="text-gray-400 text-sm mb-2">Your Submission</h4>
-                              {assignment.file ? (
-                                <div className="flex items-center gap-2">
-                                  <PaperClipIcon className="w-5 h-5 text-gray-400" />
-                                  <span className="text-white truncate">{assignment.file}</span>
+                              {submissionStatus[assignment.id] ? (
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <PaperClipIcon className="w-5 h-5 text-green-400" />
+                                    <a 
+                                      href={submissionStatus[assignment.id].fileUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer" 
+                                      className="text-white hover:text-indigo-400 truncate"
+                                    >
+                                      {submissionStatus[assignment.id].fileName}
+                                    </a>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-sm text-gray-400">
+                                    <CalendarIcon className="w-4 h-4" />
+                                    <span>Submitted: {formatDate(submissionStatus[assignment.id].submittedAt)}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <CheckCircleIcon className="w-5 h-5 text-green-400" />
+                                    <span className="text-green-400">Submitted</span>
+                                  </div>
                                 </div>
                               ) : (
                                 <p className="text-gray-400">No file submitted yet</p>
@@ -390,24 +496,26 @@ const AssignmentSubmission = () => {
                             </div>
 
                             <div className="bg-gray-900/30 p-4 rounded-lg">
-                              <FileUpload 
-                                onFileChange={(e) => {
-                                  const file = e.target.files[0];
-                                  if (file) {
-                                    setSelectedFile(file);
-                                  }
-                                }}
-                                onSubmit={(e) => {
-                                  e.preventDefault();
-                                  handleSubmit(assignment.id);
-                                }}
-                                file={selectedFile}
-                                isEvaluating={submitting}
-                              />
+                              {!submissionStatus[assignment.id] ? (
+                                <FileUpload 
+                                  onFileChange={(file) => handleFileChange(assignment.id, file)}
+                                  onSubmit={(e) => {
+                                    e.preventDefault();
+                                    handleSubmit(assignment.id);
+                                  }}
+                                  file={selectedFiles[assignment.id]}
+                                  isEvaluating={submittingAssignments[assignment.id]}
+                                />
+                              ) : (
+                                <div className="text-center">
+                                  <CheckCircleIcon className="w-12 h-12 text-green-400 mx-auto mb-2" />
+                                  <p className="text-gray-300">Assignment has been submitted</p>
+                                </div>
+                              )}
                             </div>
                           </div>
 
-                          {submitting && (
+                          {submittingAssignments[assignment.id] && (
                             <div className="mt-4 p-4 bg-blue-500/10 rounded-lg flex items-center gap-3">
                               <ClockIcon className="w-5 h-5 animate-spin" />
                               <p className="text-blue-400">Submitting...</p>

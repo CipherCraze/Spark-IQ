@@ -239,41 +239,62 @@ service firebase.storage {
       return request.auth != null;
     }
 
-    function isUserInChat(chatId) {
+    function isTeacher() {
       return isAuthenticated() && 
-             exists(/databases/$(database)/documents/chats/$(chatId)) &&
-             request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        exists(/databases/$(database)/documents/teachers/$(request.auth.uid));
     }
 
-    // Profile pictures - specific rules
-    match /profile-pictures/{userId}/{allPaths=**} {
-      allow read: if isAuthenticated();  // Any authenticated user can view profile pictures
-      allow write: if isAuthenticated() && request.auth.uid == userId;  // Only user can upload their own picture
+    function isStudent() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/students/$(request.auth.uid));
     }
 
-    // Chat attachments and files
-    match /chat/{chatId}/{allPaths=**} {
-      allow read: if isUserInChat(chatId);
-      allow write: if isUserInChat(chatId) && 
-                   request.resource.size < 10 * 1024 * 1024 &&  // 10MB file size limit
-                   request.resource.contentType.matches('image/.*|video/.*|application/pdf');  // Restrict file types
+    function isValidFileType(contentType) {
+      return contentType.matches('application/pdf') || 
+             contentType.matches('application/msword') ||
+             contentType.matches('application/vnd.openxmlformats-officedocument.wordprocessingml.document') ||
+             contentType.matches('image/.*') ||
+             contentType.matches('application/zip') ||
+             contentType.matches('application/x-zip-compressed');
     }
 
-    // Assignment files
-    match /assignments/{assignmentId}/{allPaths=**} {
+    function isValidFileSize(size) {
+      return size < 50 * 1024 * 1024; // 50MB
+    }
+
+    // Profile pictures
+    match /profile-pictures/{userId}/{fileName} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && 
-                   request.resource.size < 20 * 1024 * 1024;  // 20MB file size limit
+      allow write: if isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Allow read access to all authenticated users
+    // Assignment files (uploaded by teachers)
+    match /assignments/{teacherId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isTeacher() && request.auth.uid == teacherId &&
+                  isValidFileSize(request.resource.size) &&
+                  isValidFileType(request.resource.contentType);
+      allow delete: if isTeacher() && request.auth.uid == teacherId;
+    }
+
+    // Submission files (uploaded by students)
+    match /submissions/{assignmentId}/{studentId}/{fileName} {
+      allow read: if isAuthenticated() && (
+        isTeacher() || // Teachers can read all submissions
+        request.auth.uid == studentId // Students can read their own submissions
+      );
+      allow write: if isAuthenticated() && 
+        isStudent() && // Must be a student
+        request.auth.uid == studentId && // Can only write to their own folder
+        isValidFileSize(request.resource.size) && // File size check
+        isValidFileType(request.resource.contentType); // File type check
+      allow delete: if false; // No one can delete submissions
+    }
+
+    // Default deny
     match /{allPaths=**} {
       allow read: if isAuthenticated();
-    }
-
-    // Allow write access only to user's own directory
-    match /users/{userId}/{allPaths=**} {
-      allow write: if isAuthenticated() && request.auth.uid == userId;
+      allow write: if false;
     }
   }
 } 

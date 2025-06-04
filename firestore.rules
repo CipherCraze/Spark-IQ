@@ -15,5 +15,16 @@ service cloud.firestore {
     match /{document=**} {
       allow read, write: if request.time < timestamp.date(2025, 6, 20);
     }
+
+    // Submission files
+    match /submissions/{assignmentId}/{studentId}/{fileName} {
+      allow read: if isAuthenticated() && (
+        isTeacher() || // Teachers can read all submissions
+        request.auth.uid == studentId // Students can read their own submissions
+      );
+      allow write: if isAuthenticated() && 
+        request.auth.uid == studentId && // Students can only write to their own folder
+        request.resource.size < 50 * 1024 * 1024; // 50MB file size limit
+    }
   }
 }
