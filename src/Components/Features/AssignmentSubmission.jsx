@@ -22,11 +22,13 @@ import {
   FolderIcon,
   SparklesIcon,
   CalendarIcon,
-  XCircleIcon
+  XCircleIcon,
+  PencilIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline';
 import { storage, db } from '../../firebase/firebaseConfig';
-import { collection, getDocs, query, where, addDoc, updateDoc, doc, getDoc, orderBy } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { collection, getDocs, query, where, addDoc, updateDoc, doc, getDoc, orderBy, deleteDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { auth } from '../../firebase/firebaseConfig';
 
 const AssignmentSubmission = () => {
@@ -43,6 +45,8 @@ const AssignmentSubmission = () => {
   const [feedback, setFeedback] = useState(null);
   const [submissionStatus, setSubmissionStatus] = useState({});  // Add this state at the top with other states
   const [pastSubmissions, setPastSubmissions] = useState([]);
+  const [editingAssignment, setEditingAssignment] = useState(null);
+  const [isTeacher, setIsTeacher] = useState(false);
 
   const submissionHistory = [
     {
@@ -358,6 +362,203 @@ const AssignmentSubmission = () => {
     });
   };
 
+  const handleRemoveSubmission = async (assignmentId) => {
+    if (!window.confirm('Are you sure you want to remove this submission? This cannot be undone.')) {
+      return;
+    }
+
+    try {
+      // Find the submission document
+      const submissionsRef = collection(db, 'submissions');
+      const q = query(
+        submissionsRef,
+        where('assignmentId', '==', assignmentId),
+        where('studentId', '==', auth.currentUser.uid)
+      );
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
+        throw new Error('Submission not found');
+      }
+
+      const submissionDoc = querySnapshot.docs[0];
+      const submissionData = submissionDoc.data();
+
+      // Check if submission is already graded
+      if (submissionData.grade) {
+        throw new Error('Cannot remove a graded submission');
+      }
+
+      // Delete the file from storage
+      const fileRef = ref(storage, submissionData.fileUrl);
+      await deleteObject(fileRef);
+
+      // Delete the submission document
+      await deleteDoc(doc(db, 'submissions', submissionDoc.id));
+
+      // Update assignment's total submissions count
+      const assignmentRef = doc(db, 'assignments', assignmentId);
+      const assignmentSnap = await getDoc(assignmentRef);
+      if (assignmentSnap.exists()) {
+        await updateDoc(assignmentRef, {
+          totalSubmissions: Math.max(0, (assignmentSnap.data().totalSubmissions || 1) - 1)
+        });
+      }
+
+      // Update local state
+      setSubmissionStatus(prev => {
+        const newStatus = { ...prev };
+        delete newStatus[assignmentId];
+        return newStatus;
+      });
+
+      alert('Submission removed successfully');
+      fetchPastSubmissions(); // Refresh past submissions list
+    } catch (error) {
+      console.error('Error removing submission:', error);
+      alert(error.message || 'Error removing submission');
+    }
+  };
+
+  const handleEditSubmission = async (assignmentId) => {
+    const selectedFile = selectedFiles[assignmentId];
+    if (!selectedFile) {
+      setEditingAssignment(assignmentId);
+      return;
+    }
+
+    try {
+      // Find the submission document
+      const submissionsRef = collection(db, 'submissions');
+      const q = query(
+        submissionsRef,
+        where('assignmentId', '==', assignmentId),
+        where('studentId', '==', auth.currentUser.uid)
+      );
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
+        throw new Error('Submission not found');
+      }
+
+      const submissionDoc = querySnapshot.docs[0];
+      const submissionData = submissionDoc.data();
+
+      // Check if submission is already graded
+      if (submissionData.grade) {
+        throw new Error('Cannot edit a graded submission');
+      }
+
+      // Delete old file from storage
+      const oldFileRef = ref(storage, submissionData.fileUrl);
+      await deleteObject(oldFileRef);
+
+      // Upload new file
+      const storageRef = ref(storage, `submissions/${assignmentId}/${auth.currentUser.uid}/${selectedFile.name}`);
+      await uploadBytes(storageRef, selectedFile);
+      const fileUrl = await getDownloadURL(storageRef);
+
+      // Update submission document
+      await updateDoc(doc(db, 'submissions', submissionDoc.id), {
+        fileUrl,
+        fileName: selectedFile.name,
+        fileType: selectedFile.type,
+        fileSize: selectedFile.size,
+        submittedAt: new Date(),
+        status: 'submitted'
+      });
+
+      // Update local state
+      setSubmissionStatus(prev => ({
+        ...prev,
+        [assignmentId]: {
+          status: 'submitted',
+          fileName: selectedFile.name,
+          fileUrl,
+          submittedAt: new Date()
+        }
+      }));
+
+      // Clear selected file
+      setSelectedFiles(prev => ({
+        ...prev,
+        [assignmentId]: null
+      }));
+
+      alert('Submission updated successfully');
+      fetchPastSubmissions(); // Refresh past submissions list
+      setEditingAssignment(null);
+    } catch (error) {
+      console.error('Error updating submission:', error);
+      alert(error.message || 'Error updating submission');
+    }
+  };
+
+  // Add function to check if user is a teacher
+  const checkIfTeacher = async () => {
+    try {
+      const teacherRef = doc(db, 'teachers', auth.currentUser.uid);
+      const teacherSnap = await getDoc(teacherRef);
+      setIsTeacher(teacherSnap.exists());
+    } catch (error) {
+      console.error('Error checking teacher status:', error);
+      setIsTeacher(false);
+    }
+  };
+
+  // Add useEffect to check teacher status when component mounts
+  useEffect(() => {
+    if (auth.currentUser) {
+      checkIfTeacher();
+    }
+  }, []);
+
+  // Add function to handle assignment deletion
+  const handleDeleteAssignment = async (assignmentId) => {
+    if (!window.confirm('Are you sure you want to delete this assignment? This will delete all student submissions as well.')) {
+      return;
+    }
+
+    try {
+      // First, get all submissions for this assignment
+      const submissionsRef = collection(db, 'submissions');
+      const q = query(submissionsRef, where('assignmentId', '==', assignmentId));
+      const submissionsSnapshot = await getDocs(q);
+
+      // Delete all submission files from storage and documents from Firestore
+      const deletePromises = submissionsSnapshot.docs.map(async (submissionDoc) => {
+        const submissionData = submissionDoc.data();
+        
+        // Delete file from storage if it exists
+        if (submissionData.fileUrl) {
+          const fileRef = ref(storage, submissionData.fileUrl);
+          try {
+            await deleteObject(fileRef);
+          } catch (error) {
+            console.error('Error deleting submission file:', error);
+          }
+        }
+
+        // Delete submission document
+        return deleteDoc(doc(db, 'submissions', submissionDoc.id));
+      });
+
+      // Wait for all submission deletions to complete
+      await Promise.all(deletePromises);
+
+      // Delete the assignment document
+      await deleteDoc(doc(db, 'assignments', assignmentId));
+
+      // Update local state to remove the assignment
+      setAssignments(prev => prev.filter(a => a.id !== assignmentId));
+      
+      alert('Assignment and all related submissions deleted successfully');
+    } catch (error) {
+      console.error('Error deleting assignment:', error);
+      alert(error.message || 'Error deleting assignment');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-900 flex">
       {/* Mobile Sidebar Overlay */}
@@ -510,10 +711,21 @@ const AssignmentSubmission = () => {
                               <span>Due: {formatDate(assignment.dueDate)}</span>
                             </div>
                           </div>
-                          <span className="flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-blue-500/20 text-blue-400 h-fit">
-                            {getStatusIcon(assignment.status)}
-                            {assignment.status}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            {isTeacher && (
+                              <button
+                                onClick={() => handleDeleteAssignment(assignment.id)}
+                                className="flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
+                              >
+                                <TrashIcon className="w-4 h-4" />
+                                Delete Assignment
+                              </button>
+                            )}
+                            <span className="flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-blue-500/20 text-blue-400 h-fit">
+                              {getStatusIcon(assignment.status)}
+                              {assignment.status}
+                            </span>
+                          </div>
                         </div>
 
                         <div className="mt-4">
@@ -543,6 +755,47 @@ const AssignmentSubmission = () => {
                                     <CheckCircleIcon className="w-5 h-5 text-green-400" />
                                     <span className="text-green-400">Submitted</span>
                                   </div>
+                                  {!submissionStatus[assignment.id].grade && (
+                                    <div className="flex items-center gap-4 mt-2">
+                                      <button
+                                        onClick={() => {
+                                          if (editingAssignment === assignment.id) {
+                                            setEditingAssignment(null);
+                                            setSelectedFiles(prev => ({
+                                              ...prev,
+                                              [assignment.id]: null
+                                            }));
+                                          } else {
+                                            setEditingAssignment(assignment.id);
+                                          }
+                                        }}
+                                        className={`text-sm ${
+                                          editingAssignment === assignment.id 
+                                            ? 'text-yellow-400 hover:text-yellow-300'
+                                            : 'text-indigo-400 hover:text-indigo-300'
+                                        } flex items-center gap-1`}
+                                      >
+                                        {editingAssignment === assignment.id ? (
+                                          <>
+                                            <XMarkIcon className="w-4 h-4" />
+                                            Cancel Edit
+                                          </>
+                                        ) : (
+                                          <>
+                                            <PencilIcon className="w-4 h-4" />
+                                            Edit Submission
+                                          </>
+                                        )}
+                                      </button>
+                                      <button
+                                        onClick={() => handleRemoveSubmission(assignment.id)}
+                                        className="text-sm text-red-400 hover:text-red-300 flex items-center gap-1"
+                                      >
+                                        <TrashIcon className="w-4 h-4" />
+                                        Remove
+                                      </button>
+                                    </div>
+                                  )}
                                 </div>
                               ) : (
                                 <p className="text-gray-400">No file submitted yet</p>
@@ -550,20 +803,29 @@ const AssignmentSubmission = () => {
                             </div>
 
                             <div className="bg-gray-900/30 p-4 rounded-lg">
-                              {!submissionStatus[assignment.id] ? (
+                              {!submissionStatus[assignment.id] || editingAssignment === assignment.id ? (
                                 <FileUpload 
                                   onFileChange={(file) => handleFileChange(assignment.id, file)}
                                   onSubmit={(e) => {
                                     e.preventDefault();
-                                    handleSubmit(assignment.id);
+                                    if (submissionStatus[assignment.id]) {
+                                      handleEditSubmission(assignment.id);
+                                    } else {
+                                      handleSubmit(assignment.id);
+                                    }
                                   }}
                                   file={selectedFiles[assignment.id]}
                                   isEvaluating={submittingAssignments[assignment.id]}
+                                  buttonText={submissionStatus[assignment.id] ? "Update Submission" : "Submit Assignment"}
                                 />
                               ) : (
                                 <div className="text-center">
                                   <CheckCircleIcon className="w-12 h-12 text-green-400 mx-auto mb-2" />
-                                  <p className="text-gray-300">Assignment has been submitted</p>
+                                  <p className="text-gray-300">
+                                    {submissionStatus[assignment.id].grade 
+                                      ? "Assignment has been submitted and graded"
+                                      : "Assignment has been submitted"}
+                                  </p>
                                 </div>
                               )}
                             </div>

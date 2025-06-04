@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { storage, db, auth } from '../../firebase/firebaseConfig';
-import { collection, addDoc, getDocs, query, where, updateDoc, doc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { collection, addDoc, getDocs, query, where, updateDoc, doc, deleteDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import {
   ClipboardDocumentIcon,
   CalendarIcon,
@@ -232,15 +232,62 @@ const AssignmentManagement = () => {
   };
 
   const handleDeleteAssignment = async (assignmentId) => {
-    if (window.confirm("Are you sure you want to delete this assignment? This action cannot be undone.")) {
-      try {
-        await deleteDoc(doc(db, 'assignments', assignmentId));
-        setAssignments(assignments.filter(a => a.id !== assignmentId));
-        alert("Assignment deleted successfully.");
-      } catch (error) {
-        console.error("Error deleting assignment: ", error);
-        alert("Failed to delete assignment. Please try again.");
+    if (!window.confirm('Are you sure you want to delete this assignment? This will delete all student submissions as well.')) {
+      return;
+    }
+
+    try {
+      // First, get all submissions for this assignment
+      const submissionsRef = collection(db, 'submissions');
+      const q = query(submissionsRef, where('assignmentId', '==', assignmentId));
+      const submissionsSnapshot = await getDocs(q);
+
+      // Delete all submission documents from Firestore first
+      const deleteSubmissionDocs = submissionsSnapshot.docs.map(async (submissionDoc) => {
+        return deleteDoc(doc(db, 'submissions', submissionDoc.id));
+      });
+
+      // Attempt to delete submission files from storage, but don't let failures stop the process
+      const submissionData = submissionsSnapshot.docs.map(doc => doc.data());
+      for (const submission of submissionData) {
+        if (submission.fileUrl) {
+          try {
+            const fileRef = ref(storage, submission.fileUrl);
+            await deleteObject(fileRef);
+          } catch (error) {
+            // Log the error but continue with deletion process
+            console.warn('Could not delete submission file:', error);
+          }
+        }
       }
+
+      // Delete assignment files from storage
+      const assignment = assignments.find(a => a.id === assignmentId);
+      if (assignment && assignment.attachmentUrls) {
+        for (const url of assignment.attachmentUrls) {
+          try {
+            const fileRef = ref(storage, url);
+            await deleteObject(fileRef);
+          } catch (error) {
+            // Log the error but continue with deletion process
+            console.warn('Could not delete assignment file:', error);
+          }
+        }
+      }
+
+      // Wait for all submission document deletions to complete
+      await Promise.all(deleteSubmissionDocs);
+
+      // Delete the assignment document
+      await deleteDoc(doc(db, 'assignments', assignmentId));
+
+      // Update local state to remove the assignment
+      setAssignments(prev => prev.filter(a => a.id !== assignmentId));
+      
+      alert('Assignment deleted successfully');
+    } catch (error) {
+      console.error('Error deleting assignment:', error);
+      alert('Error deleting assignment. Some resources may not have been fully cleaned up.');
     }
   };
 
