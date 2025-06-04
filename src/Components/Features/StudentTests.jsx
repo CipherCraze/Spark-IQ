@@ -1,72 +1,42 @@
 // StudentTests.jsx
 import React, { useState, useEffect } from 'react';
 import {
-  HomeIcon,
-  FolderIcon,
-  ClipboardDocumentIcon,
-  ChartBarIcon,
-  DocumentTextIcon,
-  PresentationChartLineIcon,
-  ChatBubbleLeftRightIcon,
-  QuestionMarkCircleIcon,
-  LightBulbIcon,
-  NewspaperIcon,
-  WrenchScrewdriverIcon,
-  VideoCameraIcon,
-  EnvelopeIcon,
-  SparklesIcon,
-  XMarkIcon,
-  Bars3Icon
+  HomeIcon, FolderIcon, ClipboardDocumentIcon, ChartBarIcon, DocumentTextIcon,
+  PresentationChartLineIcon, ChatBubbleLeftRightIcon, QuestionMarkCircleIcon, LightBulbIcon,
+  NewspaperIcon, WrenchScrewdriverIcon, VideoCameraIcon, EnvelopeIcon, SparklesIcon,
+  XMarkIcon, Bars3Icon, ClockIcon, CheckCircleIcon
 } from '@heroicons/react/24/outline';
 
+// Firebase Imports
+import { db, auth } from '../../firebase/firebaseConfig'; // Adjust path as necessary
+import {
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  where,
+  serverTimestamp,
+  orderBy
+} from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
+
 const StudentTests = () => {
-    const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard', 'takeTest', 'showResult'
+    const [currentUser, setCurrentUser] = useState(null);
+    const [currentView, setCurrentView] = useState('dashboard');
     const [selectedTest, setSelectedTest] = useState(null);
     const [answers, setAnswers] = useState({});
-    const [score, setScore] = useState(null);
-    const [timeRemaining, setTimeRemaining] = useState(0); // In seconds
+    const [score, setScore] = useState(null); // Percentage
+    const [correctCount, setCorrectCount] = useState(0);
+    const [totalQuestionsInTest, setTotalQuestionsInTest] = useState(0);
+    const [timeRemaining, setTimeRemaining] = useState(0);
     const [timerId, setTimerId] = useState(null);
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [loading, setLoading] = useState(true); // For Firebase operations
+    const [error, setError] = useState('');
 
-    // Dummy data for available tests (teacher-generated tests)
-    const [availableTests, setAvailableTests] = useState([
-        {
-            id: 'test-001',
-            title: 'Algebra Basics Quiz',
-            subject: 'Mathematics',
-            difficulty: 'Easy',
-            timeLimit: 30, // minutes
-            numQuestions: 10,
-            description: 'This test covers basic algebraic operations and equations.',
-            questions: [
-                { id: 'q1', text: 'What is 2 + 2?', options: ['3', '4', '5', '6'], correctAnswer: '4' },
-                { id: 'q2', text: 'Solve for x: x + 5 = 10', options: ['3', '4', '5', '6'], correctAnswer: '5' },
-                { id: 'q3', text: 'What is 3 * 4?', options: ['7', '10', '12', '15'], correctAnswer: '12' },
-                { id: 'q4', text: 'If y = 2x and x = 3, what is y?', options: ['4', '5', '6', '7'], correctAnswer: '6' },
-                { id: 'q5', text: 'Simplify: 2(x + 3)', options: ['2x + 3', '2x + 6', 'x + 6', '5x'], correctAnswer: '2x + 6' },
-            ]
-        },
-        {
-            id: 'test-003',
-            title: 'Introduction to Physics',
-            subject: 'Physics',
-            difficulty: 'Medium',
-            timeLimit: 45,
-            numQuestions: 15,
-            description: 'Fundamental concepts of mechanics and energy.',
-            questions: [
-                { id: 'p1', text: 'What is the SI unit of force?', options: ['Joule', 'Watt', 'Newton', 'Pascal'], correctAnswer: 'Newton' },
-                { id: 'p2', text: 'Which of these is a scalar quantity?', options: ['Velocity', 'Acceleration', 'Mass', 'Force'], correctAnswer: 'Mass' },
-                { id: 'p3', text: 'What is the formula for kinetic energy?', options: ['mgh', '1/2mv^2', 'F=ma', 'P=IV'], correctAnswer: '1/2mv^2' },
-            ]
-        }
-    ]);
-
-    // Dummy data for past attempts
-    const [pastAttempts, setPastAttempts] = useState([
-        { id: 'attempt-001', testId: 'test-001', title: 'Algebra Basics Quiz', subject: 'Mathematics', score: 70, dateAttempted: '2023-10-21' },
-        { id: 'attempt-002', testId: 'test-002', title: 'World War II History', subject: 'History', score: 65, dateAttempted: '2023-09-17' },
-    ]);
+    const [availableTests, setAvailableTests] = useState([]);
+    const [pastAttempts, setPastAttempts] = useState([]);
+    const [attemptedTestIds, setAttemptedTestIds] = useState(new Set()); // To filter out already attempted tests
 
     const studentMenu = [
         { title: 'Dashboard', Icon: HomeIcon, link: '/dashboard', description: "Overview of your progress." },
@@ -77,26 +47,79 @@ const StudentTests = () => {
         { title: 'Grades & Feedback', Icon: PresentationChartLineIcon, link: '/GradesAndFeedback', description: "Check your grades." },
         { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/voice-chat', description: "Discuss with peers." },
         { title: 'Ask Sparky', Icon: QuestionMarkCircleIcon, link: '/chatbot-access', description: "Your AI study assistant." },
-        { title: 'AI Questions', Icon: LightBulbIcon, link: '/ai-generated-questions', description: "Practice with AI questions." },
-        { title: 'Educational News', Icon: NewspaperIcon, link: '/educational-news', description: "Latest in education." },
-        { title: 'Smart Review', Icon: WrenchScrewdriverIcon, link: '/smart-review', description: "Enhance your writing." },
-        { title: 'Virtual Meetings', Icon: VideoCameraIcon, link: '/meeting-participation', description: "Join online classes." },
-        { title: 'Chat Platform', Icon: ChatBubbleLeftRightIcon, link: '/chat-functionality', description: "Connect with peers." },
-        { title: 'My Inbox', Icon: EnvelopeIcon, link: '/inbox-for-suggestions', description: "Messages & suggestions." },
+        // ... other menu items
         { title: 'Upgrade to Pro', Icon: SparklesIcon, link: '/pricing', special: true, description: "Unlock premium features." },
     ];
 
     useEffect(() => {
-        if (currentView === 'takeTest' && timeRemaining > 0) {
-            const id = setInterval(() => {
-                setTimeRemaining(prev => prev - 1);
-            }, 1000);
-            setTimerId(id);
-            return () => clearInterval(id);
-        } else if (timeRemaining === 0 && currentView === 'takeTest') {
-            handleSubmitTest(true);
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            if (user) {
+                setCurrentUser(user);
+                fetchStudentData(user.uid);
+            } else {
+                setCurrentUser(null);
+                setAvailableTests([]);
+                setPastAttempts([]);
+                setAttemptedTestIds(new Set());
+                // Potentially redirect or show message
+                console.log("No user logged in for StudentTests.");
+            }
+        });
+        return () => unsubscribe();
+    }, []);
+
+    const fetchStudentData = async (studentId) => {
+        if (!studentId) return;
+        setLoading(true);
+        setError('');
+        try {
+            // Fetch past attempts first to know which tests have been taken
+            const attemptsRef = collection(db, 'testSubmissions');
+            const attemptsQuery = query(attemptsRef, where('studentId', '==', studentId), orderBy('submittedAt', 'desc'));
+            const attemptsSnapshot = await getDocs(attemptsQuery);
+            const attemptsList = attemptsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setPastAttempts(attemptsList);
+            const attemptedIds = new Set(attemptsList.map(attempt => attempt.testId));
+            setAttemptedTestIds(attemptedIds);
+
+            // Fetch available tests
+            const testsRef = collection(db, 'tests');
+            const testsQuery = query(testsRef, where('status', '==', 'published'), orderBy('publishedAt', 'desc'));
+            const testsSnapshot = await getDocs(testsQuery);
+            const allPublishedTests = testsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            // Filter out tests already attempted by the student
+            const filteredAvailableTests = allPublishedTests.filter(test => !attemptedIds.has(test.id));
+            setAvailableTests(filteredAvailableTests);
+
+        } catch (e) {
+            console.error("Error fetching student data: ", e);
+            setError("Failed to load test data. Please try again.");
+        } finally {
+            setLoading(false);
         }
-    }, [currentView, timeRemaining]);
+    };
+
+
+    useEffect(() => {
+        let intervalId = null;
+        if (currentView === 'takeTest' && timeRemaining > 0) {
+            intervalId = setInterval(() => {
+                setTimeRemaining(prev => {
+                    if (prev <= 1) {
+                        clearInterval(intervalId);
+                        handleSubmitTest(true); // Auto-submit
+                        return 0;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
+            setTimerId(intervalId);
+        }
+        return () => {
+            if (intervalId) clearInterval(intervalId);
+        };
+    }, [currentView, timeRemaining]); // handleSubmitTest dependency might cause issues if not memoized or stable
 
     const formatTime = (seconds) => {
         const minutes = Math.floor(seconds / 60);
@@ -108,6 +131,8 @@ const StudentTests = () => {
         setSelectedTest(test);
         setAnswers({});
         setScore(null);
+        setCorrectCount(0);
+        setTotalQuestionsInTest(test.questions.length);
         setTimeRemaining(test.timeLimit * 60);
         setCurrentView('takeTest');
     };
@@ -116,109 +141,152 @@ const StudentTests = () => {
         setAnswers(prev => ({ ...prev, [questionId]: selectedOption }));
     };
 
-    const handleSubmitTest = (timedOut = false) => {
-        clearInterval(timerId);
-        let correctCount = 0;
+    const handleSubmitTest = async (timedOut = false) => {
+        if (!currentUser || !selectedTest) {
+            setError("Cannot submit test. User or test data missing.");
+            return;
+        }
+        if(timerId) clearInterval(timerId);
+
+        let correct = 0;
         selectedTest.questions.forEach(q => {
             if (answers[q.id] === q.correctAnswer) {
-                correctCount++;
+                correct++;
             }
         });
-        const calculatedScore = (correctCount / selectedTest.questions.length) * 100;
+        const calculatedScore = (correct / selectedTest.questions.length) * 100;
+        
         setScore(calculatedScore.toFixed(2));
+        setCorrectCount(correct);
+        // totalQuestionsInTest is already set in handleStartTest
 
-        const newAttempt = {
-            id: `attempt-${Date.now()}`,
+        const submissionData = {
             testId: selectedTest.id,
-            title: selectedTest.title,
-            subject: selectedTest.subject,
+            testTitle: selectedTest.title,
+            testSubject: selectedTest.subject,
+            studentId: currentUser.uid,
+            studentName: currentUser.displayName || currentUser.email || 'Anonymous Student',
+            answers: answers,
             score: parseFloat(calculatedScore.toFixed(2)),
-            dateAttempted: new Date().toISOString().split('T')[0],
+            correctCount: correct,
+            totalQuestionsInTest: selectedTest.questions.length,
+            submittedAt: serverTimestamp(),
         };
-        setPastAttempts(prev => [...prev, newAttempt]);
 
-        if (timedOut) {
-            alert(`Time's up! Your test has been automatically submitted. Score: ${calculatedScore.toFixed(2)}%`);
-        } else {
-            alert(`Test submitted! Your score is: ${calculatedScore.toFixed(2)}%`);
+        setLoading(true); // Indicate submission process
+        try {
+            const docRef = await addDoc(collection(db, 'testSubmissions'), submissionData);
+            // Add to local past attempts for immediate UI update or refetch
+            setPastAttempts(prev => [{ id: docRef.id, ...submissionData, submittedAt: new Date() }, ...prev]);
+            setAttemptedTestIds(prev => new Set(prev).add(selectedTest.id)); // Mark as attempted
+            // Remove from available tests
+            setAvailableTests(prev => prev.filter(test => test.id !== selectedTest.id));
+
+
+            if (timedOut) {
+                alert(`Time's up! Your test has been automatically submitted. Score: ${calculatedScore.toFixed(2)}%`);
+            } else {
+                alert(`Test submitted! Your score is: ${calculatedScore.toFixed(2)}%`);
+            }
+            setCurrentView('showResult');
+        } catch (e) {
+            console.error("Error submitting test: ", e);
+            setError("Failed to submit your test. Please try again. " + e.message);
+            // Keep current view or redirect to dashboard on critical failure
+        } finally {
+            setLoading(false);
         }
-
-        setCurrentView('showResult');
     };
 
     const renderContent = () => {
         switch (currentView) {
             case 'takeTest':
                 if (!selectedTest) {
-                    return <p className="text-gray-400">No test selected. <button onClick={() => setCurrentView('dashboard')} className="ml-2 px-4 py-2 bg-slate-700 text-white rounded-md hover:bg-slate-600 text-sm transition-colors duration-200">Go back</button></p>;
+                    return <p className="text-slate-400">No test selected. <button onClick={() => setCurrentView('dashboard')} className="ml-2 px-4 py-2 bg-slate-700 text-white rounded-md hover:bg-slate-600 text-sm transition-colors duration-200">Go back</button></p>;
                 }
                 return (
                     <div className="p-6 bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-lg shadow-lg">
-                        <h2 className="text-2xl font-semibold mb-4 text-white">{selectedTest.title}</h2>
-                        <p className="text-lg text-slate-300 mb-5 pb-2 border-b border-slate-700/50">
-                            Subject: {selectedTest.subject} | Difficulty: {selectedTest.difficulty} | Time Left: <span className="font-bold text-red-400 text-xl">{formatTime(timeRemaining)}</span>
-                        </p>
-                        <p className="italic text-slate-400 mb-6">{selectedTest.description}</p>
+                        <div className="flex justify-between items-center mb-4 pb-4 border-b border-slate-700/50">
+                            <div>
+                                <h2 className="text-2xl font-semibold text-white">{selectedTest.title}</h2>
+                                <p className="text-sm text-slate-400">{selectedTest.subject} | {selectedTest.difficulty}</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-sm text-slate-300">Time Left:</p>
+                                <p className={`font-bold text-2xl ${timeRemaining < 60 ? 'text-red-500 animate-pulse' : 'text-red-400'}`}>
+                                    {formatTime(timeRemaining)}
+                                </p>
+                            </div>
+                        </div>
+                        <p className="italic text-slate-400 mb-6">{selectedTest.description || `A ${selectedTest.difficulty} test on ${selectedTest.topics}.`}</p>
 
-                        <form onSubmit={(e) => { e.preventDefault(); handleSubmitTest(); }} className="flex flex-col gap-5">
+                        <form onSubmit={(e) => { e.preventDefault(); handleSubmitTest(); }} className="space-y-6">
                             {selectedTest.questions.map((q, index) => (
-                                <div key={q.id} className="border border-slate-700/50 rounded-lg p-4 bg-slate-800/40 shadow-sm">
+                                <div key={q.id} className="border border-slate-700/50 rounded-lg p-5 bg-slate-800/40 shadow-sm">
                                     <p className="text-lg font-medium mb-4 text-white"><strong>{index + 1}.</strong> {q.text}</p>
-                                    <div className="flex flex-col gap-3">
+                                    <div className="space-y-3">
                                         {q.options.map((option, optIndex) => (
-                                            <label key={optIndex} className="flex items-center cursor-pointer p-2 rounded-md hover:bg-slate-700/50 transition-colors duration-200">
+                                            <label key={optIndex} className={`flex items-center cursor-pointer p-3 rounded-md border transition-all duration-200 ${answers[q.id] === option ? 'bg-indigo-600 border-indigo-500 shadow-md' : 'bg-slate-700/50 border-slate-600 hover:bg-slate-700'}`}>
                                                 <input
                                                     type="radio"
                                                     name={`question-${q.id}`}
                                                     value={option}
                                                     checked={answers[q.id] === option}
                                                     onChange={() => handleAnswerChange(q.id, option)}
-                                                    className="mr-3 transform scale-110 text-indigo-500 focus:ring-indigo-500"
+                                                    className="form-radio h-5 w-5 text-indigo-500 bg-slate-600 border-slate-500 focus:ring-indigo-500 focus:ring-offset-slate-800 mr-3"
                                                 />
-                                                <span className="text-slate-300">{option}</span>
+                                                <span className={`text-base ${answers[q.id] === option ? 'text-white font-semibold' : 'text-slate-300'}`}>{option}</span>
                                             </label>
                                         ))}
                                     </div>
                                 </div>
                             ))}
-                            <button type="submit" className="px-6 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-lg mt-6 self-end transition-colors duration-200">Submit Test</button>
+                            <button type="submit" disabled={loading} className="w-full md:w-auto float-right px-8 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 text-lg mt-6 transition-colors duration-200 disabled:opacity-60">
+                                {loading ? 'Submitting...' : 'Submit Test'}
+                            </button>
                         </form>
                     </div>
                 );
             case 'showResult':
                 return (
                     <div className="p-6 bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-lg shadow-lg text-center">
-                        <h2 className="text-3xl font-bold mb-4 text-white">Test Result for: {selectedTest?.title}</h2>
+                        <CheckCircleIcon className="w-20 h-20 text-green-500 mx-auto mb-4"/>
+                        <h2 className="text-3xl font-bold mb-3 text-white">Test Completed!</h2>
+                        <p className="text-lg text-slate-300 mb-6">You attempted: {selectedTest?.title}</p>
                         {score !== null ? (
                             <>
-                                <p className="text-2xl font-semibold text-slate-300 mb-6">Your Score: <span className="text-green-400 text-4xl">{score}%</span></p>
-                                <p className="text-slate-400">Congratulations on completing the test!</p>
+                                <p className="text-2xl font-semibold text-slate-300 mb-2">Your Score:</p>
+                                <p className="text-6xl font-bold text-green-400 mb-4">{score}%</p>
+                                <p className="text-slate-400 mb-6">({correctCount} out of {totalQuestionsInTest} correct)</p>
                             </>
                         ) : (
                             <p className="text-slate-400">Calculating score...</p>
                         )}
-                        <button onClick={() => setCurrentView('dashboard')} className="mt-8 px-5 py-2 bg-slate-700 text-white rounded-md hover:bg-slate-600 transition-colors duration-200">Back to Dashboard</button>
+                        <button onClick={() => setCurrentView('dashboard')} className="mt-8 px-6 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors duration-200">Back to Dashboard</button>
                     </div>
                 );
             case 'dashboard':
             default:
                 return (
-                    <div className="text-center py-5">
-                        <h2 className="text-3xl font-bold mb-8 text-white">Student Dashboard - Tests</h2>
+                    <div className="py-5">
+                        <h2 className="text-3xl font-bold mb-8 text-white text-center md:text-left">Student Dashboard - Tests</h2>
+                        {error && <div className="mb-4 p-3 bg-red-900/50 border border-red-700 text-red-300 rounded-md">{error}</div>}
 
                         <div className="mt-8 p-6 bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-lg shadow-lg text-left">
-                            <h3 className="text-2xl font-semibold mb-4 text-white">Available Tests</h3>
-                            {availableTests.length === 0 ? (
-                                <p className="text-slate-400">No tests available at the moment.</p>
-                            ) : (
-                                <ul className="list-none p-0">
+                            <h3 className="text-2xl font-semibold mb-5 text-white">Available Tests</h3>
+                            {loading && <p className="text-slate-400 text-center py-4">Loading available tests...</p>}
+                            {!loading && availableTests.length === 0 && !error && (
+                                <p className="text-slate-400 text-center py-4">No new tests available at the moment. Great job staying on top of things!</p>
+                            )}
+                            {!loading && availableTests.length > 0 && (
+                                <ul className="list-none p-0 space-y-4">
                                     {availableTests.map(test => (
-                                        <li key={test.id} className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 border-b border-slate-700/50 last:border-b-0 bg-slate-800/40 rounded-md shadow-sm mb-3">
-                                            <div className="flex-grow mb-2 md:mb-0">
-                                                <h3 className="text-lg font-medium text-white">{test.title} ({test.subject})</h3>
-                                                <p className="text-sm text-slate-400">Difficulty: {test.difficulty} | Time Limit: {test.timeLimit} mins | Questions: {test.numQuestions}</p>
+                                        <li key={test.id} className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 border border-slate-700/50 bg-slate-800/40 rounded-md shadow-sm hover:bg-slate-800/60 transition-colors">
+                                            <div className="flex-grow mb-3 md:mb-0">
+                                                <h4 className="text-lg font-semibold text-indigo-300">{test.title}</h4>
+                                                <p className="text-sm text-slate-400">{test.subject} | {test.difficulty} | {test.numQuestions || test.questions?.length} Qs | {test.timeLimit} mins</p>
                                             </div>
-                                            <button onClick={() => handleStartTest(test)} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm transition-colors duration-200">
+                                            <button onClick={() => handleStartTest(test)} className="px-5 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm transition-colors duration-200 w-full md:w-auto">
                                                 Start Test
                                             </button>
                                         </li>
@@ -227,17 +295,25 @@ const StudentTests = () => {
                             )}
                         </div>
 
-                        <div className="mt-8 p-6 bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-lg shadow-lg text-left">
-                            <h3 className="text-2xl font-semibold mb-4 text-white">Past Attempts</h3>
-                            {pastAttempts.length === 0 ? (
-                                <p className="text-slate-400">You haven't attempted any tests yet.</p>
-                            ) : (
-                                <ul className="list-none p-0">
+                        <div className="mt-10 p-6 bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-lg shadow-lg text-left">
+                            <h3 className="text-2xl font-semibold mb-5 text-white">Past Attempts</h3>
+                            {loading && pastAttempts.length === 0 && <p className="text-slate-400 text-center py-4">Loading past attempts...</p>}
+                            {!loading && pastAttempts.length === 0 && !error && (
+                                <p className="text-slate-400 text-center py-4">You haven't attempted any tests yet.</p>
+                            )}
+                            {!loading && pastAttempts.length > 0 && (
+                                <ul className="list-none p-0 space-y-4">
                                     {pastAttempts.map(attempt => (
-                                        <li key={attempt.id} className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 border-b border-slate-700/50 last:border-b-0 bg-slate-800/40 rounded-md shadow-sm mb-3">
-                                            <div className="flex-grow mb-2 md:mb-0">
-                                                <h3 className="text-lg font-medium text-white">{attempt.title} ({attempt.subject})</h3>
-                                                <p className="text-sm text-slate-400">Score: <span className="font-bold text-green-400">{attempt.score}%</span> | Attempted On: {attempt.dateAttempted}</p>
+                                        <li key={attempt.id} className="p-4 border border-slate-700/50 bg-slate-800/40 rounded-md shadow-sm">
+                                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
+                                                <div className="flex-grow mb-2 md:mb-0">
+                                                    <h4 className="text-lg font-medium text-white">{attempt.testTitle} ({attempt.testSubject})</h4>
+                                                    <p className="text-sm text-slate-400">
+                                                        Score: <span className="font-bold text-green-400">{attempt.score}%</span> ({attempt.correctCount}/{attempt.totalQuestionsInTest})
+                                                        | Attempted: {attempt.submittedAt?.toDate ? attempt.submittedAt.toDate().toLocaleDateString() : new Date(attempt.submittedAt).toLocaleDateString()}
+                                                    </p>
+                                                </div>
+                                                <ClockIcon className="w-5 h-5 text-slate-500 hidden md:block" title="Completed"/>
                                             </div>
                                         </li>
                                     ))}
@@ -250,87 +326,53 @@ const StudentTests = () => {
     };
 
     return (
-        <div className="font-sans min-h-screen bg-slate-900 flex">
-            {/* Mobile sidebar */}
+        <div className="font-sans min-h-screen bg-slate-900 flex text-slate-100">
+           {/* Sidebar identical to previous response */}
             <div className={`fixed inset-0 z-40 lg:hidden ${sidebarOpen ? 'block' : 'hidden'}`}>
                 <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)}></div>
                 <div className="relative flex flex-col w-72 max-w-xs h-full bg-slate-800">
                     <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700">
                         <h2 className="text-xl font-bold text-white">SPARK-IQ</h2>
-                        <button
-                            type="button"
-                            className="rounded-md p-2 text-slate-400 hover:text-white focus:outline-none"
-                            onClick={() => setSidebarOpen(false)}
-                        >
+                        <button type="button" className="rounded-md p-2 text-slate-400 hover:text-white focus:outline-none" onClick={() => setSidebarOpen(false)}>
                             <XMarkIcon className="h-6 w-6" />
                         </button>
                     </div>
                     <nav className="flex-1 overflow-y-auto p-4 space-y-1">
                         {studentMenu.map((item) => (
-                            <a
-                                key={item.title}
-                                href={item.link}
-                                className={`flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors duration-200 ${
-                                    item.title === 'Tests' 
-                                        ? 'bg-indigo-700 text-white' 
-                                        : 'text-slate-300 hover:bg-slate-700/50'
-                                } ${item.special ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white' : ''}`}
-                            >
-                                <item.Icon className="flex-shrink-0 h-5 w-5 mr-3" />
-                                {item.title}
-                                {item.special && (
-                                    <span className="ml-auto px-2 py-0.5 text-xs rounded-full bg-white/20">PRO</span>
-                                )}
+                            <a key={item.title} href={item.link}  onClick={(e) => { if (item.link === '/student-tests') { e.preventDefault(); setCurrentView('dashboard'); setSidebarOpen(false); }}}
+                                className={`flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors duration-200 ${ item.title === 'Tests' && (currentView === 'dashboard' || currentView === 'takeTest' || currentView === 'showResult') ? 'bg-indigo-700 text-white' : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'} ${item.special ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:opacity-90' : ''}`}>
+                                <item.Icon className="flex-shrink-0 h-5 w-5 mr-3" /> {item.title}
+                                {item.special && (<span className="ml-auto px-2 py-0.5 text-xs rounded-full bg-white/20">PRO</span>)}
                             </a>
                         ))}
                     </nav>
                 </div>
             </div>
-
-            {/* Desktop sidebar */}
             <div className="hidden lg:flex lg:flex-shrink-0">
                 <div className="flex flex-col w-72 border-r border-slate-700 bg-slate-800">
-                    <div className="flex items-center h-16 px-4 border-b border-slate-700">
-                        <h2 className="text-xl font-bold text-white">SPARK-IQ</h2>
-                    </div>
+                    <div className="flex items-center h-16 px-4 border-b border-slate-700"> <h2 className="text-xl font-bold text-white">SPARK-IQ</h2> </div>
                     <nav className="flex-1 overflow-y-auto p-4 space-y-1">
                         {studentMenu.map((item) => (
-                            <a
-                                key={item.title}
-                                href={item.link}
-                                className={`flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors duration-200 ${
-                                    item.title === 'Tests' 
-                                        ? 'bg-indigo-700 text-white' 
-                                        : 'text-slate-300 hover:bg-slate-700/50'
-                                } ${item.special ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white' : ''}`}
-                            >
-                                <item.Icon className="flex-shrink-0 h-5 w-5 mr-3" />
-                                {item.title}
-                                {item.special && (
-                                    <span className="ml-auto px-2 py-0.5 text-xs rounded-full bg-white/20">PRO</span>
-                                )}
+                             <a key={item.title} href={item.link}  onClick={(e) => { if (item.link === '/student-tests') { e.preventDefault(); setCurrentView('dashboard');}}}
+                                className={`flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors duration-200 ${ item.title === 'Tests' && (currentView === 'dashboard' || currentView === 'takeTest' || currentView === 'showResult') ? 'bg-indigo-700 text-white' : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'} ${item.special ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:opacity-90' : ''}`}>
+                                <item.Icon className="flex-shrink-0 h-5 w-5 mr-3" /> {item.title}
+                                {item.special && (<span className="ml-auto px-2 py-0.5 text-xs rounded-full bg-white/20">PRO</span>)}
                             </a>
                         ))}
                     </nav>
                 </div>
             </div>
-
-            {/* Main content */}
-            <div className="flex-1 overflow-auto">
-                <div className="lg:hidden sticky top-0 z-10 bg-slate-800 p-4 border-b border-slate-700 flex items-center justify-between">
-                    <button
-                        type="button"
-                        className="rounded-md p-2 text-slate-400 hover:text-white focus:outline-none"
-                        onClick={() => setSidebarOpen(true)}
-                    >
-                        <Bars3Icon className="h-6 w-6" />
-                    </button>
-                    <h1 className="text-xl font-bold text-white">Tests</h1>
+            <div className="flex-1 overflow-x-hidden overflow-y-auto">
+                <div className="lg:hidden sticky top-0 z-30 bg-slate-800/80 backdrop-blur-md p-4 border-b border-slate-700 flex items-center justify-between">
+                    <button type="button" className="rounded-md p-2 text-slate-400 hover:text-white focus:outline-none" onClick={() => setSidebarOpen(true)}> <Bars3Icon className="h-6 w-6" /> </button>
+                    <h1 className="text-xl font-bold text-white">
+                        {currentView === 'takeTest' ? 'Taking Test' : currentView === 'showResult' ? 'Test Result' : 'Student Tests'}
+                    </h1>
+                    <div></div>
                 </div>
-                
-                <div className="p-6 w-full">
+                <main className="p-4 md:p-6 w-full max-w-4xl mx-auto">
                     {renderContent()}
-                </div>
+                </main>
             </div>
         </div>
     );
