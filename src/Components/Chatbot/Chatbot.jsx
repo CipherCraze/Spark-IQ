@@ -873,7 +873,6 @@ Sunday Afternoon (1 hr):
               <button onClick={toggleDarkMode} className="p-2 hover:bg-gray-700/50 rounded-full">
                 {darkMode ? <SunIcon className="w-6 h-6 text-gray-300" /> : <MoonIcon className="w-6 h-6 text-gray-300" />}
               </button>
-              <UserCircleIcon className="w-8 h-8 text-gray-300 hover:text-indigo-400 cursor-pointer" />
             </div>
           </div>
 
