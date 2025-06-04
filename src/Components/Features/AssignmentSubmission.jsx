@@ -25,7 +25,7 @@ import {
   XCircleIcon
 } from '@heroicons/react/24/outline';
 import { storage, db } from '../../firebase/firebaseConfig';
-import { collection, getDocs, query, where, addDoc, updateDoc, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where, addDoc, updateDoc, doc, getDoc, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth } from '../../firebase/firebaseConfig';
 
@@ -42,6 +42,7 @@ const AssignmentSubmission = () => {
   const [submittingAssignments, setSubmittingAssignments] = useState({}); // Map of assignmentId to submission state
   const [feedback, setFeedback] = useState(null);
   const [submissionStatus, setSubmissionStatus] = useState({});  // Add this state at the top with other states
+  const [pastSubmissions, setPastSubmissions] = useState([]);
 
   const submissionHistory = [
     {
@@ -280,6 +281,59 @@ const AssignmentSubmission = () => {
   useEffect(() => {
     fetchSubmissions();
   }, []); // Add this useEffect
+
+  // Add new function to fetch past submissions
+  const fetchPastSubmissions = async () => {
+    try {
+      const submissionsRef = collection(db, 'submissions');
+      const q = query(
+        submissionsRef, 
+        where('studentId', '==', auth.currentUser.uid),
+        orderBy('submittedAt', 'desc')
+      );
+      const querySnapshot = await getDocs(q);
+      
+      const pastSubmissionsData = [];
+      
+      for (const docSnapshot of querySnapshot.docs) {
+        const data = docSnapshot.data();
+        
+        try {
+          // Get assignment details
+          const assignmentRef = doc(db, 'assignments', data.assignmentId);
+          const assignmentSnap = await getDoc(assignmentRef);
+          
+          if (assignmentSnap.exists()) {
+            const assignmentData = assignmentSnap.data();
+            pastSubmissionsData.push({
+              id: docSnapshot.id,
+              assignment: assignmentData.title,
+              submittedOn: data.submittedAt.toDate(),
+              dueDate: assignmentData.dueDate,
+              status: data.status || 'Submitted',
+              grade: data.grade,
+              feedback: data.feedback,
+              file: data.fileName,
+              fileUrl: data.fileUrl
+            });
+          }
+        } catch (err) {
+          console.error('Error fetching assignment details:', err);
+        }
+      }
+      
+      setPastSubmissions(pastSubmissionsData);
+    } catch (error) {
+      console.error('Error fetching past submissions:', error);
+    }
+  };
+
+  // Add useEffect to fetch past submissions when tab changes
+  useEffect(() => {
+    if (activeTab === 'past') {
+      fetchPastSubmissions();
+    }
+  }, [activeTab]);
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -576,50 +630,56 @@ const AssignmentSubmission = () => {
           {/* Past Submissions */}
           {activeTab === 'past' && (
             <div className="space-y-4">
-              {pastAssignments.length > 0 ? (
-                pastAssignments.map((assignment) => (
-                  <div key={assignment.id} className="bg-gray-800/50 rounded-lg border border-gray-700/50 overflow-hidden hover:bg-gray-800/70 transition-colors">
+              {pastSubmissions.length > 0 ? (
+                pastSubmissions.map((submission) => (
+                  <div key={submission.id} className="bg-gray-800/50 rounded-lg border border-gray-700/50 overflow-hidden hover:bg-gray-800/70 transition-colors">
                     <div className="p-4 md:p-6">
                       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                         <div className="flex-1">
-                          <h3 className="text-lg font-semibold text-white">{assignment.assignment}</h3>
+                          <h3 className="text-lg font-semibold text-white">{submission.assignment}</h3>
                           <div className="flex items-center gap-2 text-sm text-gray-400 mt-1">
-                            <span>Submitted: {assignment.submittedOn}</span>
+                            <span>Submitted: {formatDate(submission.submittedOn)}</span>
                             <span>•</span>
-                            <span>Due: {assignment.dueDate}</span>
+                            <span>Due: {formatDate(submission.dueDate)}</span>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          {assignment.grade && (
+                          {submission.grade && (
                             <span className="px-2 py-1 rounded-md bg-purple-500/20 text-purple-400 text-sm font-medium">
-                              {assignment.grade}
+                              {submission.grade}
                             </span>
                           )}
                           <span className={`px-2 py-1 rounded-md text-sm font-medium ${
-                            assignment.status === 'Graded' 
+                            submission.status === 'graded' 
                               ? 'bg-green-500/20 text-green-400'
-                              : 'bg-yellow-500/20 text-yellow-400'
+                              : 'bg-blue-500/20 text-blue-400'
                           }`}>
-                            {assignment.status}
+                            {submission.status}
                           </span>
                         </div>
                       </div>
 
-                      {assignment.feedback && (
+                      {submission.feedback && (
                         <div className="mt-4 bg-gray-900/30 p-3 rounded-lg">
                           <h4 className="text-gray-400 text-sm mb-1">Instructor Feedback</h4>
-                          <p className="text-white">{assignment.feedback}</p>
+                          <p className="text-white">{submission.feedback}</p>
                         </div>
                       )}
 
                       <div className="mt-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
                         <div className="flex items-center gap-2 text-gray-400">
                           <PaperClipIcon className="w-4 h-4" />
-                          <span className="text-sm">{assignment.file}</span>
+                          <span className="text-sm">{submission.file}</span>
                         </div>
-                        <button className="text-indigo-400 hover:text-indigo-300 text-sm font-medium">
+                        <a 
+                          href={submission.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-indigo-400 hover:text-indigo-300 text-sm font-medium flex items-center gap-1"
+                        >
+                          <ArrowUpTrayIcon className="w-4 h-4 rotate-45" />
                           Download Submission
-                        </button>
+                        </a>
                       </div>
                     </div>
                   </div>
