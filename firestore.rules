@@ -23,6 +23,16 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    function isTeacher() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/teachers/$(request.auth.uid));
+    }
+
+    function isStudent() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/students/$(request.auth.uid));
+    }
+
     // Sparky Chat Messages rules - Updated with proper validation
     match /sparkyChatMessages/{messageId} {
       allow read: if isAuthenticated() && 
@@ -106,7 +116,13 @@ service cloud.firestore {
 
     // Keep open access for assignments (as requested)
     match /assignments/{assignment} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create: if isTeacher();
+      allow update: if isAuthenticated() && (
+        isTeacher() || // Teachers can update everything
+        (isStudent() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['totalSubmissions'])) // Students can only update totalSubmissions
+      );
+      allow delete: if isTeacher();
     }
 
     // Student-specific rules
@@ -178,6 +194,36 @@ service cloud.firestore {
                     (resource.data.senderId == request.auth.uid || 
                      resource.data.receiverId == request.auth.uid);
     }
+
+    // Assignments collection
+    match /assignments/{assignmentId} {
+      allow read: if isAuthenticated();
+      allow create: if isTeacher();
+      allow update: if isAuthenticated() && (
+        (isTeacher() && resource.data.teacherId == request.auth.uid) || // Teachers can update their own assignments
+        (isStudent() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['totalSubmissions'])) // Students can only update totalSubmissions
+      );
+      allow delete: if isTeacher() && resource.data.teacherId == request.auth.uid;
+    }
+
+    // Submissions collection
+    match /submissions/{submissionId} {
+      allow read: if isAuthenticated() && (
+        isTeacher() || // Teachers can read all submissions
+        (isStudent() && (resource == null || resource.data.studentId == request.auth.uid)) // Students can read their own submissions
+      );
+      allow create: if isAuthenticated() && 
+        isStudent() && // Only students can create submissions
+        request.resource.data.studentId == request.auth.uid && // Can only submit for themselves
+        request.resource.data.keys().hasAll(['assignmentId', 'studentId', 'studentName', 'fileUrl', 'fileName', 'submittedAt', 'status']); // Required fields
+      allow update: if isAuthenticated() && (
+        isTeacher() || // Teachers can update any submission (for grading)
+        (isStudent() && 
+         resource.data.studentId == request.auth.uid && // Student can only update their own submissions
+         request.resource.data.studentId == request.auth.uid) // Cannot change the studentId
+      );
+      allow delete: if false; // No one can delete submissions
+    }
   }
 }
 
@@ -223,6 +269,17 @@ service firebase.storage {
     // Allow write access only to user's own directory
     match /users/{userId}/{allPaths=**} {
       allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Submission files
+    match /submissions/{assignmentId}/{studentId}/{fileName} {
+      allow read: if isAuthenticated() && (
+        isTeacher() || // Teachers can read all submissions
+        request.auth.uid == studentId // Students can read their own submissions
+      );
+      allow write: if isAuthenticated() && 
+        request.auth.uid == studentId && // Students can only write to their own folder
+        request.resource.size < 50 * 1024 * 1024; // 50MB file size limit
     }
   }
 } 

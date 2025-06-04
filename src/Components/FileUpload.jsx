@@ -1,30 +1,8 @@
 import React, { useState } from 'react';
 import { 
-  getStorage, 
-  ref, 
-  uploadBytesResumable, 
-  getDownloadURL 
-} from "firebase/storage";
-import { 
-  getFirestore, 
-  collection, 
-  addDoc, 
-  serverTimestamp 
-} from "firebase/firestore";
-import { getAuth } from "firebase/auth";
-import {
-  ClipboardDocumentIcon,
-  CalendarIcon,
-  DocumentTextIcon,
-  PaperClipIcon,
-  CheckCircleIcon,
-  ChevronLeftIcon,
-  Bars3Icon,
-  XMarkIcon,
   ArrowUpTrayIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
-import { ChartBarIcon } from '@heroicons/react/24/outline';
-import { FolderIcon } from '@heroicons/react/24/outline';
 
 export const FileUpload = ({ onFileChange, onSubmit, file, isEvaluating }) => {
   const [dragActive, setDragActive] = useState(false);
