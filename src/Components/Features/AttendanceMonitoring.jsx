@@ -163,11 +163,11 @@ const AttendanceMonitoring = () => {
                 {[
                   { title: 'Dashboard', link: '/dashboard', Icon: ClipboardDocumentIcon },
                   { title: 'Assignments', link: '/assignment-submission', Icon: DocumentTextIcon },
-                  { title: 'Tests', Icon: ClipboardDocumentIcon, link: '/teacher-tests' },
+                  { title: 'Tests', Icon: ClipboardDocumentIcon, link: '/student-tests' },
                   { title: 'Resources', link: '/resource-utilization', Icon: FolderIcon,  },
                   { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-monitoring', active: true },
                   { title: 'Grades & Feedback', Icon: PresentationChartLineIcon, link: '/GradesAndFeedback' },
-                  { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/teacher-voice-chat' },
+                  { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/voice-chat' },
                   { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-access' },
                   { title: 'AI Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
                   { title: 'News Feed', Icon: UsersIcon, link: '/educational-news' },
