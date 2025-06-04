@@ -1,4 +1,4 @@
-import { collection, addDoc, query, where, getDocs, orderBy, doc, getDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, orderBy, doc, getDoc, updateDoc, deleteDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from './firebaseConfig';
 
@@ -8,7 +8,9 @@ const submissionsCollection = collection(db, 'submissions');
 // Upload assignment file to Firebase Storage
 export const uploadAssignmentFile = async (file, teacherId) => {
   try {
-    const fileRef = ref(storage, `assignments/${teacherId}/${file.name}`);
+    const timestamp = Date.now();
+    const fileName = `${timestamp}_${file.name}`;
+    const fileRef = ref(storage, `assignments/${teacherId}/${fileName}`);
     await uploadBytes(fileRef, file);
     const downloadURL = await getDownloadURL(fileRef);
     return downloadURL;
@@ -25,7 +27,7 @@ export const createAssignment = async (teacherId, assignmentData) => {
       teacherId,
       title: assignmentData.title,
       description: assignmentData.description,
-      fileUrl: assignmentData.fileUrl,
+      fileUrl: assignmentData.fileUrl || null,
       dueDate: assignmentData.dueDate,
       subject: assignmentData.subject,
       points: assignmentData.points || 0,
@@ -83,8 +85,22 @@ export const getStudentAssignments = async () => {
 // Submit assignment
 export const submitAssignment = async (studentId, assignmentId, file) => {
   try {
+    // Check if submission already exists
+    const existingSubmissionQuery = query(
+      submissionsCollection,
+      where('studentId', '==', studentId),
+      where('assignmentId', '==', assignmentId)
+    );
+    const existingSubmissions = await getDocs(existingSubmissionQuery);
+    
+    if (!existingSubmissions.empty) {
+      throw new Error('Assignment already submitted');
+    }
+
     // Upload submission file
-    const fileRef = ref(storage, `submissions/${assignmentId}/${studentId}/${file.name}`);
+    const timestamp = Date.now();
+    const fileName = `${timestamp}_${file.name}`;
+    const fileRef = ref(storage, `submissions/${assignmentId}/${studentId}/${fileName}`);
     await uploadBytes(fileRef, file);
     const downloadURL = await getDownloadURL(fileRef);
 
@@ -151,9 +167,16 @@ export const getAssignmentSubmissions = async (assignmentId) => {
 export const gradeSubmission = async (submissionId, grade, feedback) => {
   try {
     const submissionRef = doc(db, 'submissions', submissionId);
+    
+    // Check if the submission exists
+    const submissionDoc = await getDoc(submissionRef);
+    if (!submissionDoc.exists()) {
+      throw new Error('Submission not found');
+    }
+    
     await updateDoc(submissionRef, {
       grade,
-      feedback,
+      feedback: feedback || null,
       status: 'graded',
       gradedAt: serverTimestamp()
     });
@@ -166,38 +189,70 @@ export const gradeSubmission = async (submissionId, grade, feedback) => {
 // Delete assignment and all related files/submissions
 export const deleteAssignment = async (assignmentId, teacherId) => {
   try {
-    // Get all submissions for this assignment
-    const submissions = await getAssignmentSubmissions(assignmentId);
+    // Get assignment document first
+    const assignmentRef = doc(db, 'assignments', assignmentId);
+    const assignmentDoc = await getDoc(assignmentRef);
     
-    // Delete all submission files and documents
-    const batch = db.batch();
-    for (const submission of submissions) {
-      // Delete submission file from storage
-      const submissionFileRef = ref(storage, submission.fileUrl);
-      await deleteObject(submissionFileRef);
-      
-      // Add submission document deletion to batch
-      const submissionRef = doc(db, 'submissions', submission.id);
-      batch.delete(submissionRef);
+    if (!assignmentDoc.exists()) {
+      throw new Error('Assignment not found');
     }
-    
-    // Get assignment document
-    const assignmentDoc = await getDoc(doc(db, 'assignments', assignmentId));
+
     const assignmentData = assignmentDoc.data();
-    
-    // Delete assignment file from storage
-    if (assignmentData.fileUrl) {
-      const assignmentFileRef = ref(storage, `assignments/${teacherId}/${assignmentData.fileUrl}`);
-      await deleteObject(assignmentFileRef);
+
+    // Verify that the teacher owns this assignment
+    if (assignmentData.teacherId !== teacherId) {
+      throw new Error('Unauthorized: You can only delete your own assignments');
     }
-    
-    // Delete assignment document
-    batch.delete(doc(db, 'assignments', assignmentId));
-    
-    // Commit batch delete
+
+    // Delete assignment file from storage if it exists
+    if (assignmentData.fileUrl) {
+      try {
+        const fileRef = ref(storage, assignmentData.fileUrl);
+        await deleteObject(fileRef);
+      } catch (error) {
+        console.warn('Error deleting assignment file:', error);
+        // Continue with deletion even if file deletion fails
+      }
+    }
+
+    // Get all submissions for this assignment
+    const submissionsQuery = query(
+      submissionsCollection, 
+      where('assignmentId', '==', assignmentId)
+    );
+    const querySnapshot = await getDocs(submissionsQuery);
+
+    // Create a new batch
+    const batch = writeBatch(db);
+
+    // Delete submission files and add document deletions to batch
+    for (const docSnapshot of querySnapshot.docs) {
+      const submissionData = docSnapshot.data();
+      
+      // Delete submission file if it exists
+      if (submissionData.fileUrl) {
+        try {
+          const fileRef = ref(storage, submissionData.fileUrl);
+          await deleteObject(fileRef);
+        } catch (error) {
+          console.warn('Error deleting submission file:', error);
+          // Continue with deletion even if file deletion fails
+        }
+      }
+
+      // Add submission document deletion to batch
+      batch.delete(docSnapshot.ref);
+    }
+
+    // Delete the assignment document
+    batch.delete(assignmentRef);
+
+    // Commit all deletions
     await batch.commit();
+
+    return true;
   } catch (error) {
     console.error('Error deleting assignment:', error);
     throw error;
   }
-}; 
+};

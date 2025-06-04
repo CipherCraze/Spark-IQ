@@ -11,6 +11,7 @@ import {
   ChatBubbleLeftEllipsisIcon, // For feedback
   LightBulbIcon, // For suggestions
   ExclamationTriangleIcon, // For pending grades or issues
+  SparklesIcon,
 } from '@heroicons/react/24/outline';
 
 const GradesAndFeedback = () => {
@@ -110,6 +111,7 @@ const GradesAndFeedback = () => {
   const AssignmentDetails = ({ assignment, onClose }) => {
     const hasFeedback = assignment.submission.feedback && assignment.submission.feedback.trim() !== "";
     const hasSuggestions = assignment.submission.suggestions && assignment.submission.suggestions.length > 0;
+    const isAIGraded = assignment.submission.gradedAt && assignment.submission.gradedAt.includes('T');
 
     return (
     <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-md flex items-center justify-center z-50 p-4 transition-opacity duration-300 ease-in-out">
@@ -137,12 +139,20 @@ const GradesAndFeedback = () => {
             <div className="bg-slate-700/40 p-5 rounded-xl shadow-lg">
               <p className="text-sm text-sky-300/80 font-medium mb-1.5">Grade</p>
               {assignment.submission.grade !== null ? (
-                <p className={`text-xl font-bold ${getGradeColor(assignment.submission.grade, assignment.maxPoints)}`}>
-                  {assignment.submission.grade} / {assignment.maxPoints}
-                  <span className="text-base font-normal text-slate-400 ml-2">
-                    ({((assignment.submission.grade / assignment.maxPoints) * 100).toFixed(1)}%)
-                  </span>
-                </p>
+                <div>
+                  <p className={`text-xl font-bold ${getGradeColor(assignment.submission.grade, assignment.maxPoints)}`}>
+                    {assignment.submission.grade} / {assignment.maxPoints}
+                    <span className="text-base font-normal text-slate-400 ml-2">
+                      ({((assignment.submission.grade / assignment.maxPoints) * 100).toFixed(1)}%)
+                    </span>
+                  </p>
+                  {isAIGraded && (
+                    <p className="text-xs text-slate-400 mt-1 flex items-center">
+                      <SparklesIcon className="w-4 h-4 mr-1" />
+                      AI-Graded
+                    </p>
+                  )}
+                </div>
               ) : (
                 <p className="text-lg font-semibold text-slate-400 flex items-center">
                   <ExclamationTriangleIcon className="w-5 h-5 mr-2 text-amber-400"/>
@@ -164,7 +174,7 @@ const GradesAndFeedback = () => {
           <div className="bg-slate-700/40 p-5 rounded-xl shadow-lg">
             <h4 className="text-lg font-semibold text-sky-300 mb-3 flex items-center">
               <ChatBubbleLeftEllipsisIcon className="w-6 h-6 mr-2 text-sky-400" />
-              Feedback from Teacher
+              {isAIGraded ? 'AI Feedback' : 'Feedback from Teacher'}
             </h4>
             {hasFeedback ? (
               <p className="text-slate-300 leading-relaxed whitespace-pre-wrap italic">{assignment.submission.feedback}</p>
@@ -172,7 +182,6 @@ const GradesAndFeedback = () => {
               <p className="text-slate-400 italic">No specific feedback has been provided for this submission yet.</p>
             )}
           </div>
-
 
           {/* Suggestions for Improvement */}
           {hasSuggestions && (
@@ -188,6 +197,8 @@ const GradesAndFeedback = () => {
               </ul>
             </div>
           )}
+
+          {/* No Feedback Message */}
           {!hasFeedback && !hasSuggestions && assignment.submission.grade !== null && (
             <div className="bg-slate-700/40 p-5 rounded-xl shadow-lg text-center">
               <p className="text-slate-400">Your assignment has been graded. No additional feedback or suggestions were provided.</p>
