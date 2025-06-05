@@ -11,6 +11,9 @@ import {
   UsersIcon,
   ChartBarIcon,
   AcademicCapIcon,
+  PresentationChartLineIcon,
+  UserGroupIcon as SolidUserGroupIcon, // Renamed to avoid conflict with EducatorUserGroupIcon
+  GlobeAltIcon,
   PlusIcon,
   PencilIcon,
   TrashIcon,
@@ -68,17 +71,21 @@ const AssignmentManagement = () => {
   const [newFeedback, setNewFeedback] = useState('');
 
   const educatorMenu = [
-    { title: 'Dashboard', Icon: AcademicCapIcon, link: '/educator-dashboard' },
-    { title: 'Grades', Icon: DocumentTextIcon, link: '/grading-system' },
+    { title: 'Dashboard', Icon: PresentationChartLineIcon, link: '/educator-dashboard', current: true },
+    { title: 'Assignments', Icon: ClipboardDocumentIcon, link: '/assignment-management' },
+    { title: 'Tests', Icon: ClipboardDocumentIcon, link: '/teacher-tests' },
+    { title: 'Grades & Analytics', Icon: AcademicCapIcon, link: '/GradesAndAnalytics' },
     { title: 'Resources', Icon: FolderIcon, link: '/resource-management' },
     { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-tracking' },
-    { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
-    { title: 'Feedback', Icon: LightBulbIcon, link: '/feedback-dashboard' },
-    { title: 'Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
-    { title: 'News', Icon: UsersIcon, link: '/educational-news' }, // UsersIcon for News
-    { title: 'Suggestions', Icon: EnvelopeIcon, link: '/suggestions-to-students' },
-    { title: 'Meetings', Icon: VideoCameraIcon, link: '/meeting-host' },  
+    { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/teacher-voice-chat' },
+    { title: 'AI Chatbot (Ask Sparky)', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
+    { title: 'AI Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
+    { title: 'Social / Chat', Icon: SolidUserGroupIcon, link: '/chat-functionality' },
+    { title: 'Educational News', Icon: GlobeAltIcon, link: '/educational-news' },
+    { title: 'Student Suggestions', Icon: EnvelopeIcon, link: '/suggestions-to-students' },
+    { title: 'Meetings & Conferences', Icon: VideoCameraIcon, link: '/meeting-host' },
     { title: 'Announcements', Icon: MegaphoneIcon, link: '/announcements' },
+    { title: 'Upgrade to Pro', Icon: SparklesIcon, link: '/pricing', special: true },
   ];
 
   const performanceData = [
