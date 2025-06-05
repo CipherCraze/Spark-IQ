@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { storage, db, auth } from '../../firebase/firebaseConfig';
-import { collection, addDoc, getDocs, query, where, updateDoc, doc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, updateDoc, doc, deleteDoc, orderBy, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import {
   ClipboardDocumentIcon,
@@ -35,6 +35,8 @@ const AssignmentManagement = () => {
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
 
   const [newAssignment, setNewAssignment] = useState({
     title: '',
@@ -56,6 +58,14 @@ const AssignmentManagement = () => {
   const [selectedAssignmentForSubmissions, setSelectedAssignmentForSubmissions] = useState(null);
   const [submissions, setSubmissions] = useState([]);
   const [submissionsLoading, setSubmissionsLoading] = useState(false);
+
+  const [showSubmissions, setShowSubmissions] = useState(false);
+
+  const [selectedSubmission, setSelectedSubmission] = useState(null);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [showGradeModal, setShowGradeModal] = useState(false);
+  const [newGrade, setNewGrade] = useState('');
+  const [newFeedback, setNewFeedback] = useState('');
 
   const educatorMenu = [
     { title: 'Dashboard', Icon: AcademicCapIcon, link: '/educator-dashboard' },
@@ -296,36 +306,67 @@ const AssignmentManagement = () => {
   const fetchSubmissions = async (assignmentId) => {
     if (!assignmentId) return;
     setSubmissionsLoading(true);
+    setError(null);
     try {
-      // --- ACTUAL FIREBASE IMPLEMENTATION (Commented out to use mock data) ---
-      // const submissionsRef = collection(db, 'submissions');
-      // // Assuming student submissions are stored with assignmentId and potentially studentId
-      // const q = query(submissionsRef, where('assignmentId', '==', assignmentId));
-      // const querySnapshot = await getDocs(q);
-      // const subs = querySnapshot.docs.map(doc => ({
-      //   id: doc.id,
-      //   ...doc.data(),
-      //   // Ensure submittedAt is a string or convert if it's a Firestore Timestamp
-      //   submittedAt: doc.data().submittedAt?.toDate ? doc.data().submittedAt.toDate().toISOString() : doc.data().submittedAt,
-      // }));
-      // setSubmissions(subs);
+      const submissionsRef = collection(db, 'submissions');
+      const q = query(
+        submissionsRef,
+        where('assignmentId', '==', assignmentId)
+      );
+      const querySnapshot = await getDocs(q);
+      
+      // Get all submissions and fetch student names
+      const submissionsData = await Promise.all(
+        querySnapshot.docs.map(async (submissionDoc) => {
+          const data = submissionDoc.data();
+          let studentName = 'Anonymous Student';
+          let studentEmail = '';
+          
+          // Fetch student name from students collection
+          if (data.studentId) {
+            try {
+              // First try to get from students collection
+              const studentRef = doc(db, 'students', data.studentId);
+              const studentSnap = await getDoc(studentRef);
+              
+              if (studentSnap.exists()) {
+                const studentData = studentSnap.data();
+                studentName = studentData.name || studentData.email || 'Anonymous Student';
+                studentEmail = studentData.email || '';
+              } else {
+                // If not found in students, try users collection
+                const userRef = doc(db, 'users', data.studentId);
+                const userSnap = await getDoc(userRef);
+                
+                if (userSnap.exists()) {
+                  const userData = userSnap.data();
+                  studentName = userData.displayName || userData.email || 'Anonymous Student';
+                  studentEmail = userData.email || '';
+                }
+              }
+            } catch (error) {
+              console.error('Error fetching student data:', error);
+            }
+          }
 
-      // --- MOCK DATA Implementation ---
-      console.log(`Fetching submissions for assignmentId: ${assignmentId}`);
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const mockSubmissions = [
-        { id: 'sub1', studentId: 'studentA', studentName: 'Alice Wonderland', submittedAt: new Date(Date.now() - Math.random()*100000000).toISOString(), status: 'Submitted', files: [{name: 'Alice_Report_Final.pdf', url: '#'}, {name: 'Presentation.pptx', url: '#'}], grade: null, feedback: '' },
-        { id: 'sub2', studentId: 'studentB', studentName: 'Bob The Builder', submittedAt: new Date(Date.now() - Math.random()*100000000 - 86400000).toISOString(), status: 'Graded', files: [{name: 'Bob_Project.zip', url: '#'}], grade: 85, feedback: 'Good effort, Bob! Some areas for improvement.' },
-        { id: 'sub3', studentId: 'studentC', studentName: 'Charlie Brown', submittedAt: new Date(Date.now() - Math.random()*100000000 - 172800000).toISOString(), status: 'Late', files: [{name: 'charlie_essay_late.docx', url: '#'}], grade: null, feedback: '' },
-        { id: 'sub4', studentId: 'studentD', studentName: 'Diana Prince', submittedAt: new Date(Date.now() - Math.random()*100000000).toISOString(), status: 'Submitted', files: [], grade: null, feedback: '' }, // No files submitted example
-      ];
-      setSubmissions(mockSubmissions.filter(() => Math.random() > 0.3)); // Randomly show some for variety
-      // --- End MOCK DATA ---
+          return {
+            id: submissionDoc.id,
+            ...data,
+            studentName,
+            studentEmail,
+            submittedAt: data.submittedAt?.toDate?.() || new Date(data.submittedAt),
+            gradedAt: data.gradedAt?.toDate?.() || (data.gradedAt ? new Date(data.gradedAt) : null),
+            status: data.grade !== null && data.grade !== undefined ? 'graded' : data.status || 'submitted'
+          };
+        })
+      );
 
+      // Sort the submissions by submittedAt date in memory
+      submissionsData.sort((a, b) => b.submittedAt - a.submittedAt);
+      setSubmissions(submissionsData);
     } catch (error) {
       console.error('Error fetching submissions:', error);
-      setSubmissions([]); 
+      setError('Failed to load submissions');
     } finally {
       setSubmissionsLoading(false);
     }
@@ -369,57 +410,83 @@ const AssignmentManagement = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              {submissions.map(sub => (
-                <div key={sub.id} className="bg-gray-700/70 p-4 rounded-lg shadow-md transition-all hover:bg-gray-700">
-                  <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-3">
-                    <div className="flex-1">
-                      <p className="text-lg font-semibold text-white">{sub.studentName}</p>
-                      <p className="text-sm text-gray-400">
-                        Submitted: {new Date(sub.submittedAt).toLocaleString()}
-                      </p>
+              {submissions.map((submission) => (
+                <div key={submission.id} className="bg-gray-800/50 rounded-lg p-4">
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center">
+                          <span className="text-indigo-400 font-medium">
+                            {submission.studentName.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-gray-200">{submission.studentName}</h4>
+                          <p className="text-sm text-gray-400">{submission.studentEmail}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        {submission.fileUrl && (
+                          <a
+                            href={submission.fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-500 hover:text-blue-400 font-medium"
+                          >
+                            View Submission
+                          </a>
+                        )}
+                        <button
+                          onClick={() => {
+                            setSelectedSubmission(submission);
+                            setShowFeedbackModal(true);
+                          }}
+                          className="text-blue-500 hover:text-blue-400 font-medium"
+                        >
+                          View Feedback
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedSubmission(submission);
+                            setNewGrade(submission.grade?.toString() || '');
+                            setNewFeedback(submission.feedback || '');
+                            setShowGradeModal(true);
+                          }}
+                          className="text-blue-500 hover:text-blue-400 font-medium"
+                        >
+                          Edit Grade
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex-shrink-0 text-left sm:text-right">
-                       <span className={`px-3 py-1 text-xs font-medium rounded-full ${
-                          sub.status === 'Graded' ? 'bg-green-500/30 text-green-300' : 
-                          sub.status === 'Submitted' ? 'bg-blue-500/30 text-blue-300' :
-                          sub.status === 'Late' ? 'bg-yellow-500/30 text-yellow-300' :
-                          'bg-gray-500/30 text-gray-300' // Other statuses
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-400">
+                          {submission.submittedAt.toLocaleDateString()}
+                        </span>
+                        <span className="text-sm text-gray-400">
+                          {submission.submittedAt.toLocaleTimeString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {submission.grade !== null && (
+                          <span className={`px-2 py-1 rounded text-sm font-medium ${
+                            submission.grade >= 90 ? 'bg-green-500/20 text-green-400' :
+                            submission.grade >= 80 ? 'bg-blue-500/20 text-blue-400' :
+                            submission.grade >= 70 ? 'bg-yellow-500/20 text-yellow-400' :
+                            'bg-red-500/20 text-red-400'
+                          }`}>
+                            Grade: {submission.grade}%
+                          </span>
+                        )}
+                        <span className={`px-2 py-1 rounded text-sm font-medium ${
+                          submission.status === 'graded' ? 'bg-green-500/20 text-green-400' :
+                          submission.status === 'submitted' ? 'bg-blue-500/20 text-blue-400' :
+                          'bg-yellow-500/20 text-yellow-400'
                         }`}>
-                        {sub.status}
-                      </span>
-                      {sub.grade !== null && typeof sub.grade !== 'undefined' && (
-                        <p className="text-sm text-gray-300 mt-1">Grade: <span className="font-semibold">{sub.grade}</span>/{selectedAssignmentForSubmissions.maxPoints}</p>
-                      )}
+                          {submission.status.charAt(0).toUpperCase() + submission.status.slice(1)}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  {sub.files && sub.files.length > 0 && (
-                    <div className="mt-3 border-t border-gray-600 pt-3">
-                      <p className="text-sm text-gray-300 mb-1 font-medium">Submitted Files:</p>
-                      <ul className="space-y-1">
-                        {sub.files.map((file, index) => (
-                          <li key={index} className="text-sm flex items-center">
-                            <DocumentTextIcon className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0"/>
-                            <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 hover:underline truncate" title={file.name}>
-                              {file.name}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {(!sub.files || sub.files.length === 0) && (
-                     <div className="mt-3 border-t border-gray-600 pt-3">
-                        <p className="text-sm text-gray-400 italic">No files were submitted.</p>
-                     </div>
-                  )}
-                  {/* Placeholder for grading/feedback actions */}
-                  <div className="mt-4 flex flex-col sm:flex-row justify-end gap-2 border-t border-gray-600 pt-3">
-                      <button className="text-xs px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-white transition-colors font-medium flex items-center justify-center gap-1.5">
-                        <PencilIcon className="w-4 h-4"/> Grade / Feedback
-                      </button>
-                      <button className="text-xs px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded text-white transition-colors font-medium flex items-center justify-center gap-1.5">
-                        <EyeIcon className="w-4 h-4"/> View Details
-                      </button>
                   </div>
                 </div>
               ))}
@@ -616,6 +683,462 @@ const AssignmentManagement = () => {
     newAssignment, uploading, handleCreateOrUpdateAssignment, handleFileUpload, removeAttachment, handleInputChange
   ]);
 
+  const handleUpdateGrade = async (submissionId, grade, feedback) => {
+    try {
+      const submissionRef = doc(db, 'submissions', submissionId);
+      const updatedData = {
+        grade: Number(grade),
+        feedback,
+        gradedAt: new Date(),
+        status: 'graded'
+      };
+      
+      // Update in Firebase
+      await updateDoc(submissionRef, updatedData);
+      
+      // Update local state while preserving all other submissions
+      setSubmissions(prevSubmissions => 
+        prevSubmissions.map(sub => 
+          sub.id === submissionId 
+            ? { 
+                ...sub, 
+                ...updatedData
+              }
+            : sub
+        )
+      );
+
+      // Update the assignment's submissions count if needed
+      if (selectedAssignmentForSubmissions) {
+        const updatedSubmissions = submissions.map(sub => 
+          sub.id === submissionId 
+            ? { ...sub, ...updatedData }
+            : sub
+        );
+        
+        // Update the assignment's graded submissions count
+        const gradedCount = updatedSubmissions.filter(sub => sub.status === 'graded').length;
+        const assignmentRef = doc(db, 'assignments', selectedAssignmentForSubmissions.id);
+        await updateDoc(assignmentRef, {
+          gradedSubmissions: gradedCount
+        });
+
+        // Update the local assignment state
+        setSelectedAssignmentForSubmissions(prev => ({
+          ...prev,
+          gradedSubmissions: gradedCount
+        }));
+      }
+      
+      // Close the modal and reset form
+      setShowGradeModal(false);
+      setSelectedSubmission(null);
+      setNewGrade('');
+      setNewFeedback('');
+
+      // Show success message
+      setSuccess('Grade updated successfully');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (error) {
+      console.error('Error updating grade:', error);
+      setError('Failed to update grade');
+    }
+  };
+
+  const SubmissionsView = ({ assignment, onClose }) => {
+    const [submissions, setSubmissions] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+      const fetchSubmissions2 = async () => {
+        try {
+          const submissionsRef = collection(db, 'submissions');
+          // Query without ordering to avoid needing a composite index
+          const q = query(
+            submissionsRef,
+            where('assignmentId', '==', assignment.id)
+          );
+          const querySnapshot = await getDocs(q);
+          
+          // Get all submissions and fetch student names
+          const submissionsData = await Promise.all(
+            querySnapshot.docs.map(async (submissionDoc) => {
+              const data = submissionDoc.data();
+              let studentName = 'Anonymous Student';
+              let studentEmail = '';
+              
+              // Fetch student name from students collection
+              if (data.studentId) {
+                const studentRef = doc(db, 'students', data.studentId);
+                const studentSnap = await getDoc(studentRef);
+                if (studentSnap.exists()) {
+                  const studentData = studentSnap.data();
+                  studentName = studentData.name || studentData.email || 'Anonymous Student';
+                  studentEmail = studentData.email || '';
+                }
+              }
+
+              return {
+                id: submissionDoc.id,
+                ...data,
+                studentName,
+                studentEmail,
+                submittedAt: data.submittedAt?.toDate?.() || new Date(data.submittedAt),
+                gradedAt: data.gradedAt?.toDate?.() || (data.gradedAt ? new Date(data.gradedAt) : null),
+                status: data.grade !== null && data.grade !== undefined ? 'graded' : data.status || 'submitted'
+              };
+            })
+          );
+
+          // Sort the submissions by submittedAt date in memory
+          submissionsData.sort((a, b) => b.submittedAt - a.submittedAt);
+          setSubmissions(submissionsData);
+        } catch (error) {
+          console.error('Error fetching submissions:', error);
+          setError('Failed to load submissions');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchSubmissions2();
+    }, [assignment.id]);
+
+    const formatDate = (date) => {
+      if (!date) return 'N/A';
+      const d = new Date(date);
+      if (isNaN(d.getTime())) return 'Invalid Date';
+      return d.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    };
+
+    const getGradeColor = (grade, maxPoints) => {
+      if (!grade || !maxPoints) return 'text-gray-400';
+      const percentage = (grade / maxPoints) * 100;
+      if (percentage >= 90) return 'text-green-400';
+      if (percentage >= 80) return 'text-blue-400';
+      if (percentage >= 70) return 'text-yellow-400';
+      if (percentage >= 60) return 'text-orange-400';
+      return 'text-red-400';
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="bg-gray-800 rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-semibold text-white">Submissions for {assignment.title}</h3>
+            <button onClick={onClose} className="text-gray-400 hover:text-white">
+              <XMarkIcon className="w-6 h-6" />
+            </button>
+          </div>
+
+          {loading ? (
+            <div className="flex justify-center items-center h-32">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-400"></div>
+            </div>
+          ) : error ? (
+            <div className="text-center py-8 text-red-400">
+              <p>{error}</p>
+            </div>
+          ) : submissions.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <p>No submissions yet</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {submissions.map((submission) => (
+                <div key={submission.id} className="bg-gray-800/50 rounded-lg p-4">
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center">
+                          <span className="text-indigo-400 font-medium">
+                            {submission.studentName.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-gray-200">{submission.studentName}</h4>
+                          <p className="text-sm text-gray-400">{submission.studentEmail}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        {submission.fileUrl && (
+                          <a
+                            href={submission.fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-500 hover:text-blue-400 font-medium"
+                          >
+                            View Submission
+                          </a>
+                        )}
+                        <button
+                          onClick={() => {
+                            setSelectedSubmission(submission);
+                            setShowFeedbackModal(true);
+                          }}
+                          className="text-blue-500 hover:text-blue-400 font-medium"
+                        >
+                          View Feedback
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedSubmission(submission);
+                            setNewGrade(submission.grade?.toString() || '');
+                            setNewFeedback(submission.feedback || '');
+                            setShowGradeModal(true);
+                          }}
+                          className="text-blue-500 hover:text-blue-400 font-medium"
+                        >
+                          Edit Grade
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-400">
+                          {submission.submittedAt.toLocaleDateString()}
+                        </span>
+                        <span className="text-sm text-gray-400">
+                          {submission.submittedAt.toLocaleTimeString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {submission.grade !== null && (
+                          <span className={`px-2 py-1 rounded text-sm font-medium ${
+                            submission.grade >= 90 ? 'bg-green-500/20 text-green-400' :
+                            submission.grade >= 80 ? 'bg-blue-500/20 text-blue-400' :
+                            submission.grade >= 70 ? 'bg-yellow-500/20 text-yellow-400' :
+                            'bg-red-500/20 text-red-400'
+                          }`}>
+                            Grade: {submission.grade}%
+                          </span>
+                        )}
+                        <span className={`px-2 py-1 rounded text-sm font-medium ${
+                          submission.status === 'graded' ? 'bg-green-500/20 text-green-400' :
+                          submission.status === 'submitted' ? 'bg-blue-500/20 text-blue-400' :
+                          'bg-yellow-500/20 text-yellow-400'
+                        }`}>
+                          {submission.status.charAt(0).toUpperCase() + submission.status.slice(1)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Add formatDate function
+  const formatDate = (date) => {
+    if (!date) return 'N/A';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return 'Invalid Date';
+    return d.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const GradesAndAnalysis = ({ assignment }) => {
+    const [submissions, setSubmissions] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+      const fetchSubmissions = async () => {
+        if (!assignment?.id) return;
+        
+        setLoading(true);
+        setError(null);
+        
+        try {
+          const submissionsRef = collection(db, 'submissions');
+          const q = query(
+            submissionsRef,
+            where('assignmentId', '==', assignment.id)
+          );
+          const querySnapshot = await getDocs(q);
+          
+          // Get all submissions and fetch student names
+          const submissionsData = await Promise.all(
+            querySnapshot.docs.map(async (submissionDoc) => {
+              const data = submissionDoc.data();
+              let studentName = 'Anonymous Student';
+              let studentEmail = '';
+              
+              // Fetch student name from students collection
+              if (data.studentId) {
+                try {
+                  // First try to get from students collection
+                  const studentRef = doc(db, 'students', data.studentId);
+                  const studentSnap = await getDoc(studentRef);
+                  
+                  if (studentSnap.exists()) {
+                    const studentData = studentSnap.data();
+                    studentName = studentData.name || studentData.email || 'Anonymous Student';
+                    studentEmail = studentData.email || '';
+                  } else {
+                    // If not found in students, try users collection
+                    const userRef = doc(db, 'users', data.studentId);
+                    const userSnap = await getDoc(userRef);
+                    
+                    if (userSnap.exists()) {
+                      const userData = userSnap.data();
+                      studentName = userData.displayName || userData.email || 'Anonymous Student';
+                      studentEmail = userData.email || '';
+                    }
+                  }
+                } catch (error) {
+                  console.error('Error fetching student data:', error);
+                }
+              }
+
+              return {
+                id: submissionDoc.id,
+                ...data,
+                studentName,
+                studentEmail,
+                submittedAt: data.submittedAt?.toDate?.() || new Date(data.submittedAt),
+                gradedAt: data.gradedAt?.toDate?.() || (data.gradedAt ? new Date(data.gradedAt) : null),
+                status: data.grade !== null && data.grade !== undefined ? 'graded' : data.status || 'submitted'
+              };
+            })
+          );
+
+          // Sort the submissions by submittedAt date in memory
+          submissionsData.sort((a, b) => b.submittedAt - a.submittedAt);
+          setSubmissions(submissionsData);
+        } catch (error) {
+          console.error('Error fetching submissions:', error);
+          setError('Failed to load submissions');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchSubmissions();
+    }, [assignment?.id]);
+
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center p-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <div className="text-red-500 p-4 text-center">
+          {error}
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="bg-gray-800/50 rounded-lg p-4">
+            <h3 className="text-lg font-semibold text-gray-200 mb-2">Submission Statistics</h3>
+            <div className="space-y-2">
+              <p className="text-gray-400">Total Submissions: {submissions.length}</p>
+              <p className="text-gray-400">Graded: {submissions.filter(s => s.status === 'graded').length}</p>
+              <p className="text-gray-400">Pending: {submissions.filter(s => s.status === 'submitted').length}</p>
+            </div>
+          </div>
+          
+          <div className="bg-gray-800/50 rounded-lg p-4">
+            <h3 className="text-lg font-semibold text-gray-200 mb-2">Grade Distribution</h3>
+            <div className="space-y-2">
+              <p className="text-green-400">A (90-100): {submissions.filter(s => s.grade >= 90).length}</p>
+              <p className="text-blue-400">B (80-89): {submissions.filter(s => s.grade >= 80 && s.grade < 90).length}</p>
+              <p className="text-yellow-400">C (70-79): {submissions.filter(s => s.grade >= 70 && s.grade < 80).length}</p>
+              <p className="text-red-400">Below 70: {submissions.filter(s => s.grade < 70).length}</p>
+            </div>
+          </div>
+          
+          <div className="bg-gray-800/50 rounded-lg p-4">
+            <h3 className="text-lg font-semibold text-gray-200 mb-2">Average Grade</h3>
+            <p className="text-2xl font-bold text-indigo-400">
+              {submissions.length > 0
+                ? (submissions.reduce((acc, s) => acc + (s.grade || 0), 0) / submissions.length).toFixed(1)
+                : 0}%
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-gray-800/50 rounded-lg p-4">
+          <h3 className="text-lg font-semibold text-gray-200 mb-4">Detailed Grades</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="text-left text-gray-400 border-b border-gray-700">
+                  <th className="pb-2">Student</th>
+                  <th className="pb-2">Grade</th>
+                  <th className="pb-2">Status</th>
+                  <th className="pb-2">Submitted</th>
+                </tr>
+              </thead>
+              <tbody>
+                {submissions.map((submission) => (
+                  <tr key={submission.id} className="border-b border-gray-700/50">
+                    <td className="py-3">
+                      <div>
+                        <p className="text-gray-200">
+                          {submission.studentName !== 'Anonymous Student' 
+                            ? submission.studentName 
+                            : submission.studentEmail || 'Unknown Student'}
+                        </p>
+                        {submission.studentEmail && (
+                          <p className="text-sm text-gray-400">{submission.studentEmail}</p>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3">
+                      <span className={`px-2 py-1 rounded text-sm font-medium ${
+                        submission.grade >= 90 ? 'bg-green-500/20 text-green-400' :
+                        submission.grade >= 80 ? 'bg-blue-500/20 text-blue-400' :
+                        submission.grade >= 70 ? 'bg-yellow-500/20 text-yellow-400' :
+                        'bg-red-500/20 text-red-400'
+                      }`}>
+                        {submission.grade || 'Not Graded'}%
+                      </span>
+                    </td>
+                    <td className="py-3">
+                      <span className={`px-2 py-1 rounded text-sm font-medium ${
+                        submission.status === 'graded' ? 'bg-green-500/20 text-green-400' :
+                        submission.status === 'submitted' ? 'bg-blue-500/20 text-blue-400' :
+                        'bg-yellow-500/20 text-yellow-400'
+                      }`}>
+                        {submission.status.charAt(0).toUpperCase() + submission.status.slice(1)}
+                      </span>
+                    </td>
+                    <td className="py-3 text-gray-400">
+                      {submission.submittedAt.toLocaleDateString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-900 text-white flex">
@@ -784,63 +1307,59 @@ const AssignmentManagement = () => {
                       assignment.subject.toLowerCase().includes(searchQuery.toLowerCase())
                     )
                     .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)) // Sort by most recent
-                    .map(assignment => (
-                      <div key={assignment.id} className="group p-4 bg-gray-900/40 rounded-lg hover:bg-gray-800/70 transition-colors shadow-md border border-gray-700/50">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                          <div className="flex-1">
-                            <h4 className="text-lg font-medium text-blue-300 hover:text-blue-200 transition-colors">{assignment.title}</h4>
-                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs sm:text-sm text-gray-400">
-                              <span className="flex items-center gap-1">
-                                <FolderIcon className="w-4 h-4 text-purple-400"/> {assignment.subject}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <CalendarIcon className="w-4 h-4 text-red-400" />
-                                Due: {new Date(assignment.dueDate).toLocaleDateString()} {new Date(assignment.dueDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                              </span>
-                              <span className={`px-2 py-0.5 rounded-full text-xs ${assignment.status === 'published' ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300'}`}>
-                                {assignment.status}
-                              </span>
-                            </div>
+                    .map((assignment) => (
+                      <div key={assignment.id} className="bg-white rounded-lg shadow-md p-6 mb-4">
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <h3 className="text-xl font-semibold text-gray-800">{assignment.title}</h3>
+                            <p className="text-gray-600 mt-1">{assignment.description}</p>
                           </div>
-                          <div className="flex items-center gap-2 mt-3 sm:mt-0 self-start sm:self-center">
-                            <button 
-                              onClick={() => handleViewSubmissions(assignment)}
-                              className="p-2 hover:bg-gray-700 rounded-full transition-colors"
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => {
+                                setSelectedSubmission(assignment);
+                                setShowSubmissions(true);
+                              }}
+                              className="p-2 text-gray-600 hover:text-indigo-600 transition-colors"
                               title="View Submissions"
                             >
-                              <EyeIcon className="w-5 h-5 text-teal-400 hover:text-teal-300" />
+                              <EyeIcon className="w-5 h-5" />
                             </button>
-                            <button 
-                              onClick={() => handleEditAssignment(assignment)}
-                              className="p-2 hover:bg-gray-700 rounded-full transition-colors"
+                            <button
+                              onClick={() => {
+                                setSelectedAssignment(assignment);
+                                setShowEditModal(true);
+                              }}
+                              className="p-2 text-gray-600 hover:text-indigo-600 transition-colors"
                               title="Edit Assignment"
                             >
-                              <PencilIcon className="w-5 h-5 text-blue-400 hover:text-blue-300" />
+                              <PencilIcon className="w-5 h-5" />
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleDeleteAssignment(assignment.id)}
-                              className="p-2 hover:bg-gray-700 rounded-full transition-colors"
+                              className="p-2 text-gray-600 hover:text-red-600 transition-colors"
                               title="Delete Assignment"
                             >
-                              <TrashIcon className="w-5 h-5 text-red-400 hover:text-red-300" />
+                              <TrashIcon className="w-5 h-5" />
                             </button>
                           </div>
                         </div>
-                        
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4 border-t border-gray-700/50 pt-3">
-                          <div className="text-center p-2 bg-gray-800/40 rounded-lg">
-                            <p className="text-xs text-gray-400">Submissions</p>
-                            <p className="text-lg font-bold text-white">{assignment.totalSubmissions || 0}</p>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                          <div>
+                            <span className="text-gray-500">Due Date:</span>
+                            <p className="font-medium">{formatDate(assignment.dueDate)}</p>
                           </div>
-                          <div className="text-center p-2 bg-gray-800/40 rounded-lg">
-                            <p className="text-xs text-gray-400">Avg Grade</p>
-                            <p className="text-lg font-bold text-white">
-                              {typeof assignment.averageGrade === 'number' ? `${assignment.averageGrade}%` : '--'}
-                            </p>
+                          <div>
+                            <span className="text-gray-500">Total Points:</span>
+                            <p className="font-medium">{assignment.totalPoints}</p>
                           </div>
-                          <div className="text-center p-2 bg-gray-800/40 rounded-lg">
-                            <p className="text-xs text-gray-400">Max Points</p>
-                            <p className="text-lg font-bold text-white">{assignment.maxPoints || 0}</p>
+                          <div>
+                            <span className="text-gray-500">Status:</span>
+                            <p className="font-medium">{assignment.status}</p>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Submissions:</span>
+                            <p className="font-medium">{assignment.submissions?.length || 0}</p>
                           </div>
                         </div>
                       </div>
@@ -915,6 +1434,109 @@ const AssignmentManagement = () => {
       </main>
       {showCreateModal && CreateAssignmentModal}
       {showSubmissionsModal && SubmissionsViewModal}
+      {showSubmissions && selectedSubmission && (
+        <SubmissionsView
+          assignment={selectedSubmission}
+          onClose={() => {
+            setShowSubmissions(false);
+            setSelectedSubmission(null);
+          }}
+        />
+      )}
+      {showFeedbackModal && selectedSubmission && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-lg w-full mx-4">
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-xl font-semibold text-gray-200">Feedback for {selectedSubmission.studentName}</h3>
+              <button
+                onClick={() => {
+                  setShowFeedbackModal(false);
+                  setSelectedSubmission(null);
+                }}
+                className="text-gray-400 hover:text-gray-300"
+              >
+                <XMarkIcon className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-gray-400 mb-1">Grade</p>
+                <p className="text-gray-200">{selectedSubmission.grade}%</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-400 mb-1">Feedback</p>
+                <p className="text-gray-200 whitespace-pre-wrap">{selectedSubmission.feedback || 'No feedback provided'}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {showGradeModal && selectedSubmission && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-lg w-full mx-4">
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-xl font-semibold text-gray-200">Edit Grade for {selectedSubmission.studentName}</h3>
+              <button
+                onClick={() => {
+                  setShowGradeModal(false);
+                  setSelectedSubmission(null);
+                  setNewGrade('');
+                  setNewFeedback('');
+                }}
+                className="text-gray-400 hover:text-gray-300"
+              >
+                <XMarkIcon className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Grade (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={newGrade}
+                  onChange={(e) => setNewGrade(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-700 rounded-lg text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Feedback</label>
+                <textarea
+                  value={newFeedback}
+                  onChange={(e) => setNewFeedback(e.target.value)}
+                  rows="4"
+                  className="w-full px-3 py-2 bg-gray-700 rounded-lg text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => {
+                    setShowGradeModal(false);
+                    setSelectedSubmission(null);
+                    setNewGrade('');
+                    setNewFeedback('');
+                  }}
+                  className="px-4 py-2 text-gray-400 hover:text-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleUpdateGrade(selectedSubmission.id, newGrade, newFeedback)}
+                  className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {success && (
+        <div className="fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50">
+          {success}
+        </div>
+      )}
     </div>
   );
 };
