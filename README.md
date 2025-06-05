@@ -47,7 +47,7 @@ Add screenshots/gifs here. Example:
 | **AI Integration** | Gemini API, Vertex AI, Google Custom Search |
 | **Styling**        | Tailwind CSS                                |
 | **Build Tool**     | Vite                                        |
-| **Deployment**     | Vercel                                      |
+| **Deployment**     | Vercel, Firebase                            |
 
 ---
 
