@@ -229,6 +229,14 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && 
                    resource.data.userId == request.auth.uid;
     }
+
+    // Attendance collection rules
+    match /attendance/{attendanceId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isTeacher();
+      allow update: if isAuthenticated() && isTeacher() && resource.data.teacherId == request.auth.uid;
+      allow delete: if isAuthenticated() && isTeacher() && resource.data.teacherId == request.auth.uid;
+    }
   }
 }
 

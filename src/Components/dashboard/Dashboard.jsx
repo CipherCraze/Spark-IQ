@@ -653,7 +653,9 @@ const StudentDashboard = () => {
                     {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
                 </div>
                 <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-400 mb-2">
-                  {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(day => <div key={day} className="font-semibold py-1">{day}</div>)}
+                  {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
+                    <div key={`day-${index}`} className="font-semibold py-1">{day}</div>
+                  ))}
                 </div>
                 <div className="grid grid-cols-7 gap-1.5">
                   {Array.from({ length: new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay() }).map((_, i) => <div key={`empty-${i}`} className="h-9 w-full"></div>)}

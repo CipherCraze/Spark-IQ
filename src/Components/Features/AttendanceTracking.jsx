@@ -31,25 +31,45 @@ import {
 } from '@heroicons/react/24/outline';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell } from 'recharts';
 import { motion } from 'framer-motion';
+import { collection, query, where, getDocs, orderBy, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
+import { db, auth } from '../../firebase/firebaseConfig';
+import { onAuthStateChanged } from 'firebase/auth';
+
+// Menu items for the sidebar
+const educatorMenu = [
+  { title: 'Dashboard', Icon: ChartBarIcon, link: '/dashboard' },
+  { title: 'Attendance', Icon: ClipboardDocumentIcon, link: '/attendance' },
+  { title: 'Students', Icon: UserGroupIcon, link: '/students' },
+  { title: 'Schedule', Icon: CalendarIcon, link: '/schedule' },
+  { title: 'Resources', Icon: DocumentTextIcon, link: '/resources' },
+  { title: 'Live Classes', Icon: VideoCameraIcon, link: '/live-classes' },
+  { title: 'Assignments', Icon: LightBulbIcon, link: '/assignments' },
+  { title: 'AI Tutor', Icon: SparklesIcon, link: '/ai-tutor' },
+  { title: 'Chat', Icon: ChatBubbleLeftRightIcon, link: '/chat' },
+  { title: 'Courses', Icon: AcademicCapIcon, link: '/courses' },
+  { title: 'Announcements', Icon: MegaphoneIcon, link: '/announcements' }
+];
 
 const AttendanceTracking = () => {
   // State management
-  const [selectedBatch, setSelectedBatch] = useState('Batch 1');
+  const [students, setStudents] = useState([]);
+  const [attendanceRecords, setAttendanceRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [selectedBatch, setSelectedBatch] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [attendanceData, setAttendanceData] = useState([]);
   const [showBatchSelector, setShowBatchSelector] = useState(false);
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
   const [newStudent, setNewStudent] = useState({ name: '', rollNo: '', email: '' });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
-
-  // Sample data
-  const batches = ['Batch 1', 'Batch 2', 'Batch 3', 'Batch 4'];
-  const dates = [
-    '2023-11-01', '2023-11-02', '2023-11-03', 
-    '2023-11-06', '2023-11-07', '2023-11-08'
-  ];
+  const [batches, setBatches] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [selectedStudents, setSelectedStudents] = useState([]);
+  const [showAttendanceHistory, setShowAttendanceHistory] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState(null);
 
   // Handle window resize
   useEffect(() => {
@@ -64,93 +84,187 @@ const AttendanceTracking = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Generate sample attendance data
+  // Fetch students and organize by batch
   useEffect(() => {
-    const generateData = () => {
-      const students = [];
-      const studentCount = selectedBatch === 'Batch 1' ? 25 : 
-                         selectedBatch === 'Batch 2' ? 30 : 
-                         selectedBatch === 'Batch 3' ? 22 : 28;
-      
-      for (let i = 1; i <= studentCount; i++) {
-        const attendanceRecord = {};
-        dates.forEach(date => {
-          attendanceRecord[date] = Math.random() > 0.2 ? 'present' : 'absent';
+    const fetchStudents = async () => {
+      try {
+        setLoading(true);
+        const studentsRef = collection(db, 'students');
+        const q = query(studentsRef, orderBy('name'));
+        const querySnapshot = await getDocs(q);
+        
+        const studentsData = [];
+        const batchesSet = new Set();
+        
+        querySnapshot.forEach((doc) => {
+          const studentData = doc.data();
+          studentsData.push({
+            id: doc.id,
+            name: studentData.name || 'Unnamed Student',
+            email: studentData.email || '',
+            avatar: studentData.avatar || '',
+            batch: studentData.batch || 'Unassigned',
+            year: studentData.year || '',
+            rollNo: studentData.rollNo || '',
+            ...studentData
+          });
+          if (studentData.batch) {
+            batchesSet.add(studentData.batch);
+          }
+        });
+
+        setStudents(studentsData);
+        setBatches(Array.from(batchesSet));
+        
+        if (batchesSet.size > 0 && !selectedBatch) {
+          setSelectedBatch(Array.from(batchesSet)[0]);
+        }
+      } catch (err) {
+        console.error('Error fetching students:', err);
+        setError('Failed to fetch students. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStudents();
+  }, []);
+
+  // Fetch attendance records
+  useEffect(() => {
+    const fetchAttendanceRecords = async () => {
+      if (!selectedBatch || !selectedDate) return;
+
+      try {
+        setLoading(true);
+        const attendanceRef = collection(db, 'attendance');
+        const q = query(
+          attendanceRef,
+          where('batch', '==', selectedBatch),
+          where('date', '==', selectedDate)
+        );
+        const querySnapshot = await getDocs(q);
+        
+        const records = [];
+        querySnapshot.forEach((doc) => {
+          records.push({ id: doc.id, ...doc.data() });
         });
         
-        students.push({
-          id: i,
-          name: `Student ${i}`,
-          rollNo: `${selectedBatch.slice(-1)}${i.toString().padStart(2, '0')}`,
-          email: `student${i}@example.com`,
-          overallAttendance: Math.floor(Math.random() * 30) + 70, // 70-100%
-          ...attendanceRecord
+        setAttendanceRecords(records);
+      } catch (err) {
+        console.error('Error fetching attendance records:', err);
+        setError('Failed to fetch attendance records. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAttendanceRecords();
+  }, [selectedBatch, selectedDate]);
+
+  // Handle attendance change
+  const handleAttendanceChange = async (studentId, isPresent) => {
+    try {
+      setSaving(true);
+      const attendanceRef = collection(db, 'attendance');
+      const q = query(
+        attendanceRef,
+        where('studentId', '==', studentId),
+        where('date', '==', selectedDate)
+      );
+      const querySnapshot = await getDocs(q);
+
+      if (querySnapshot.empty) {
+        // Create new attendance record
+        await addDoc(attendanceRef, {
+          studentId,
+          batch: selectedBatch,
+          date: selectedDate,
+          isPresent,
+          createdAt: serverTimestamp()
         });
+      } else {
+        // Update existing record
+        const docRef = doc(db, 'attendance', querySnapshot.docs[0].id);
+        await updateDoc(docRef, { isPresent });
       }
-      setAttendanceData(students);
-    };
 
-    generateData();
-  }, [selectedBatch]);
+      // Update local state
+      setAttendanceRecords(prev => {
+        const existing = prev.find(r => r.studentId === studentId);
+        if (existing) {
+          return prev.map(r => 
+            r.studentId === studentId ? { ...r, isPresent } : r
+          );
+        }
+        return [...prev, { studentId, isPresent, date: selectedDate }];
+      });
 
-  // Analytics data
-  const attendanceStats = [
-    { name: 'Present', value: attendanceData.filter(s => s[selectedDate] === 'present').length },
-    { name: 'Absent', value: attendanceData.filter(s => s[selectedDate] === 'absent').length },
-  ];
-
-  const monthlyTrendData = [
-    { name: 'Week 1', present: 85, absent: 15 },
-    { name: 'Week 2', present: 78, absent: 22 },
-    { name: 'Week 3', present: 92, absent: 8 },
-    { name: 'Week 4', present: 88, absent: 12 },
-  ];
-
-  const COLORS = ['#10b981', '#ef4444'];
-
-  // Toggle attendance status
-  const toggleAttendance = (studentId) => {
-    setAttendanceData(prev => prev.map(student => {
-      if (student.id === studentId) {
-        return {
-          ...student,
-          [selectedDate]: student[selectedDate] === 'present' ? 'absent' : 'present'
-        };
-      }
-      return student;
-    }));
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2000);
+    } catch (err) {
+      console.error('Error updating attendance:', err);
+      setError('Failed to update attendance. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  // Add new student
-  const handleAddStudent = (e) => {
-    e.preventDefault();
-    const newStudentData = {
-      id: attendanceData.length + 1,
-      name: newStudent.name,
-      rollNo: newStudent.rollNo,
-      email: newStudent.email,
-      overallAttendance: 100,
-      ...dates.reduce((acc, date) => ({ ...acc, [date]: 'present' }), {})
-    };
-    setAttendanceData([...attendanceData, newStudentData]);
-    setShowAddStudentModal(false);
-    setNewStudent({ name: '', rollNo: '', email: '' });
+  // Handle student selection
+  const handleStudentSelect = (studentId) => {
+    setSelectedStudents(prev => 
+      prev.includes(studentId)
+        ? prev.filter(id => id !== studentId)
+        : [...prev, studentId]
+    );
   };
 
-  // Educator menu
-  const educatorMenu = [
-    { title: 'Dashboard', Icon: AcademicCapIcon, link: '/educator-dashboard' },
-    { title: 'Assignments', Icon: ClipboardDocumentIcon, link: '/assignment-management' },
-    { title: 'Grades', Icon: DocumentTextIcon, link: '/grading-system' },
-    { title: 'Resources', Icon: FolderIcon, link: '/resource-management' },
-    { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
-    { title: 'Feedback', Icon: LightBulbIcon, link: '/feedback-dashboard' },
-    { title: 'Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
-    { title: 'News', Icon: UsersIcon, link: '/educational-news' },
-    { title: 'Suggestions', Icon: EnvelopeIcon, link: '/suggestions-to-students' },
-    { title: 'Meetings', Icon: VideoCameraIcon, link: '/meeting-host' },  
-    { title: 'Announcements', Icon: MegaphoneIcon, link: '/announcements' },
-  ];
+  // Handle view history
+  const handleViewHistory = (student) => {
+    setSelectedStudent(student);
+    setShowAttendanceHistory(true);
+  };
+
+  // Handle bulk actions
+  const handleBulkAction = (action) => {
+    switch (action) {
+      case 'markPresent':
+        selectedStudents.forEach(studentId => {
+          handleAttendanceChange(studentId, true);
+        });
+        break;
+      case 'markAbsent':
+        selectedStudents.forEach(studentId => {
+          handleAttendanceChange(studentId, false);
+        });
+        break;
+      case 'export':
+        // Implement export functionality
+        break;
+      case 'notify':
+        // Implement notification functionality
+        break;
+    }
+    setSelectedStudents([]);
+  };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-white text-xl">Loading...</div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-red-400 text-xl">{error}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-900 flex">
@@ -279,17 +393,12 @@ const AttendanceTracking = () => {
           {/* Date Selector */}
           <div className="flex items-center gap-2 bg-gray-800/50 border border-gray-700/50 rounded-lg px-3 py-2 lg:px-4 lg:py-3 text-sm lg:text-base">
             <CalendarIcon className="w-4 h-4 lg:w-5 lg:h-5 text-blue-400" />
-            <select
+            <input
+              type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
               className="bg-transparent outline-none w-full"
-            >
-              {dates.map(date => (
-                <option key={date} value={date}>
-                  {new Date(date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
           {/* Search */}
@@ -303,51 +412,6 @@ const AttendanceTracking = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6 lg:mb-8">
-          {[
-            { 
-              title: 'Total Students', 
-              value: attendanceData.length, 
-              icon: UserGroupIcon,
-              trend: '↑5%',
-              color: 'blue'
-            },
-            { 
-              title: 'Present Today', 
-              value: attendanceData.filter(s => s[selectedDate] === 'present').length, 
-              icon: CheckCircleIcon,
-              trend: `${Math.round(attendanceData.filter(s => s[selectedDate] === 'present').length / attendanceData.length * 100)}%`,
-              color: 'green'
-            },
-            { 
-              title: 'Absent Today', 
-              value: attendanceData.filter(s => s[selectedDate] === 'absent').length, 
-              icon: XCircleIcon,
-              trend: `${Math.round(attendanceData.filter(s => s[selectedDate] === 'absent').length / attendanceData.length * 100)}%`,
-              color: 'red'
-            },
-            { 
-              title: 'Avg Attendance', 
-              value: `${Math.round(attendanceData.reduce((acc, student) => acc + student.overallAttendance, 0) / attendanceData.length)}%`, 
-              icon: ChartBarIcon,
-              trend: '↑2%',
-              color: 'purple'
-            },
-          ].map((stat, index) => (
-            <div key={index} className={`bg-gradient-to-br from-${stat.color}-600/20 to-${stat.color}-600/10 p-4 lg:p-6 rounded-xl border border-${stat.color}-500/20 hover:shadow-lg transition-all`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-400 text-xs lg:text-sm mb-1">{stat.title}</p>
-                  <p className="text-lg lg:text-2xl font-bold text-white">{stat.value}</p>
-                  <span className={`text-xs text-${stat.color}-400`}>{stat.trend}</span>
-                </div>
-                <stat.icon className={`w-8 h-8 lg:w-12 lg:h-12 p-1.5 lg:p-2.5 rounded-full bg-${stat.color}-500/20 text-${stat.color}-400`} />
-              </div>
-            </div>
-          ))}
         </div>
 
         {/* Main Content Grid */}
@@ -377,7 +441,21 @@ const AttendanceTracking = () => {
                 <table className="w-full">
                   <thead>
                     <tr className="text-left text-gray-400 border-b border-gray-700/50 text-sm lg:text-base">
-                      <th className="pb-3 pl-2">Roll No</th>
+                      <th className="pb-3 pl-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedStudents.length === students.length}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedStudents(students.map(s => s.id));
+                            } else {
+                              setSelectedStudents([]);
+                            }
+                          }}
+                          className="rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500"
+                        />
+                      </th>
+                      <th className="pb-3">Roll No</th>
                       <th className="pb-3">Student</th>
                       <th className="pb-3">Status</th>
                       <th className="pb-3">Overall</th>
@@ -385,57 +463,79 @@ const AttendanceTracking = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {attendanceData
+                    {students
+                      .filter(student => student.batch === selectedBatch)
                       .filter(student => 
                         student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                         student.rollNo.toLowerCase().includes(searchQuery.toLowerCase())
                       )
-                      .map(student => (
-                        <tr key={student.id} className="border-b border-gray-700/50 hover:bg-gray-800/30 transition-colors text-sm lg:text-base">
-                          <td className="py-3 pl-2 text-blue-400 font-medium">{student.rollNo}</td>
-                          <td className="py-3">
-                            <div className="flex items-center gap-2 lg:gap-3">
-                              <div className="w-6 h-6 lg:w-8 lg:h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400">
-                                {student.name.charAt(0)}
-                              </div>
-                              <div>
-                                <p className="text-white">{student.name}</p>
-                                <p className="text-xs text-gray-400 truncate max-w-[120px] lg:max-w-none">{student.email}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-3">
-                            <span className={`px-2 py-1 rounded-full text-xs ${
-                              student[selectedDate] === 'present' 
-                                ? 'bg-green-500/20 text-green-400' 
-                                : 'bg-red-500/20 text-red-400'
-                            }`}>
-                              {student[selectedDate]}
-                            </span>
-                          </td>
-                          <td className="py-3">
-                            <div className="w-full bg-gray-700 rounded-full h-2">
-                              <div 
-                                className="bg-gradient-to-r from-blue-400 to-purple-400 h-2 rounded-full" 
-                                style={{ width: `${student.overallAttendance}%` }}
+                      .map(student => {
+                        const attendanceRecord = attendanceRecords.find(r => r.studentId === student.id);
+                        const isPresent = attendanceRecord?.isPresent ?? false;
+                        
+                        return (
+                          <tr key={student.id} className="border-b border-gray-700/50 hover:bg-gray-800/30 transition-colors text-sm lg:text-base">
+                            <td className="py-3 pl-2">
+                              <input
+                                type="checkbox"
+                                checked={selectedStudents.includes(student.id)}
+                                onChange={() => handleStudentSelect(student.id)}
+                                className="rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500"
                               />
-                            </div>
-                            <p className="text-xs text-gray-400 mt-1">{student.overallAttendance}%</p>
-                          </td>
-                          <td className="py-3 pr-2">
-                            <button
-                              onClick={() => toggleAttendance(student.id)}
-                              className={`px-2 py-1 rounded-lg text-xs ${
-                                student[selectedDate] === 'present' 
-                                  ? 'bg-red-500/20 hover:bg-red-500/30 text-red-400' 
-                                  : 'bg-green-500/20 hover:bg-green-500/30 text-green-400'
-                              }`}
-                            >
-                              {student[selectedDate] === 'present' ? 'Absent' : 'Present'}
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+                            <td className="py-3 pl-2 text-blue-400 font-medium">{student.rollNo}</td>
+                            <td className="py-3">
+                              <div className="flex items-center gap-2 lg:gap-3">
+                                <div className="w-6 h-6 lg:w-8 lg:h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400">
+                                  {student.name.charAt(0)}
+                                </div>
+                                <div>
+                                  <p className="text-white">{student.name}</p>
+                                  <p className="text-xs text-gray-400 truncate max-w-[120px] lg:max-w-none">{student.email}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3">
+                              <span className={`px-2 py-1 rounded-full text-xs ${
+                                isPresent 
+                                  ? 'bg-green-500/20 text-green-400' 
+                                  : 'bg-red-500/20 text-red-400'
+                              }`}>
+                                {isPresent ? 'present' : 'absent'}
+                              </span>
+                            </td>
+                            <td className="py-3">
+                              <div className="w-full bg-gray-700 rounded-full h-2">
+                                <div 
+                                  className="bg-gradient-to-r from-blue-400 to-purple-400 h-2 rounded-full" 
+                                  style={{ width: `${isPresent ? 100 : 0}%` }}
+                                />
+                              </div>
+                              <p className="text-xs text-gray-400 mt-1">{isPresent ? '100%' : '0%'}</p>
+                            </td>
+                            <td className="py-3 pr-2">
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleAttendanceChange(student.id, !isPresent)}
+                                  className={`px-2 py-1 rounded-lg text-xs ${
+                                    isPresent 
+                                      ? 'bg-red-500/20 hover:bg-red-500/30 text-red-400' 
+                                      : 'bg-green-500/20 hover:bg-green-500/30 text-green-400'
+                                  }`}
+                                >
+                                  {isPresent ? 'Mark Absent' : 'Mark Present'}
+                                </button>
+                                <button
+                                  onClick={() => handleViewHistory(student)}
+                                  className="px-2 py-1 rounded-lg text-xs bg-blue-500/20 hover:bg-blue-500/30 text-blue-400"
+                                >
+                                  History
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
               </div>
@@ -453,7 +553,10 @@ const AttendanceTracking = () => {
               <div className="flex items-center justify-center">
                 <PieChart width={200} height={200} className="lg:w-[240px] lg:h-[240px]">
                   <Pie
-                    data={attendanceStats}
+                    data={[
+                      { name: 'Present', value: students.filter(s => attendanceRecords.find(r => r.studentId === s.id)?.isPresent).length },
+                      { name: 'Absent', value: students.filter(s => !attendanceRecords.find(r => r.studentId === s.id)?.isPresent).length }
+                    ]}
                     cx="50%"
                     cy="50%"
                     innerRadius={50}
@@ -461,9 +564,8 @@ const AttendanceTracking = () => {
                     paddingAngle={2}
                     dataKey="value"
                   >
-                    {attendanceStats.map((entry, index) => (
-                      <Cell key={index} fill={COLORS[index % COLORS.length]} />
-                    ))}
+                    <Cell fill="#10b981" />
+                    <Cell fill="#ef4444" />
                   </Pie>
                   <Tooltip 
                     contentStyle={{ backgroundColor: '#1f2937', border: 'none' }}
@@ -471,40 +573,6 @@ const AttendanceTracking = () => {
                   />
                 </PieChart>
               </div>
-              <div className="flex flex-col lg:flex-row lg:justify-center lg:gap-6 mt-3 lg:mt-4 space-y-2 lg:space-y-0">
-                {attendanceStats.map((stat, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index] }} />
-                    <span className="text-xs lg:text-sm text-gray-300">
-                      {stat.name}: {stat.value} ({Math.round(stat.value / attendanceData.length * 100)}%)
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Monthly Trend */}
-            <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4 lg:p-6">
-              <h3 className="text-lg lg:text-xl font-semibold text-white mb-3 lg:mb-4 flex items-center gap-2">
-                <ArrowPathIcon className="w-5 h-5 lg:w-6 lg:h-6 text-blue-400" />
-                Monthly Trend
-              </h3>
-              <BarChart 
-                width={isMobile ? 300 : 250} 
-                height={200} 
-                data={monthlyTrendData}
-                className="mx-auto"
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis dataKey="name" stroke="#9ca3af" />
-                <YAxis stroke="#9ca3af" />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#1f2937', border: 'none' }}
-                  itemStyle={{ color: '#e5e7eb' }}
-                />
-                <Bar dataKey="present" fill="#10b981" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="absent" fill="#ef4444" radius={[4, 4, 0, 0]} />
-              </BarChart>
             </div>
 
             {/* Quick Actions */}
@@ -514,11 +582,17 @@ const AttendanceTracking = () => {
                 Quick Actions
               </h3>
               <div className="space-y-2 lg:space-y-3">
-                <button className="w-full flex items-center gap-2 lg:gap-3 p-2 lg:p-3 bg-blue-600/20 hover:bg-blue-600/30 rounded-lg transition-colors text-sm lg:text-base">
+                <button 
+                  onClick={() => handleBulkAction('notify')}
+                  className="w-full flex items-center gap-2 lg:gap-3 p-2 lg:p-3 bg-blue-600/20 hover:bg-blue-600/30 rounded-lg transition-colors text-sm lg:text-base"
+                >
                   <EnvelopeIcon className="w-4 h-4 lg:w-5 lg:h-5 text-blue-400" />
                   <span>Notify Absentees</span>
                 </button>
-                <button className="w-full flex items-center gap-2 lg:gap-3 p-2 lg:p-3 bg-purple-600/20 hover:bg-purple-600/30 rounded-lg transition-colors text-sm lg:text-base">
+                <button 
+                  onClick={() => handleBulkAction('export')}
+                  className="w-full flex items-center gap-2 lg:gap-3 p-2 lg:p-3 bg-purple-600/20 hover:bg-purple-600/30 rounded-lg transition-colors text-sm lg:text-base"
+                >
                   <DocumentTextIcon className="w-4 h-4 lg:w-5 lg:h-5 text-purple-400" />
                   <span>Generate Report</span>
                 </button>
@@ -547,7 +621,11 @@ const AttendanceTracking = () => {
               Add New Student
             </h3>
             
-            <form onSubmit={handleAddStudent} className="space-y-4 lg:space-y-6">
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              // Implement add student functionality
+              setShowAddStudentModal(false);
+            }} className="space-y-4 lg:space-y-6">
               <div className="space-y-2">
                 <label className="block text-gray-300 text-sm lg:text-base">Full Name</label>
                 <input
