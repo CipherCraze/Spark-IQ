@@ -1,25 +1,29 @@
 import { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom'; // Added useNavigate
+import { useMediaQuery } from 'react-responsive'; // Added for responsiveness
 import {
   FolderIcon,
   DocumentIcon,
-  VideoCameraIcon,
-  LinkIcon,
+  LinkIcon as LinkIconOutline, // Renamed to avoid conflict
   ChartBarIcon,
   CloudArrowUpIcon,
+  VideoCameraIcon,
   TagIcon,
-  ArrowsPointingOutIcon,
+  ArrowsPointingOutIcon, // Kept for view toggle, if needed elsewhere
   MagnifyingGlassIcon,
-  FunnelIcon,
+  FunnelIcon, // Kept, might be useful for advanced filters
   EllipsisVerticalIcon,
+  PresentationChartLineIcon,
+  UserGroupIcon as SolidUserGroupIcon,
   EyeIcon,
   ShareIcon,
-  UsersIcon,
+  UsersIcon, // Kept for stats
+  GlobeAltIcon,
   DocumentTextIcon,
   BookOpenIcon,
   ClockIcon,
-  UserGroupIcon,
-  SignalIcon,
+  UserGroupIcon, // Kept for stats/icons
+  // SignalIcon, // Can be removed if not used, ChartBarIcon is often used for trends
   ClipboardDocumentIcon,
   AcademicCapIcon,
   ChatBubbleLeftRightIcon,
@@ -29,30 +33,37 @@ import {
   MegaphoneIcon,
   XMarkIcon,
   PlusIcon,
-  ArrowUpTrayIcon,
-  DocumentMagnifyingGlassIcon,
+  ArrowUpTrayIcon, // Kept for LLM search button
+  DocumentMagnifyingGlassIcon, // Kept for worksheet icon
   Bars3Icon,
+  ChevronLeftIcon, // Added for sidebar
+  Cog6ToothIcon, // Added for sidebar
+  ArrowLeftOnRectangleIcon, // Added for sidebar
+  PhotoIcon, // Added for image resource type
+  ListBulletIcon, // Added for list view toggle
+  Squares2X2Icon, // Added for grid view toggle
 } from '@heroicons/react/24/outline';
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,CartesianGrid  } from 'recharts';
 import { motion } from 'framer-motion';
 
-// getIcon and fetchResourcesFromLLM functions remain unchanged
-const getIcon = (type) => {
+
+// getIconForLLM (renamed from getIcon for clarity)
+const getIconForLLM = (type) => {
   switch (type) {
-    case 'video':
-      return <VideoCameraIcon className="w-6 h-6 text-red-400" />;
-    case 'book':
-      return <BookOpenIcon className="w-6 h-6 text-green-400" />;
-    case 'website':
-      return <LinkIcon className="w-6 h-6 text-blue-400" />;
-    case 'lesson_plan':
-      return <DocumentIcon className="w-6 h-6 text-purple-400" />;
-    case 'worksheet':
-      return <DocumentMagnifyingGlassIcon className="w-6 h-6 text-amber-400" />;
+    case 'videos':
+      return <VideoCameraIcon className="w-7 h-7 text-red-400" />;
+    case 'books':
+      return <BookOpenIcon className="w-7 h-7 text-green-400" />;
+    case 'websites':
+      return <LinkIconOutline className="w-7 h-7 text-blue-400" />;
+    case 'lesson_plans':
+      return <DocumentTextIcon className="w-7 h-7 text-purple-400" />;
+    case 'worksheets':
+      return <DocumentMagnifyingGlassIcon className="w-7 h-7 text-amber-400" />;
     case 'professional_dev':
-      return <AcademicCapIcon className="w-6 h-6 text-indigo-400" />;
+      return <AcademicCapIcon className="w-7 h-7 text-indigo-400" />;
     default:
-      return <DocumentIcon className="w-6 h-6 text-gray-400" />;
+      return <DocumentIcon className="w-7 h-7 text-slate-400" />;
   }
 };
 
@@ -63,8 +74,7 @@ const fetchResourcesFromLLM = async (query) => {
       console.error('Gemini API key is missing');
       throw new Error('API key not found');
     }
-
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -74,13 +84,13 @@ const fetchResourcesFromLLM = async (query) => {
         contents: [{
           parts: [{
             text: `Find teaching resources for educators about "${query}". Include:
-            1. Lesson plans and teaching guides
-            2. Educational videos and tutorials
-            3. Teaching books and e-books
-            4. Educational websites and platforms
-            5. Worksheets and assessment materials
-            6. Professional development resources
-            
+            1. Lesson plans and teaching guides[more than 5 resources]
+            2. Educational videos and tutorials[more than 5 resources]
+            3. Teaching books and e-books[more than 5 resources]
+            4. Educational websites and platforms[more than 5 resources]
+            5. Worksheets and assessment materials[more than 5 resources]
+            6. Professional development resources[more than 5 resources]
+
             Return ONLY a JSON object with these categories, no markdown formatting:
             {
               "lesson_plans": [{ "title": "", "link": "", "description": "", "grade_level": "" }],
@@ -101,23 +111,40 @@ const fetchResourcesFromLLM = async (query) => {
     }
 
     const data = await response.json();
-    const responseText = data.candidates[0].content.parts[0].text;
-    const cleanedText = responseText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-    return JSON.parse(cleanedText);
+    let responseText = data.candidates[0].content.parts[0].text;
+
+    // --- FIX: Extract only the first JSON object from the response ---
+    responseText = responseText.trim();
+    // Remove Markdown code block markers if present
+    if (responseText.startsWith('```')) {
+      responseText = responseText.replace(/^```[a-zA-Z]*\n?/, '').replace(/```$/, '').trim();
+    }
+    // Extract the first {...} JSON object
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON object found in AI response.");
+    responseText = jsonMatch[0];
+
+    return JSON.parse(responseText);
   } catch (error) {
     console.error('Error fetching resources:', error);
     return {
-      lesson_plans: [],
-      videos: [],
-      books: [],
-      websites: [],
-      worksheets: [],
-      professional_dev: []
+      lesson_plans: [], videos: [], books: [], websites: [], worksheets: [], professional_dev: []
     };
   }
 };
 
 const ResourceManagement = () => {
+  const isDesktop = useMediaQuery({ query: '(min-width: 1024px)' });
+  const [isSidebarOpen, setIsSidebarOpen] = useState(isDesktop); // Initial state based on desktop view
+  const navigate = useNavigate();
+
+
+  // Effect to handle sidebar state on resize, matching EducatorDashboard
+  useEffect(() => {
+      setIsSidebarOpen(isDesktop);
+  }, [isDesktop]);
+
+
   const [resources, setResources] = useState([
     {
       id: 1,
@@ -127,9 +154,11 @@ const ResourceManagement = () => {
       views: 1450,
       shares: 45,
       uploaded: '2023-10-15',
-      thumbnail: 'https://example.com/quantum-thumb.jpg',
+      thumbnail: 'https://images.unsplash.com/photo-1532187863486-abf9db50d0d6?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8cXVhbnR1bSUyMHBoeXNpY3N8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=500&q=60',
       size: '2.4 GB',
       tags: ['Physics', 'Advanced', 'Video Lecture'],
+      uploader: 'Dr. Emily Carter',
+      lastModified: '2023-10-20',
     },
     {
       id: 2,
@@ -139,572 +168,621 @@ const ResourceManagement = () => {
       views: 890,
       shares: 32,
       uploaded: '2023-11-01',
-      thumbnail: 'https://example.com/python-guide.jpg',
+      thumbnail: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8ZGF0YSUyMGFuYWx5c2lzfGVufDB8fDB8fHww&auto=format&fit=crop&w=500&q=60',
       size: '15 MB',
       tags: ['Programming', 'Data Science', 'PDF'],
+      uploader: 'TechLearn Institute',
+      lastModified: '2023-11-05',
+    },
+     {
+      id: 3,
+      title: 'Calculus Interactive Lessons',
+      type: 'link',
+      category: 'Mathematics',
+      views: 2100,
+      shares: 150,
+      uploaded: '2023-09-01',
+      thumbnail: 'https://images.unsplash.com/photo-1509228468518-180dd4864904?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8Y2FsY3VsdXN8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=500&q=60',
+      size: 'N/A',
+      tags: ['Calculus', 'Interactive', 'Online Course'],
+      uploader: 'MathWorld Online',
+      lastModified: '2023-09-10',
     },
   ]);
 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isGridView, setIsGridView] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchUserResourcesQuery, setSearchUserResourcesQuery] = useState('');
+  const [searchLLMQuery, setSearchLLMQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
-  const [isSearching, setIsSearching] = useState(false);
-  const [foundResources, setFoundResources] = useState(null);
+  const [isSearchingLLM, setIsSearchingLLM] = useState(false);
+  const [foundLLMResources, setFoundLLMResources] = useState(null);
 
-  const educatorMenu = [
-    { title: 'Dashboard', Icon: AcademicCapIcon, link: '/educator-dashboard' },
-    { title: 'Grades', Icon: DocumentTextIcon, link: '/grading-system' },
-    { title: 'Assignments', Icon: FunnelIcon, link: '/assignment-management' },
-    { title: 'Attendance', Icon: UserGroupIcon, link: '/attendance-tracking' },
-    { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
-    { title: 'Feedback', Icon: LightBulbIcon, link: '/feedback-dashboard' },
-    { title: 'Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
-    { title: 'News', Icon: UsersIcon, link: '/educational-news' },
-    { title: 'Suggestions', Icon: EnvelopeIcon, link: '/suggestions-to-students' },
-    { title: 'Meetings', Icon: VideoCameraIcon, link: '/meeting-host' },
+  const educatorMenu = [ // Using the same menu structure as EducatorDashboard
+    { title: 'Dashboard', Icon: PresentationChartLineIcon, link: '/educator-dashboard' },
+    { title: 'Assignments', Icon: ClipboardDocumentIcon, link: '/assignment-management' },
+    { title: 'Tests', Icon: ClipboardDocumentIcon, link: '/teacher-tests' },
+    { title: 'Grades & Analytics', Icon: AcademicCapIcon, link: '/GradesAndAnalytics' },
+    { title: 'Resources', Icon: FolderIcon, link: '/resource-management', current: true }, // Current page
+    { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-tracking' },
+    { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/teacher-voice-chat' },
+    { title: 'AI Chatbot (Ask Sparky)', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
+    { title: 'AI Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
+    { title: 'Social / Chat', Icon: SolidUserGroupIcon, link: '/chat-functionality' },
+    { title: 'Educational News', Icon: GlobeAltIcon, link: '/educational-news' },
+    { title: 'Student Suggestions', Icon: EnvelopeIcon, link: '/suggestions-to-students' },
+    { title: 'Meetings & Conferences', Icon: VideoCameraIcon, link: '/meeting-host' },
     { title: 'Announcements', Icon: MegaphoneIcon, link: '/announcements' },
+    { title: 'Upgrade to Pro', Icon: SparklesIcon, link: '/pricing', special: true },
   ];
 
   const categoryData = [
-    { name: 'Science', value: 45 },
-    { name: 'Math', value: 30 },
-    { name: 'Literature', value: 25 },
-    { name: 'History', value: 15 },
+    { name: 'Science', value: 45, fill: '#8B5CF6' },
+    { name: 'Math', value: 30, fill: '#3B82F6' },
+    { name: 'Literature', value: 25, fill: '#10B981'},
+    { name: 'History', value: 15, fill: '#F59E0B' },
+    { name: 'CompSci', value: 35, fill: '#EF4444' }
   ];
 
   const usageData = [
-    { day: 'Mon', views: 400 },
-    { day: 'Tue', views: 600 },
-    { day: 'Wed', views: 300 },
-    { day: 'Thu', views: 800 },
-    { day: 'Fri', views: 500 },
+    { day: 'Mon', views: 400 }, { day: 'Tue', views: 600 }, { day: 'Wed', views: 300 },
+    { day: 'Thu', views: 800 }, { day: 'Fri', views: 500 }, { day: 'Sat', views: 700 }, { day: 'Sun', views: 450 },
   ];
 
-  const COLORS = ['#60a5fa', '#3b82f6', '#2563eb', '#1d4ed8'];
-
-  useEffect(() => {
-    const handleResize = () => {
-      setIsSidebarOpen(window.innerWidth >= 768);
-    };
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const handleLogout = async () => {
+    // Placeholder for actual logout logic (e.g., Firebase sign out)
+    console.log("Logout action triggered");
+    // Example: await signOut(auth); localStorage.removeItem('profileUser');
+    navigate('/login'); // Navigate to login after mock logout
+  };
 
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files);
     if (files.length > 0) {
-      setShowUploadModal(true);
+      // Logic to handle file selection, e.g., update state for preview
+      // If modal is already open, this might be a change event.
     }
   };
 
   const simulateUpload = (file) => {
     setIsUploading(true);
     setUploadProgress(0);
-    const interval = setInterval(() => {
-      setUploadProgress(prev => {
-        if (prev >= 100) {
+    let progress = 0;
+    return new Promise((resolve) => {
+      const interval = setInterval(() => {
+        progress += Math.random() * 10 + 5;
+        if (progress >= 100) {
           clearInterval(interval);
+          setUploadProgress(100);
           setIsUploading(false);
-          return 100;
+          resolve();
+        } else {
+          setUploadProgress(Math.min(progress, 100));
         }
-        return prev + 10;
-      });
-    }, 300);
-    return new Promise(resolve => setTimeout(() => { clearInterval(interval); resolve(); }, 3000));
+      }, 200);
+    });
   };
 
-  const handleUpload = async (e) => {
+  const handleUploadSubmit = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
     const title = formData.get('title');
     const category = formData.get('category');
-    const file = formData.get('file');
+    const tags = formData.get('tags');
+    const file = fileInputRef.current?.files?.[0];
+    
+    if (!file) {
+        alert("Please select a file to upload.");
+        return;
+    }
     
     await simulateUpload(file);
     
     const newResource = {
       id: resources.length + 1,
       title: title || file.name,
-      type: file.type.split('/')[0] === 'video' ? 'video' : 'document',
+      type: file.type.startsWith('video/') ? 'video' : 
+            file.type === 'application/pdf' ? 'document' :
+            file.type.startsWith('image/') ? 'image' : 'document',
       category,
       views: 0,
       shares: 0,
       uploaded: new Date().toISOString().split('T')[0],
       thumbnail: URL.createObjectURL(file),
       size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-      tags: [category, file.type.split('/')[1] || 'Document']
+      tags: tags ? tags.split(',').map(tag => tag.trim()) : [category, file.type.split('/')[1] || 'File'],
+      uploader: 'Current Educator',
+      lastModified: new Date().toISOString().split('T')[0],
     };
     
     setResources([newResource, ...resources]);
     setShowUploadModal(false);
     setUploadProgress(0);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
-    setIsSearching(true);
+  const handleSearchLLM = async () => {
+    if (!searchLLMQuery.trim()) return;
+    setIsSearchingLLM(true);
+    setFoundLLMResources(null);
     try {
-      const resources = await fetchResourcesFromLLM(searchQuery);
-      setFoundResources(resources);
+      const llmRes = await fetchResourcesFromLLM(searchLLMQuery);
+      setFoundLLMResources(llmRes);
     } catch (error) {
-      console.error('Error fetching resources:', error);
+      console.error('Error fetching LLM resources:', error);
     } finally {
-      setIsSearching(false);
+      setIsSearchingLLM(false);
     }
   };
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (searchQuery.trim()) handleSearch();
-    }, 800);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+    if (searchLLMQuery.trim().length > 2) {
+      const timer = setTimeout(() => {
+        handleSearchLLM();
+      }, 800);
+      return () => clearTimeout(timer);
+    } else {
+      setFoundLLMResources(null);
+    }
+  }, [searchLLMQuery]);
+
+  const filteredUserResources = resources.filter(resource => 
+    (resource.title.toLowerCase().includes(searchUserResourcesQuery.toLowerCase()) ||
+     resource.tags.some(tag => tag.toLowerCase().includes(searchUserResourcesQuery.toLowerCase()))) &&
+    (selectedCategory === 'All' || resource.category === selectedCategory)
+  );
+
+  const getResourceIcon = (type) => {
+    switch (type) {
+      case 'video': return <VideoCameraIcon className="w-6 h-6 text-red-400" />;
+      case 'document': return <DocumentTextIcon className="w-6 h-6 text-blue-400" />;
+      case 'link': return <LinkIconOutline className="w-6 h-6 text-green-400" />;
+      case 'image': return <PhotoIcon className="w-6 h-6 text-purple-400" />;
+      default: return <FolderIcon className="w-6 h-6 text-slate-400" />;
+    }
+  };
+  
+  const customScrollbar = "scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800/50 hover:scrollbar-thumb-slate-500";
 
   const ResourceCard = ({ resource }) => (
     <motion.div
-      whileHover={{ scale: 1.02 }}
-      className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4 hover:shadow-xl transition-all"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="bg-slate-800/70 backdrop-blur-md rounded-xl border border-slate-700/60 p-4 hover:border-purple-500/70 transition-all duration-300 hover:shadow-2xl hover:shadow-purple-500/10 flex flex-col justify-between"
     >
-      <div className="relative group">
-        <div className="h-40 bg-gray-700 rounded-lg mb-4 overflow-hidden">
-          {resource.type === 'video' ? (
-            <video className="w-full h-full object-cover">
-              <source src={resource.thumbnail} type="video/mp4" />
-            </video>
+      <div>
+        <div className="relative aspect-video bg-slate-700 rounded-lg mb-3 overflow-hidden group">
+          {resource.thumbnail && (resource.type === 'video' || resource.type === 'image') ? (
+            <img src={resource.thumbnail} alt={resource.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
           ) : (
-            <div className="flex items-center justify-center h-full bg-gradient-to-br from-blue-600/20 to-purple-600/20">
-              <DocumentIcon className="w-16 h-16 text-blue-400" />
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-700 to-slate-600">
+              {getResourceIcon(resource.type)}
             </div>
           )}
-        </div>
-        <div className="flex justify-between items-start mb-2">
-          <h4 className="text-lg font-semibold text-white truncate">{resource.title}</h4>
-          <div className="flex gap-2">
-            <button className="p-1.5 hover:bg-gray-700/50 rounded-lg">
-              <ShareIcon className="w-5 h-5 text-purple-400" />
-            </button>
-            <button className="p-1.5 hover:bg-gray-700/50 rounded-lg">
-              <EllipsisVerticalIcon className="w-5 h-5 text-gray-400" />
-            </button>
+           <div className="absolute top-2 right-2 bg-black/40 text-white text-xs px-2 py-1 rounded">
+            {resource.type.toUpperCase()}
           </div>
         </div>
-        <div className="flex flex-wrap gap-2 mb-4">
-          {resource.tags.map((tag, index) => (
-            <span key={index} className="px-2 py-1 text-xs bg-gray-700/50 rounded-full text-blue-300">
+        <h4 className="text-base font-semibold text-slate-100 truncate mb-1 group-hover:text-purple-300 transition-colors">{resource.title}</h4>
+        <p className="text-xs text-slate-400 mb-2">Category: {resource.category}</p>
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {resource.tags.slice(0, 3).map((tag, index) => (
+            <span key={index} className="px-2 py-0.5 text-xs bg-slate-700 rounded-full text-purple-300 border border-slate-600">
               {tag}
             </span>
           ))}
         </div>
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div className="flex items-center gap-2 text-gray-400">
-            <ClockIcon className="w-4 h-4" />
-            {resource.uploaded}
-          </div>
-          <div className="flex items-center gap-2 text-gray-400">
-            <SignalIcon className="w-4 h-4" />
-            {resource.views} views
-          </div>
-          <div className="flex items-center gap-2 text-gray-400">
-            <UserGroupIcon className="w-4 h-4" />
-            {resource.shares} shares
-          </div>
-          <div className="flex items-center gap-2 text-gray-400">
-            <BookOpenIcon className="w-4 h-4" />
-            {resource.category}
-          </div>
+      </div>
+      <div>
+        <div className="flex items-center justify-between text-xs text-slate-500 mb-2 pt-2 border-t border-slate-700/70">
+          <div className="flex items-center gap-1"><ClockIcon className="w-3 h-3" /> {resource.uploaded}</div>
+          <div className="flex items-center gap-1"><EyeIcon className="w-3 h-3" /> {resource.views}</div>
+        </div>
+        <div className="flex gap-2">
+            <button className="flex-1 text-xs py-1.5 px-2 bg-slate-700/80 hover:bg-purple-600/40 hover:text-purple-200 rounded-md transition-colors text-slate-300 flex items-center justify-center gap-1.5">
+                <EyeIcon className="w-4 h-4" /> View
+            </button>
+            <button className="p-1.5 bg-slate-700/80 hover:bg-slate-600/80 rounded-md transition-colors text-slate-400">
+                <EllipsisVerticalIcon className="w-4 h-4" />
+            </button>
         </div>
       </div>
     </motion.div>
   );
 
   const UploadModal = () => (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-xl p-4 md:p-8 w-full max-w-2xl relative mx-4 md:mx-auto">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[60] p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        className={`bg-slate-800 rounded-xl p-6 sm:p-8 w-full max-w-2xl relative shadow-2xl border border-slate-700/70 max-h-[90vh] overflow-y-auto ${customScrollbar}`}
+      >
         <button
           onClick={() => setShowUploadModal(false)}
-          className="absolute top-4 right-4 text-gray-400 hover:text-white"
+          className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 hover:bg-slate-700/50 rounded-full transition-colors"
         >
           <XMarkIcon className="w-6 h-6" />
         </button>
-        <h3 className="text-2xl font-bold mb-6 bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">
+        <h3 className="text-xl sm:text-2xl font-bold mb-6 text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text">
           Upload New Resource
         </h3>
-        <form onSubmit={handleUpload} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <label className="block text-gray-300">Resource Title</label>
-              <input
-                type="text"
-                name="title"
-                className="w-full bg-gray-700 rounded-lg px-4 py-3 focus:ring-2 focus:ring-cyan-500 outline-none"
-                placeholder="Enter a descriptive title"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="block text-gray-300">Category</label>
-              <select
-                name="category"
-                className="w-full bg-gray-700 rounded-lg px-4 py-3 focus:ring-2 focus:ring-cyan-500 outline-none"
-              >
-                <option>Science</option>
-                <option>Mathematics</option>
-                <option>Literature</option>
-                <option>History</option>
-                <option>Computer Science</option>
+        <form onSubmit={handleUploadSubmit} className="space-y-5">
+          <div>
+            <label className="block text-slate-300 text-sm font-medium mb-1.5">Resource Title</label>
+            <input
+              type="text" name="title"
+              className="w-full bg-slate-700/70 border border-slate-600/80 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none text-sm text-slate-100 placeholder-slate-500 transition-colors"
+              placeholder="Enter a descriptive title"
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div>
+              <label className="block text-slate-300 text-sm font-medium mb-1.5">Category</label>
+              <select name="category" defaultValue="Science"
+                className="w-full bg-slate-700/70 border border-slate-600/80 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none text-sm text-slate-100 transition-colors appearance-none">
+                <option value="Science">Science</option> <option value="Mathematics">Mathematics</option> <option value="Literature">Literature</option> <option value="History">History</option> <option value="Computer Science">Computer Science</option> <option value="Arts">Arts</option> <option value="Other">Other</option>
               </select>
             </div>
+            <div>
+              <label className="block text-slate-300 text-sm font-medium mb-1.5">Tags (comma-separated)</label>
+              <input type="text" name="tags"
+                className="w-full bg-slate-700/70 border border-slate-600/80 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none text-sm text-slate-100 placeholder-slate-500 transition-colors"
+                placeholder="e.g., Physics, Beginner, Lab"
+              />
+            </div>
           </div>
-          <div className="space-y-2">
-            <label className="block text-gray-300">File</label>
-            <input
-              type="file"
-              name="file"
-              ref={fileInputRef}
-              onChange={handleFileUpload}
-              className="hidden"
-              id="file-upload"
-              required
-            />
-            <label
-              htmlFor="file-upload"
-              className="flex flex-col items-center justify-center border-2 border-dashed border-gray-600 rounded-lg p-8 hover:border-cyan-400 transition-colors cursor-pointer"
-            >
-              <CloudArrowUpIcon className="w-12 h-12 text-cyan-400 mb-4" />
-              <p className="text-gray-300 mb-1">Click to browse or drag and drop</p>
-              <p className="text-gray-500 text-sm">Supports videos, PDFs, presentations (max 500MB)</p>
+          <div>
+            <label className="block text-slate-300 text-sm font-medium mb-1.5">File</label>
+            <input type="file" name="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" id="file-upload" required/>
+            <label htmlFor="file-upload"
+              className="flex flex-col items-center justify-center border-2 border-dashed border-slate-600/80 rounded-lg p-6 hover:border-purple-500 transition-colors cursor-pointer bg-slate-700/30 hover:bg-slate-700/50">
+              <CloudArrowUpIcon className="w-10 h-10 text-purple-400 mb-3" />
+              <p className="text-slate-300 text-sm mb-1">Click to browse or drag & drop</p>
+              <p className="text-slate-500 text-xs">Supports videos, PDFs, images, etc. (Max 500MB)</p>
+               {fileInputRef.current?.files?.[0] && <p className="text-purple-300 text-xs mt-2">Selected: {fileInputRef.current.files[0].name}</p>}
             </label>
           </div>
           {isUploading && (
-            <div className="space-y-2">
-              <div className="flex justify-between text-gray-400 text-sm">
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-slate-400 text-xs">
                 <span>Uploading...</span>
-                <span>{uploadProgress}%</span>
+                <span>{Math.round(uploadProgress)}%</span>
               </div>
-              <div className="h-2 bg-gray-700 rounded-full">
-                <div
-                  className="h-full bg-cyan-500 rounded-full transition-all duration-300"
-                  style={{ width: `${uploadProgress}%` }}
-                />
+              <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full transition-all duration-300"
+                     style={{ width: `${uploadProgress}%` }}/>
               </div>
             </div>
           )}
-          <div className="flex justify-end gap-4 mt-8">
-            <button
-              type="button"
-              onClick={() => setShowUploadModal(false)}
-              className="px-6 py-2.5 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
-            >
+          <div className="flex justify-end gap-4 pt-3">
+            <button type="button" onClick={() => setShowUploadModal(false)}
+              className="px-5 py-2.5 rounded-lg bg-slate-700/70 hover:bg-slate-600/70 transition-colors text-sm font-medium text-slate-200">
               Cancel
             </button>
-            <button
-              type="submit"
-              className="px-6 py-2.5 rounded-lg bg-gradient-to-r from-green-500 to-cyan-500 hover:opacity-90 transition-all flex items-center gap-2"
-              disabled={isUploading}
-            >
-              {isUploading ? 'Uploading...' : (
-                <>
-                  <CloudArrowUpIcon className="w-5 h-5" />
-                  Upload Resource
-                </>
-              )}
+            <button type="submit" disabled={isUploading}
+              className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 shadow-md hover:shadow-lg transition-all flex items-center gap-2 text-sm font-medium text-white disabled:opacity-70 disabled:cursor-not-allowed">
+              {isUploading ? (<><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> Uploading...</>) : (<><CloudArrowUpIcon className="w-5 h-5" /> Upload Resource</>)}
             </button>
           </div>
         </form>
-      </div>
+      </motion.div>
     </div>
   );
 
-  return (
-    <div className="min-h-screen bg-gray-900 flex">
-      <aside
-        className={`fixed top-0 left-0 h-screen w-64 bg-gray-800 border-r border-gray-700/50 transform transition-transform duration-300 ease-in-out z-50 flex flex-col ${
-          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } md:translate-x-0`}
-      >
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-8">
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
-              SPARK IQ
-            </h1>
-            <button className="md:hidden" onClick={() => setIsSidebarOpen(false)}>
-              <XMarkIcon className="w-6 h-6 text-white" />
-            </button>
-          </div>
-          <nav>
-            <ul className="space-y-2">
-              {educatorMenu.map((item, index) => (
-                <li key={index}>
-                  <Link
-                    to={item.link}
-                    className="flex items-center gap-3 p-3 text-gray-300 hover:bg-gray-700/50 rounded-lg transition-all duration-300 group"
-                  >
-                    <item.Icon className="w-5 h-5 text-indigo-400 group-hover:text-purple-400 transition-colors" />
-                    <span>{item.title}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
-        </div>
-      </aside>
 
-      {isSidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 md:hidden z-40"
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-900 to-gray-900 flex text-slate-100 overflow-x-hidden">
+      {/* Sidebar Overlay for Mobile */}
+      {!isDesktop && isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40" // Higher z-index for overlay
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
-      <main
-        className={`flex-1 p-4 md:p-8 overflow-y-auto relative transition-margin duration-300 ${
-          isSidebarOpen ? 'md:ml-64' : ''
-        }`}
+      {/* Sidebar */}
+      <aside 
+        className={`fixed top-0 left-0 h-screen w-64 bg-slate-800/80 backdrop-blur-2xl border-r border-slate-700/60
+                       transform transition-transform duration-300 ease-in-out z-50 flex flex-col shadow-2xl
+                       ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`} // z-index 50 for sidebar itself
       >
-        <header className="mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <button
-                className="md:hidden p-2"
-                onClick={() => setIsSidebarOpen(true)}
-              >
-                <Bars3Icon className="w-6 h-6 text-white" />
-              </button>
-              <div>
-                <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
-                  <span className="bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">
-                    Knowledge Vault
-                  </span>
-                </h1>
-                <p className="text-gray-400 text-base md:text-lg">
-                  Manage educational resources, track engagement, and collaborate with peers
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowUploadModal(true)}
-              className="flex items-center gap-2 px-4 py-2 md:px-6 md:py-3 bg-gradient-to-r from-green-500 to-cyan-500 hover:opacity-90 rounded-lg transition-all"
+        <div className="p-5 border-b border-slate-700/50 flex items-center justify-between">
+          <Link to="/educator-dashboard" className="flex items-center gap-3 group">
+            <GlobeAltIcon className="w-10 h-10 text-purple-500 group-hover:text-purple-400 transition-all duration-300 transform group-hover:rotate-[20deg] group-hover:scale-110" />
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-500 via-pink-500 to-blue-500 bg-clip-text text-transparent group-hover:opacity-90 transition-opacity">
+              SPARK-IQ
+            </h1>
+          </Link>
+          {/* Mobile-only close button inside sidebar header */}
+          {!isDesktop && (
+            <button 
+              onClick={() => setIsSidebarOpen(false)} 
+              className="p-1 text-slate-400 hover:bg-slate-700/70 rounded-full"
+              aria-label="Close sidebar"
             >
-              <CloudArrowUpIcon className="w-5 h-5" />
-              Upload
+              <ChevronLeftIcon className="w-6 h-6" />
             </button>
-          </div>
+          )}
+        </div>
+        <nav className={`flex-1 overflow-y-auto p-3 space-y-1.5 ${customScrollbar}`}>
+          {educatorMenu.map((item) => (
+            <Link
+              key={item.title}
+              to={item.link}
+              onClick={() => !isDesktop && setIsSidebarOpen(false)} // Close sidebar on mobile nav item click
+              className={`group flex items-center gap-3.5 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ease-in-out
+                ${item.current 
+                  ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg ring-1 ring-purple-500/60 transform scale-[1.01]' 
+                  : item.special 
+                    ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-white font-semibold hover:from-amber-500 hover:to-orange-600 shadow-md hover:shadow-lg'
+                    : 'text-slate-300 hover:bg-slate-700/60 hover:text-purple-300 hover:shadow-md'
+                }
+              `}
+            >
+              <item.Icon className={`w-5 h-5 flex-shrink-0 ${item.current ? 'text-white' : item.special ? 'text-white/90' : 'text-slate-400 group-hover:text-purple-300' } transition-colors`} />
+              <span>{item.title}</span>
+            </Link>
+          ))}
+        </nav>
+        
+      </aside>
+
+      {/* Main Content */}
+      <main 
+        className={`flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto transition-all duration-300 
+                       ${isDesktop && isSidebarOpen ? 'lg:ml-64' : 'ml-0'}`}
+      >
+        {/* Header for Main Content Area */}
+        <header className="flex items-center justify-between mb-6 lg:mb-8">
+            <div className="flex items-center gap-3">
+                {/* Sidebar Toggle Button */}
+                <button
+                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                    className="p-2.5 bg-slate-800/60 hover:bg-slate-700/80 rounded-lg shadow-sm hover:shadow-md transition-all"
+                    aria-label={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
+                >
+                    {/* Show ChevronLeft when sidebar is open on desktop, otherwise Bars3Icon */}
+                    {isSidebarOpen && isDesktop ? <ChevronLeftIcon className="w-6 h-6 text-slate-300" /> : <Bars3Icon className="w-6 h-6 text-slate-300" /> }
+                </button>
+                <div>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text">
+                        Knowledge Vault
+                    </h1>
+                    <p className="text-slate-400 text-sm">Manage and discover educational resources.</p>
+                </div>
+            </div>
+            <button 
+                onClick={() => setShowUploadModal(true)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 rounded-lg shadow-md hover:shadow-lg transition-all text-sm font-medium"
+            >
+                <CloudArrowUpIcon className="w-5 h-5" />
+                <span className="hidden sm:inline">Upload Resource</span>
+            </button>
         </header>
 
-        <div className="mb-8">
-          <div className="relative max-w-2xl flex gap-2 flex-wrap">
-            <div className="relative flex-1 min-w-0">
-              <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-3" />
-              <input
-                type="text"
-                placeholder="Enter topic to search (e.g. Teaching Algebra, Classroom Management)"
-                className="w-full pl-10 pr-4 py-3 bg-gray-700/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+        {/* LLM Search Section */}
+        <div className="mb-8 p-5 sm:p-6 bg-slate-800/60 backdrop-blur-lg rounded-2xl border border-slate-700/50 shadow-xl">
+          <h2 className="text-xl font-semibold text-white mb-3">Discover New Resources with AI</h2>
+          <p className="text-sm text-slate-400 mb-4">Enter a topic, and Sparky AI will find relevant teaching materials for you.</p>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <MagnifyingGlassIcon className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input type="text" placeholder="e.g., Teaching Algebra, Classroom Management Techniques"
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-700/70 border border-slate-600/80 rounded-lg text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
+                value={searchLLMQuery} onChange={(e) => setSearchLLMQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearchLLM()}
               />
-              {isSearching && (
-                <div className="absolute right-3 top-3">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-400"></div>
-                </div>
-              )}
             </div>
-            <button
-              onClick={handleSearch}
-              disabled={isSearching || !searchQuery.trim()}
-              className="px-6 py-3 bg-indigo-500 hover:bg-indigo-600 disabled:bg-indigo-500/50 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center gap-2"
-            >
-              <span>Search</span>
-              <ArrowUpTrayIcon className="w-5 h-5" />
+            <button onClick={handleSearchLLM} disabled={isSearchingLLM || !searchLLMQuery.trim()}
+              className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-lg transition-all flex items-center justify-center gap-2 font-medium text-sm disabled:opacity-70 disabled:cursor-not-allowed">
+              {isSearchingLLM ? (<><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> Searching...</>) : (<><SparklesIcon className="w-5 h-5" /> Find Resources</>)}
             </button>
           </div>
         </div>
-
-        {foundResources && (
-          <div className="space-y-8 mb-12">
-            {Object.entries(foundResources).map(([category, resources]) => (
-              resources.length > 0 && (
-                <div key={category}>
-                  <h3 className="text-xl font-semibold text-white mb-4 capitalize">
-                    {category.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+        
+        {/* Display LLM Found Resources */}
+        {foundLLMResources && (
+          <div className="mb-8 lg:mb-12 space-y-6">
+             <h2 className="text-xl sm:text-2xl font-semibold text-white">AI Found Resources for "{searchLLMQuery}"</h2>
+            {Object.entries(foundLLMResources).map(([categoryKey, catResources]) => (
+              catResources.length > 0 && (
+                <section key={categoryKey}>
+                  <h3 className="text-lg font-semibold text-purple-300 mb-3 capitalize">
+                    {categoryKey.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} ({catResources.length})
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {resources.map((resource, index) => (
-                      <div key={`${category}-${index}`} className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4 hover:shadow-xl transition-all">
-                        <div className="flex items-start gap-4">
-                          <div className="p-2 bg-gray-700/50 rounded-lg">
-                            {getIcon(category)}
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="text-lg font-semibold text-white mb-2">{resource.title}</h3>
-                            {resource.description && (
-                              <p className="text-gray-400 text-sm mb-3">{resource.description}</p>
-                            )}
-                            {resource.channel && (
-                              <p className="text-gray-400 text-sm mb-2">Channel: {resource.channel}</p>
-                            )}
-                            {resource.duration && (
-                              <p className="text-gray-400 text-sm mb-2">Duration: {resource.duration}</p>
-                            )}
-                            {resource.author && (
-                              <p className="text-gray-400 text-sm mb-2">Author: {resource.author}</p>
-                            )}
-                            {resource.grade_level && (
-                              <p className="text-gray-400 text-sm mb-2">Grade Level: {resource.grade_level}</p>
-                            )}
-                            {resource.type && (
-                              <p className="text-gray-400 text-sm mb-2">Type: {resource.type}</p>
-                            )}
-                            <a
-                              href={resource.link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-2 text-indigo-400 hover:text-indigo-300 transition-colors"
-                            >
-                              <LinkIcon className="w-4 h-4" />
-                              <span>Visit Resource</span>
-                            </a>
-                          </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {catResources.map((resource, index) => (
+                      <motion.div key={`${categoryKey}-${index}`}
+                        initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}
+                        className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-4 hover:border-purple-500/60 transition-colors flex flex-col justify-between">
+                        <div>
+                            <div className="flex items-start gap-3 mb-2">
+                                <div className="p-2 bg-slate-700/60 rounded-lg mt-0.5">
+                                    {getIconForLLM(categoryKey)}
+                                </div>
+                                <h4 className="text-base font-medium text-slate-100 flex-1">{resource.title}</h4>
+                            </div>
+                            {resource.description && <p className="text-xs text-slate-400 mb-2 line-clamp-2">{resource.description}</p>}
+                            <div className="text-xs text-slate-500 space-y-0.5 mb-2">
+                                {resource.channel && <p>Channel: {resource.channel}</p>}
+                                {resource.duration && <p>Duration: {resource.duration}</p>}
+                                {resource.author && <p>Author: {resource.author}</p>}
+                                {resource.type && <p>Type: {resource.type}</p>}
+                                {resource.grade_level && <p>Grade Level: {resource.grade_level}</p>}
+                            </div>
                         </div>
-                      </div>
+                        <a href={resource.link} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-sm text-purple-400 hover:text-purple-300 transition-colors font-medium mt-2 pt-2 border-t border-slate-700/60">
+                          <LinkIconOutline className="w-4 h-4" /> Visit Resource
+                        </a>
+                      </motion.div>
                     ))}
                   </div>
-                </div>
+                </section>
               )
             ))}
+            {Object.values(foundLLMResources).every(arr => arr.length === 0) && (
+                <p className="text-slate-400 text-center py-6">No specific resources found by AI for this query. Try a broader topic or different keywords.</p>
+            )}
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          {[
-            { title: 'Total Resources', value: '2.1K', icon: FolderIcon, trend: '↑12%' },
-            { title: 'Storage Used', value: '84 GB', icon: CloudArrowUpIcon, trend: '↑3.2%' },
-            { title: 'Active Shares', value: '345', icon: ShareIcon, trend: '↑8%' },
-            { title: 'Weekly Views', value: '12.4K', icon: EyeIcon, trend: '↓2.1%' },
-          ].map((stat, index) => (
-            <div key={index} className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-400 text-sm">{stat.title}</p>
-                  <p className="text-2xl font-bold text-white mt-1">{stat.value}</p>
-                  <span className="text-xs text-green-400">{stat.trend}</span>
+
+        {/* User's Uploaded Resources Section */}
+        <div className="mb-6 lg:mb-8">
+            <h2 className="text-xl sm:text-2xl font-semibold text-white mb-5">Your Uploaded Resources</h2>
+            <div className="flex flex-col sm:flex-row gap-4 mb-6 items-center p-4 bg-slate-800/60 backdrop-blur-lg rounded-xl border border-slate-700/50 shadow-lg">
+                <div className="relative flex-1 w-full sm:w-auto">
+                    <MagnifyingGlassIcon className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input type="text" placeholder="Search your resources..."
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-700/70 border border-slate-600/80 rounded-lg text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors text-sm"
+                        value={searchUserResourcesQuery} onChange={(e) => setSearchUserResourcesQuery(e.target.value)}
+                    />
                 </div>
-                <stat.icon className="w-12 h-12 p-2.5 text-cyan-400 bg-cyan-500/20 rounded-xl" />
-              </div>
+                <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}
+                    className="w-full sm:w-auto bg-slate-700/70 border border-slate-600/80 rounded-lg px-4 py-2.5 text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors text-sm appearance-none">
+                    <option value="All">All Categories</option> <option value="Physics">Physics</option> <option value="Computer Science">Computer Science</option> <option value="Mathematics">Mathematics</option> <option value="Literature">Literature</option> <option value="History">History</option>
+                </select>
+                <button onClick={() => setIsGridView(!isGridView)} title={isGridView ? "Switch to List View" : "Switch to Grid View"}
+                    className="p-2.5 bg-slate-700/70 hover:bg-slate-600/70 border border-slate-600/80 rounded-lg text-slate-300 hover:text-purple-300 transition-colors">
+                    {isGridView ? <ListBulletIcon className="w-5 h-5" /> : <Squares2X2Icon className="w-5 h-5" />}
+                </button>
             </div>
-          ))}
+
+            {filteredUserResources.length > 0 ? (
+                <div className={`grid gap-4 sm:gap-5 ${isGridView ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'grid-cols-1'}`}>
+                {filteredUserResources.map(resource => (
+                    isGridView ? <ResourceCard key={resource.id} resource={resource} /> : <ResourceListItem key={resource.id} resource={resource} />
+                ))}
+                </div>
+            ) : (
+                <p className="text-center py-10 text-slate-400">
+                    No resources match your current filters. <button onClick={()=>setShowUploadModal(true)} className="text-purple-400 hover:underline">Upload something new!</button>
+                </p>
+            )}
         </div>
 
-        <div className="flex flex-wrap gap-4 mb-8 items-center bg-gray-800/50 p-4 rounded-xl border border-gray-700/50">
-          <div className="flex items-center gap-2 flex-1">
-            <MagnifyingGlassIcon className="w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search resources..."
-              className="bg-transparent outline-none w-full"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <div className="flex gap-4">
-            <select
-              className="bg-gray-700 rounded-lg px-4 py-2"
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-            >
-              <option>All Categories</option>
-              <option>Science</option>
-              <option>Mathematics</option>
-              <option>Literature</option>
-            </select>
-            <button
-              onClick={() => setIsGridView(!isGridView)}
-              className="p-2 hover:bg-gray-700/50 rounded-lg"
-            >
-              {isGridView ? (
-                <ArrowsPointingOutIcon className="w-5 h-5" />
-              ) : (
-                <div className="flex gap-1">
-                  <div className="w-2 h-2 bg-gray-400 rounded" />
-                  <div className="w-2 h-2 bg-gray-400 rounded" />
-                  <div className="w-2 h-2 bg-gray-400 rounded" />
+
+        {/* Stats & Analytics */}
+        <div className="mb-6 lg:mb-8">
+            <h2 className="text-xl sm:text-2xl font-semibold text-white mb-5">Resource Analytics</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+            {[
+                { title: 'Total Uploads', value: resources.length, icon: FolderIcon, color: 'purple' },
+                { title: 'Total Views', value: resources.reduce((sum, r) => sum + r.views, 0).toLocaleString(), icon: EyeIcon, color: 'blue' },
+                { title: 'Total Shares', value: resources.reduce((sum, r) => sum + r.shares, 0).toLocaleString(), icon: ShareIcon, color: 'green' },
+                { title: 'Avg. File Size', value: `${(resources.reduce((s, r) => s + parseFloat(r.size), 0) / (resources.length || 1)).toFixed(1)} MB`, icon: CloudArrowUpIcon, color: 'amber' },
+            ].map((stat, index) => (
+                <div key={index} className={`bg-slate-800/60 backdrop-blur-lg p-5 rounded-2xl border border-${stat.color}-500/30 shadow-xl hover:shadow-${stat.color}-500/20 transition-all duration-300 hover:-translate-y-1`}>
+                    <div className="flex items-center justify-between">
+                        <stat.icon className={`w-8 h-8 p-1.5 rounded-full bg-${stat.color}-500/20 text-${stat.color}-400`} />
+                    </div>
+                    <p className="text-slate-300 text-sm mt-3 mb-1">{stat.title}</p>
+                    <p className="text-2xl sm:text-3xl font-bold text-white">{stat.value}</p>
                 </div>
-              )}
-            </button>
-          </div>
+            ))}
+            </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {resources.map(resource => (
-                <ResourceCard key={resource.id} resource={resource} />
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-8">
-            <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-6">
-              <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                <TagIcon className="w-6 h-6 text-cyan-400" />
-                Resource Categories
-              </h3>
-              <div className="w-full h-64">
-                <ResponsiveContainer>
-                  <PieChart>
-                    <Pie
-                      data={categoryData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={2}
-                      dataKey="value"
-                    >
-                      {categoryData.map((entry, index) => (
-                        <Cell key={index} fill={COLORS[index % COLORS.length]} />
-                      ))}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 sm:gap-8">
+            <div className="lg:col-span-2 bg-slate-800/60 backdrop-blur-lg p-5 sm:p-6 rounded-2xl border border-slate-700/50 shadow-xl">
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <TagIcon className="w-6 h-6 text-purple-400" />Resource Categories
+                </h3>
+                <div className="h-[250px] sm:h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                    <Pie data={categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius="50%" outerRadius="80%" paddingAngle={2} labelLine={false}
+                            label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
+                                const RADIAN = Math.PI / 180;
+                                const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                                const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                                const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                                return percent > 0.05 ? (
+                                    <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize="10px">
+                                    {`${categoryData[index].name} (${(percent * 100).toFixed(0)}%)`}
+                                    </text>
+                                ) : null;
+                            }}>
+                        {categoryData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.fill} />))}
                     </Pie>
-                  </PieChart>
+                    <Tooltip contentStyle={{ backgroundColor: 'rgba(30, 41, 59, 0.9)', border: '1px solid #334155', borderRadius:'0.5rem', color:'#e2e8f0' }} />
+                    </PieChart>
                 </ResponsiveContainer>
-              </div>
+                </div>
             </div>
-
-            <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-6">
-              <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                <ChartBarIcon className="w-6 h-6 text-green-400" />
-                Weekly Engagement
-              </h3>
-              <div className="w-full h-64">
-                <ResponsiveContainer>
-                  <BarChart data={usageData}>
-                    <XAxis dataKey="day" stroke="#6b7280" />
-                    <YAxis stroke="#6b7280" />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: '#1f2937', border: 'none' }}
-                      itemStyle={{ color: '#e5e7eb' }}
-                    />
-                    <Bar
-                      dataKey="views"
-                      fill="#34d399"
-                      radius={[4, 4, 0, 0]}
-                    />
-                  </BarChart>
+            <div className="lg:col-span-3 bg-slate-800/60 backdrop-blur-lg p-5 sm:p-6 rounded-2xl border border-slate-700/50 shadow-xl">
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <ChartBarIcon className="w-6 h-6 text-green-400" />Weekly Engagement (Views)
+                </h3>
+                <div className="h-[250px] sm:h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={usageData} margin={{ top: 5, right: 5, left: -25, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(71, 85, 105, 0.5)" />
+                    <XAxis dataKey="day" stroke="#94a3b8" fontSize={12} />
+                    <YAxis stroke="#94a3b8" fontSize={12} />
+                    <Tooltip contentStyle={{ backgroundColor: 'rgba(30, 41, 59, 0.9)', border: '1px solid #334155', borderRadius:'0.5rem' }} itemStyle={{ color: '#cbd5e1' }} labelStyle={{ color: '#e2e8f0' }} cursor={{fill: 'rgba(71, 85, 105, 0.3)'}}/>
+                    <Legend wrapperStyle={{fontSize: "12px", paddingTop: "10px"}}/>
+                    <Bar dataKey="views" fill="url(#colorViews)" radius={[4, 4, 0, 0]} barSize={isDesktop ? 25 : 20} />
+                    <defs>
+                        <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10B981" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#10B981" stopOpacity={0.3}/>
+                        </linearGradient>
+                    </defs>
+                    </BarChart>
                 </ResponsiveContainer>
-              </div>
+                </div>
             </div>
-          </div>
         </div>
+
+
       </main>
 
       {showUploadModal && <UploadModal />}
     </div>
   );
 };
+
+const ResourceListItem = ({ resource }) => (
+  <motion.div
+    initial={{ opacity: 0, x: -20 }}
+    animate={{ opacity: 1, x: 0 }}
+    transition={{ duration: 0.3 }}
+    className="bg-slate-800/70 backdrop-blur-md rounded-xl border border-slate-700/60 p-4 hover:border-purple-500/70 transition-all duration-300 hover:shadow-xl flex items-center gap-4"
+  >
+    <div className="flex-shrink-0 w-16 h-16 bg-slate-700 rounded-lg flex items-center justify-center">
+        {resource.type === 'video' ? <VideoCameraIcon className="w-8 h-8 text-red-400" /> :
+         resource.type === 'document' ? <DocumentTextIcon className="w-8 h-8 text-blue-400" /> :
+         resource.type === 'link' ? <LinkIconOutline className="w-8 h-8 text-green-400" /> :
+         resource.type === 'image' ? <PhotoIcon className="w-8 h-8 text-purple-400" /> :
+         <FolderIcon className="w-8 h-8 text-slate-400" />}
+    </div>
+    <div className="flex-1 min-w-0">
+        <h4 className="text-base font-semibold text-slate-100 truncate group-hover:text-purple-300 transition-colors">{resource.title}</h4>
+        <p className="text-xs text-slate-400 mb-1">Category: {resource.category} | Size: {resource.size}</p>
+        <div className="flex flex-wrap gap-1.5">
+          {resource.tags.slice(0, 3).map((tag, index) => (
+            <span key={index} className="px-1.5 py-0.5 text-xs bg-slate-700 rounded-full text-purple-300 border border-slate-600">
+              {tag}
+            </span>
+          ))}
+        </div>
+    </div>
+    <div className="flex-shrink-0 flex flex-col items-end text-xs text-slate-500 gap-1">
+        <span><EyeIcon className="w-3 h-3 inline mr-1" /> {resource.views} views</span>
+        <span><ClockIcon className="w-3 h-3 inline mr-1" /> {resource.uploaded}</span>
+    </div>
+    <button className="p-2 bg-slate-700/80 hover:bg-slate-600/80 rounded-md transition-colors text-slate-400">
+        <EllipsisVerticalIcon className="w-5 h-5" />
+    </button>
+  </motion.div>
+);
+
 
 export default ResourceManagement;
