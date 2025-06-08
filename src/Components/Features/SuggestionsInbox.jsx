@@ -1,20 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom'; // Assuming react-router-dom is used
+import { useNavigate, useLocation } from 'react-router-dom';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import {
   EnvelopeIcon,
-  AcademicCapIcon,
-  ChevronLeftIcon,
-  CheckCircleIcon,
-  ClockIcon,
-  ChatBubbleLeftEllipsisIcon,
-  ArchiveBoxIcon,
-  MagnifyingGlassIcon,
-  BookmarkIcon,
-  UserCircleIcon,
   HomeIcon,
   ChartBarIcon,
-  BellIcon,
   SparklesIcon,
   Bars3Icon,
   XMarkIcon,
@@ -24,24 +14,60 @@ import {
   LanguageIcon,
   DocumentTextIcon,
   PencilIcon,
-  TrashIcon
+  TrashIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  UserCircleIcon,
+  ChevronLeftIcon,
+  ChatBubbleLeftEllipsisIcon,
+  MagnifyingGlassIcon,
+  FolderIcon,
+  ClipboardDocumentIcon,
+  PresentationChartLineIcon,
+  ChatBubbleLeftRightIcon,
+  QuestionMarkCircleIcon,
+  NewspaperIcon,
+  WrenchScrewdriverIcon,
+  VideoCameraIcon,
 } from '@heroicons/react/24/outline';
+import { useMediaQuery } from 'react-responsive';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Initialize Gemini AI
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "YOUR_API_KEY_HERE"; // Fallback for safety
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "YOUR_API_KEY_HERE";
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+
+// --- Student Menu Definition ---
+const studentMenu = [
+  { title: 'Dashboard', Icon: HomeIcon, link: '/dashboard', description: "Overview of your progress." },
+  { title: 'My Resources', Icon: FolderIcon, link: '/resource-utilization', description: "Access course materials." },
+  { title: 'Tests', Icon: ClipboardDocumentIcon, link: '/student-tests', description: "Take and view your test results." },
+  { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-monitoring', description: "Track your attendance." },
+  { title: 'Assignments', Icon: DocumentTextIcon, link: '/assignment-submission', description: "View & submit assignments." },
+  { title: 'Grades & Feedback', Icon: PresentationChartLineIcon, link: '/GradesAndFeedback', description: "Check your grades." },
+  { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/voice-chat', description: "Discuss with peers." },
+  { title: 'Ask Sparky', Icon: QuestionMarkCircleIcon, link: '/chatbot-access', description: "Your AI study assistant." },
+  { title: 'AI Questions', Icon: LightBulbIcon, link: '/ai-generated-questions', description: "Practice with AI questions." },
+  { title: 'Educational News', Icon: NewspaperIcon, link: '/educational-news', description: "Latest in education." },
+  { title: 'Smart Review', Icon: WrenchScrewdriverIcon, link: '/smart-review', description: "Enhance your writing." },
+  { title: 'Virtual Meetings', Icon: VideoCameraIcon, link: '/meeting-participation', description: "Join online classes." },
+  { title: 'My Inbox', Icon: EnvelopeIcon, link: '/inbox-for-suggestions', description: "Messages & suggestions." },
+  { title: 'Upgrade to Pro', Icon: SparklesIcon, link: '/pricing', special: true, description: "Unlock premium features." },
+];
 
 const SuggestionsInbox = () => {
   const [selectedSuggestion, setSelectedSuggestion] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [composeOpen, setComposeOpen] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isGeneratingResponse, setIsGeneratingResponse] = useState(false);
   const [aiResponse, setAiResponse] = useState('');
   const [messageDraft, setMessageDraft] = useState('');
   const [attachments, setAttachments] = useState([]);
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
+  const isDesktop = useMediaQuery({ minWidth: 768 });
+  const location = useLocation();
 
   const initialSuggestions = [
     {
@@ -54,10 +80,10 @@ const SuggestionsInbox = () => {
       status: 'unread',
       priority: 'high',
       fullMessage: `Dear Student,\n\nYour recent paper on climate change shows strong understanding of the core concepts, but could benefit from incorporating more primary sources. Specifically in section 3, you reference several secondary analyses that could be strengthened with data from original research studies.\n\nI'd recommend exploring databases like JSTOR and ScienceDirect for relevant peer-reviewed studies. The university library also has excellent resources to help with this.\n\nAdditionally, your conclusion could better tie back to your thesis statement. The current version feels somewhat abrupt. I've attached the university's official style guide for your reference.\n\nOverall, this is a strong effort and with these improvements could be excellent work. Please don't hesitate to come to office hours if you'd like to discuss further.\n\nBest regards,\nDr. Johnson`,
-      attachments: [ // Added attachments example
+      attachments: [
         { name: 'UniversityStyleGuide.pdf', type: 'pdf', url: '#', size: '780KB' },
         { name: 'CitationExamples.docx', type: 'doc', url: '#', size: '120KB' },
-      ]
+      ],
     },
     {
       id: 2,
@@ -69,7 +95,7 @@ const SuggestionsInbox = () => {
       status: 'read',
       priority: 'medium',
       fullMessage: `Hello,\n\nI've been reviewing your work in our advanced statistics course and believe you have exceptional potential for research roles. Your analytical approach to problem-solving and attention to detail are exactly the skills needed for graduate-level research.\n\nThe university is offering a summer research fellowship that I think would be perfect for you. It's a paid position working with faculty on cutting-edge projects in data science.\n\nI'd be happy to write you a recommendation letter if you're interested. The deadline is April 15th. Let me know if you'd like to discuss this opportunity during office hours.\n\nBest,\nProf. Chen`,
-      attachments: []
+      attachments: [],
     },
     {
       id: 3,
@@ -84,7 +110,7 @@ const SuggestionsInbox = () => {
       attachments: [
         { name: 'Internship_Description_TechAnalytics.pdf', type: 'pdf', url: '#', size: '350KB' },
         { name: 'TechAnalytics_Company_Profile.pdf', type: 'pdf', url: '#', size: '1.2MB' },
-      ]
+      ],
     },
   ];
 
@@ -103,6 +129,14 @@ const SuggestionsInbox = () => {
     low: 'bg-blue-500/20 text-blue-400',
   };
 
+  useEffect(() => {
+    if (isDesktop) {
+      setIsSidebarOpen(true);
+    } else {
+      setIsSidebarOpen(false);
+    }
+  }, [isDesktop]);
+
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files);
     setAttachments([...attachments, ...files.map(f => ({ name: f.name, size: f.size, type: f.type, fileObject: f }))]);
@@ -114,7 +148,6 @@ const SuggestionsInbox = () => {
 
   const generateAiResponse = async () => {
     if (!selectedSuggestion) return;
-    
     setIsGeneratingResponse(true);
     setAiResponse('');
     try {
@@ -132,7 +165,6 @@ const SuggestionsInbox = () => {
       4. Asks any clarifying questions if needed
       
       Keep it concise (2-3 paragraphs max) and in an appropriate academic tone.`;
-      
       const result = await model.generateContent(prompt);
       const response = await result.response;
       const text = response.text();
@@ -148,7 +180,6 @@ const SuggestionsInbox = () => {
 
   const translateMessage = async (targetLanguage = 'Spanish') => {
     if (!selectedSuggestion) return;
-    
     setIsGeneratingResponse(true);
     setAiResponse('');
     try {
@@ -157,13 +188,11 @@ const SuggestionsInbox = () => {
 
       Message to translate:
       "${selectedSuggestion.fullMessage}"`;
-      
       const result = await model.generateContent(prompt);
       const response = await result.response;
       const text = response.text();
       setAiResponse(`${targetLanguage} Translation:\n\n${text}`);
-    } catch (error)
-    {
+    } catch (error) {
       console.error("Translation error:", error);
       setAiResponse(`Error: Could not translate message to ${targetLanguage}.`);
     } finally {
@@ -173,7 +202,6 @@ const SuggestionsInbox = () => {
 
   const summarizeFeedback = async () => {
     if (!selectedSuggestion) return;
-    
     setIsGeneratingResponse(true);
     setAiResponse('');
     try {
@@ -188,11 +216,10 @@ const SuggestionsInbox = () => {
       - [Key point 1]: [Brief explanation]
       - [Key point 2]: [Brief explanation]
       ...`;
-      
       const result = await model.generateContent(prompt);
       const response = await result.response;
       const text = response.text();
-      setAiResponse(text); // The prompt already asks for "Key Action Items:" header
+      setAiResponse(text);
     } catch (error) {
       console.error("Summarization error:", error);
       setAiResponse("Error: Could not summarize feedback.");
@@ -214,79 +241,77 @@ const SuggestionsInbox = () => {
     setMessageDraft('');
     setAttachments([]);
   };
-  
-  const filteredSuggestions = suggestions.filter(suggestion => 
+
+  const filteredSuggestions = suggestions.filter(suggestion =>
     suggestion.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
     suggestion.teacher.toLowerCase().includes(searchQuery.toLowerCase()) ||
     suggestion.preview.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white flex flex-col md:flex-row">
-      {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-40 md:hidden" 
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-gray-800/90 border-r border-gray-700/50 p-6 backdrop-blur-lg transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 md:relative md:translate-x-0 ${isSidebarOpen ? 'block' : 'hidden'} md:block`}>
-        <div className="flex items-center gap-3 mb-8">
-          <div className="p-2 bg-gradient-to-br from-purple-500 to-blue-500 rounded-lg">
-            <AcademicCapIcon className="w-8 h-8 text-white" />
-          </div>
-          <h2 className="text-xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400">
-            Spark IQ
-          </h2>
-        </div>
-        
-        <nav className="space-y-2">
-          <button 
-            className="w-full flex items-center gap-3 p-3 text-purple-300 bg-gradient-to-r from-purple-500/20 to-blue-500/20 rounded-lg hover:from-purple-500/30 hover:to-blue-500/30 transition-all"
-            onClick={() => navigate('/dashboard')} // Ensure this route exists or change
+    <div className="min-h-screen bg-gray-900 flex text-gray-200">
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.aside
+            key="sidebar"
+            initial={{ x: '-100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '-100%' }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30, duration: 0.3 }}
+            className="fixed top-0 left-0 h-full w-64 bg-gray-800/80 backdrop-blur-xl border-r border-gray-700/60 shadow-2xl z-50 flex flex-col md:h-screen md:z-40 md:fixed md:translate-x-0"
           >
-            <HomeIcon className="w-5 h-5" />
-            <span>Dashboard</span>
-          </button>
-          
-          {[
-            { name: 'Inbox', icon: EnvelopeIcon, count: suggestions.filter(s => s.status === 'unread').length },
-            { name: 'Starred', icon: BookmarkIcon, count: 0 },
-            { name: 'Archived', icon: ArchiveBoxIcon, count: 0 }
-          ].map((item) => (
-            <button
-              key={item.name}
-              className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all group ${item.name === 'Inbox' ? 'text-purple-300 bg-purple-500/10' : 'text-gray-300 hover:bg-gray-700/30'}`}
-            >
-              <item.icon className={`w-5 h-5 ${item.name === 'Inbox' ? 'text-purple-400' : 'text-gray-400 group-hover:text-purple-300'}`} />
-              <span>{item.name}</span>
-              {item.count > 0 && <span className="ml-auto text-xs bg-purple-500 text-white px-2 py-1 rounded-full">{item.count}</span>}
-            </button>
-          ))}
-        </nav>
-
-        <div className="mt-8 pt-8 border-t border-gray-700/50">
-          <div className="p-4 bg-gradient-to-r from-purple-500/10 to-blue-500/10 rounded-lg border border-purple-500/20">
-            <div className="flex items-center gap-2 text-purple-300">
-              <SparklesIcon className="w-5 h-5" />
-              <span className="text-sm">AI Assistant</span>
+            <div className="p-5 flex items-center gap-3.5 border-b border-gray-700/60 relative">
+              <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg shadow-lg">
+                <SparklesIcon className="w-7 h-7 text-white" />
+              </div>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">SPARK-IQ</h1>
+              {!isDesktop && (
+                <button
+                  onClick={() => setIsSidebarOpen(false)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-white rounded-full hover:bg-gray-700/50 transition-colors"
+                >
+                  <XMarkIcon className="w-5 h-5" />
+                </button>
+              )}
             </div>
-            <p className="text-xs text-gray-400 mt-2">Get smart replies, translations, and summaries for selected suggestions.</p>
-          </div>
-        </div>
-      </div>
+            <nav className="flex-1 overflow-y-auto p-3 space-y-1.5 styled-scrollbar">
+              {studentMenu.map(item => {
+                const isActive = location.pathname === item.link;
+                return (
+                  <button
+                    key={item.title}
+                    onClick={() => {
+                      navigate(item.link);
+                      if (!isDesktop) setIsSidebarOpen(false);
+                    }}
+                    className={`flex items-center gap-3.5 px-3.5 py-2.5 rounded-lg text-gray-300 transition-all group
+                              ${isActive ? 'bg-indigo-500/30 text-indigo-200 font-semibold shadow-inner' : 'hover:bg-indigo-500/10 hover:text-indigo-300'}
+                              ${item.special ? `mt-auto mb-1 bg-gradient-to-r from-purple-600/90 to-indigo-600/90 !text-white shadow-md hover:shadow-lg hover:opacity-90 ${isActive ? 'ring-2 ring-purple-400' : ''}` : ''}`}
+                  >
+                    <item.Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-indigo-300' : 'text-indigo-400'} group-hover:scale-110 transition-transform`} />
+                    <span className="text-sm font-medium">{item.title}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </motion.aside>
+        )}
+      </AnimatePresence>
+      {isSidebarOpen && !isDesktop && <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
 
-      <div className="flex-1 flex flex-col overflow-x-hidden">
+      <div className="flex-1 flex flex-col overflow-x-hidden md:ml-64">
+        {!isDesktop && (
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="fixed left-4 top-4 z-40 p-2 bg-gray-800/80 backdrop-blur-sm rounded-lg hover:bg-gray-700 transition-colors shadow-lg"
+          >
+            <Bars3Icon className="w-6 h-6 text-gray-300" />
+          </button>
+        )}
         <div className="p-4 md:p-6 border-b border-gray-700/50 flex items-center justify-between bg-gradient-to-r from-gray-800/70 to-gray-900/70 backdrop-blur-sm sticky top-0 z-30">
           <div className="flex items-center gap-2 md:gap-4">
-            <button 
-              className="md:hidden p-2 hover:bg-gray-700/30 rounded-lg transition-all"
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            >
-              {isSidebarOpen ? <XMarkIcon className="w-6 h-6 text-gray-300" /> : <Bars3Icon className="w-6 h-6 text-gray-300" />}
-            </button>
             {selectedSuggestion ? (
-              <button 
+              <button
                 onClick={() => setSelectedSuggestion(null)}
                 className="p-2 hover:bg-gray-700/30 rounded-lg transition-all flex items-center gap-2"
               >
@@ -304,7 +329,6 @@ const SuggestionsInbox = () => {
               </div>
             )}
           </div>
-          
           <div className="flex items-center gap-2 md:gap-4">
             {!selectedSuggestion && (
               <div className="relative flex-1 max-w-xs">
@@ -318,16 +342,10 @@ const SuggestionsInbox = () => {
                 />
               </div>
             )}
-            <button className="p-2 bg-gray-700/50 rounded-xl hover:bg-gray-700/70 transition-all relative">
-              <BellIcon className="w-6 h-6 text-gray-300" />
-              {suggestions.filter(s => s.status === 'unread').length > 0 && 
-                <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-gray-800"></span>
-              }
-            </button>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-6">
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 styled-scrollbar">
           {!selectedSuggestion ? (
             <div className="grid grid-cols-1 gap-4">
               {filteredSuggestions.length > 0 ? filteredSuggestions.map((suggestion) => (
@@ -364,8 +382,8 @@ const SuggestionsInbox = () => {
                       </div>
                     </div>
                     <div className="flex flex-col items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      <button 
-                        className="p-1.5 hover:bg-red-500/20 rounded-lg" 
+                      <button
+                        className="p-1.5 hover:bg-red-500/20 rounded-lg"
                         title="Delete"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -396,7 +414,7 @@ const SuggestionsInbox = () => {
                         <CheckCircleIcon className="w-5 h-5" />
                         <span>Verified Instructor</span>
                       </div>
-                      <button 
+                      <button
                         onClick={() => handleDeleteSuggestion(selectedSuggestion.id)}
                         className="p-2 hover:bg-red-500/20 rounded-lg transition-all"
                         title="Delete"
@@ -429,7 +447,6 @@ const SuggestionsInbox = () => {
                   ))}
                 </div>
 
-                {/* Received Attachments Section */}
                 {selectedSuggestion.attachments && selectedSuggestion.attachments.length > 0 && (
                   <div className="p-4 md:p-6 border-t border-gray-700/50 bg-gray-800/20">
                     <h4 className="text-md font-semibold text-gray-200 mb-3 flex items-center gap-2">
@@ -440,11 +457,11 @@ const SuggestionsInbox = () => {
                       {selectedSuggestion.attachments.map((file, index) => (
                         <a
                           key={index}
-                          href={file.url || '#'} 
+                          href={file.url || '#'}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center justify-between gap-2 p-2.5 bg-gray-700/40 hover:bg-gray-700/60 rounded-lg transition-colors text-purple-300 hover:text-purple-200 group"
-                          download={file.name} 
+                          download={file.name}
                         >
                           <div className="flex items-center gap-2 overflow-hidden">
                             <DocumentTextIcon className="w-5 h-5 text-gray-400 group-hover:text-purple-300 transition-colors" />
@@ -473,7 +490,7 @@ const SuggestionsInbox = () => {
 
                 <div className="p-4 md:p-6 border-t border-gray-700/50 bg-gray-800/50 rounded-b-xl flex flex-wrap items-center justify-between gap-4">
                   <div className="flex flex-wrap gap-3">
-                    <button 
+                    <button
                       onClick={generateAiResponse}
                       disabled={isGeneratingResponse}
                       className="px-4 py-2 text-sm bg-purple-500/20 text-purple-300 rounded-xl hover:bg-purple-500/30 flex items-center gap-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
@@ -481,7 +498,7 @@ const SuggestionsInbox = () => {
                       <SparklesIcon className="w-5 h-5" />
                       <span>{isGeneratingResponse && aiResponse.includes('Generating...') ? 'Generating...' : 'AI Reply Draft'}</span>
                     </button>
-                    <button 
+                    <button
                       onClick={() => translateMessage()}
                       disabled={isGeneratingResponse}
                       className="px-4 py-2 text-sm bg-blue-500/20 text-blue-300 rounded-xl hover:bg-blue-500/30 flex items-center gap-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
@@ -489,7 +506,7 @@ const SuggestionsInbox = () => {
                       <LanguageIcon className="w-5 h-5" />
                       <span>Translate</span>
                     </button>
-                    <button 
+                    <button
                       onClick={summarizeFeedback}
                       disabled={isGeneratingResponse}
                       className="px-4 py-2 text-sm bg-amber-500/20 text-amber-300 rounded-xl hover:bg-amber-500/30 flex items-center gap-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
@@ -505,7 +522,7 @@ const SuggestionsInbox = () => {
         </div>
 
         {!selectedSuggestion && (
-          <button 
+          <button
             className="fixed bottom-6 right-6 sm:bottom-8 sm:right-8 p-3.5 sm:p-4 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full hover:from-purple-600 hover:to-blue-600 shadow-xl transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2 focus:ring-offset-gray-900"
             onClick={() => setComposeOpen(true)}
             title="Compose New Message"
@@ -519,47 +536,52 @@ const SuggestionsInbox = () => {
             <div className="bg-gray-800 rounded-xl p-4 md:p-6 max-w-2xl w-full shadow-2xl border border-gray-700/50" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold text-white">New Message</h2>
-                <button 
+                <button
                   onClick={() => setComposeOpen(false)}
                   className="p-1.5 hover:bg-gray-700/50 rounded-lg transition-all"
                 >
                   <XMarkIcon className="w-6 h-6 text-gray-400" />
                 </button>
               </div>
-              
               <div className="space-y-4">
-                {/* Simplified compose form - can be expanded */}
                 <div>
                   <label className="block text-sm text-gray-400 mb-1">To</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     className="w-full p-3 bg-gray-700/60 border border-gray-600 rounded-lg text-white placeholder-gray-400/70 focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
                     placeholder="Teacher or Admin email"
                   />
                 </div>
                 <div>
                   <label className="block text-sm text-gray-400 mb-1">Subject</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     className="w-full p-3 bg-gray-700/60 border border-gray-600 rounded-lg text-white placeholder-gray-400/70 focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
                     placeholder="Message subject"
                   />
                 </div>
                 <div>
                   <label className="block text-sm text-gray-400 mb-1">Message</label>
-                  <textarea 
+                  <textarea
                     className="w-full p-3 bg-gray-700/60 border border-gray-600 rounded-lg text-white placeholder-gray-400/70 min-h-[150px] focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
                     placeholder="Type your message here..."
                   />
                 </div>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-2">
-                  <button 
-                    onClick={() => fileInputRef.current?.click()} // Re-use existing ref or create new one if needed
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
                     className="flex items-center gap-2 px-4 py-2 bg-gray-700/50 text-gray-300 rounded-lg hover:bg-gray-700/70 transition-all text-sm"
                   >
                     <ArrowUpTrayIcon className="w-5 h-5" />
                     Attach Files
                   </button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    multiple
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
                   <div className="flex gap-3 w-full sm:w-auto">
                     <button className="flex-1 sm:flex-none px-4 py-2.5 bg-gray-700/50 text-gray-300 rounded-xl hover:bg-gray-700/70 transition-all text-sm">
                       Save Draft
@@ -574,6 +596,27 @@ const SuggestionsInbox = () => {
           </div>
         )}
       </div>
+      <style jsx global>{`
+        .styled-scrollbar::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+        }
+        .styled-scrollbar::-webkit-scrollbar-track {
+          background: rgba(55, 65, 81, 0.5);
+          border-radius: 10px;
+        }
+        .styled-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(107, 114, 128, 0.7);
+          border-radius: 10px;
+        }
+        .styled-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(156, 163, 175, 0.9);
+        }
+        .styled-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(107, 114, 128, 0.7) rgba(55, 65, 81, 0.5);
+        }
+      `}</style>
     </div>
   );
 };
