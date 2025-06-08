@@ -1,19 +1,20 @@
+
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom'; // Using react-router-dom
+import { Link, useLocation } from 'react-router-dom';
 import { Bar, Doughnut, Line } from 'react-chartjs-2';
 import { Chart as ChartJS, registerables } from 'chart.js';
-import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore'; // Added limit
-import { db, auth } from '../../firebase/firebaseConfig'; // Ensure this path is correct
+import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { db, auth } from '../../firebase/firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
+import { useMediaQuery } from 'react-responsive';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   CalendarIcon,
   CheckCircleIcon,
   XCircleIcon,
   ClockIcon,
-  ArrowPathIcon, // Not directly used in final UI, but kept if needed for future refresh
   DocumentTextIcon,
   SparklesIcon,
-  UsersIcon, // Kept for consistency if used elsewhere, though studentMenu has specific icons
   VideoCameraIcon,
   ChatBubbleLeftRightIcon,
   PresentationChartLineIcon,
@@ -21,7 +22,6 @@ import {
   EnvelopeIcon,
   MagnifyingGlassIcon,
   ClipboardDocumentIcon,
-  ChevronLeftIcon,
   Bars3Icon,
   ChartBarIcon,
   FolderIcon,
@@ -29,24 +29,21 @@ import {
   ArrowTrendingUpIcon,
   ChevronDownIcon,
   ChevronUpIcon,
-  HomeIcon, // From new studentMenu
-  QuestionMarkCircleIcon, // From new studentMenu
-  LightBulbIcon, // From new studentMenu
-  NewspaperIcon, // From new studentMenu
-  WrenchScrewdriverIcon, // From new studentMenu
+  HomeIcon,
+  QuestionMarkCircleIcon,
+  LightBulbIcon,
+  NewspaperIcon,
+  WrenchScrewdriverIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
-// DatePicker and its CSS are not used in the final UI, but kept imports if needed later
-// import DatePicker from 'react-datepicker';
-// import 'react-datepicker/dist/react-datepicker.css';
 
 ChartJS.register(...registerables);
 
-// Student menu from the second code block
 const studentMenu = [
   { title: 'Dashboard', Icon: HomeIcon, link: '/dashboard', description: "Overview of your progress." },
   { title: 'My Resources', Icon: FolderIcon, link: '/resource-utilization', description: "Access course materials." },
   { title: 'Tests', Icon: ClipboardDocumentIcon, link: '/student-tests', description: "Take and view your test results." },
-  { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-monitoring', active: true, description: "Track your attendance." },
+  { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-monitoring', description: "Track your attendance." },
   { title: 'Assignments', Icon: DocumentTextIcon, link: '/assignment-submission', description: "View & submit assignments." },
   { title: 'Grades & Feedback', Icon: PresentationChartLineIcon, link: '/GradesAndFeedback', description: "Check your grades." },
   { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/voice-chat', description: "Discuss with peers." },
@@ -55,32 +52,28 @@ const studentMenu = [
   { title: 'Educational News', Icon: NewspaperIcon, link: '/educational-news', description: "Latest in education." },
   { title: 'Smart Review', Icon: WrenchScrewdriverIcon, link: '/smart-review', description: "Enhance your writing." },
   { title: 'Virtual Meetings', Icon: VideoCameraIcon, link: '/meeting-participation', description: "Join online classes." },
-  // { title: 'Chat Platform', Icon: ChatBubbleLeftRightIcon, link: '/chat-functionality', description: "Connect with peers." }, // Duplicate functionality with Voice Chat?
   { title: 'My Inbox', Icon: EnvelopeIcon, link: '/inbox-for-suggestions', description: "Messages & suggestions." },
   { title: 'Upgrade to Pro', Icon: SparklesIcon, link: '/pricing', special: true, description: "Unlock premium features." },
 ];
 
-
 const AttendanceMonitoring = () => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1024); // Default open on desktop
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedRow, setExpandedRow] = useState(null);
-
   const [currentUser, setCurrentUser] = useState(null);
   const [fetchedData, setFetchedData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+  const isDesktop = useMediaQuery({ minWidth: 768 });
+  const location = useLocation();
 
-
-  // Sample data structure (used as fallback or initial structure)
   const initialSampleData = {
     monthlyData: {
       labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-      present: [0,0,0,0,0,0],
-      absent: [0,0,0,0,0,0],
-      late: [0,0,0,0,0,0], // Assuming 'late' might be a status
+      present: [0, 0, 0, 0, 0, 0],
+      absent: [0, 0, 0, 0, 0, 0],
+      late: [0, 0, 0, 0, 0, 0],
     },
     attendanceStats: {
       present: 0,
@@ -91,29 +84,19 @@ const AttendanceMonitoring = () => {
     dailyAttendance: [],
   };
 
-
   useEffect(() => {
-    const handleResize = () => {
-      const mobile = window.innerWidth < 1024;
-      setIsMobile(mobile);
-      if (!mobile) {
-        setIsSidebarOpen(true); // Keep sidebar open on desktop
-      } else {
-        setIsSidebarOpen(false); // Close sidebar by default on mobile
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-    handleResize(); // Initial check
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
+    if (isDesktop) {
+      setIsSidebarOpen(true);
+    } else {
+      setIsSidebarOpen(false);
+    }
+  }, [isDesktop]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         setCurrentUser(user);
-        fetchData(user.uid); // Pass user ID to fetch data for this specific user
+        fetchData(user.uid);
       } else {
         setCurrentUser(null);
         setFetchedData(null);
@@ -129,12 +112,10 @@ const AttendanceMonitoring = () => {
     setError(null);
     try {
       const attendanceRef = collection(db, 'attendance');
-      // Query for records specific to the logged-in student, ordered by date
       const q = query(
         attendanceRef,
         where('studentId', '==', studentId),
         orderBy('date', 'desc')
-        // limit(180) // Fetch records for approx last 6 months for stats, daily records can be limited further later
       );
       const snapshot = await getDocs(q);
       
@@ -155,7 +136,7 @@ const AttendanceMonitoring = () => {
     } catch (err) {
       console.error("Error fetching data:", err);
       setError("Failed to fetch attendance data. Please try again.");
-      setFetchedData(initialSampleData); // Fallback to empty structure on error
+      setFetchedData(initialSampleData);
     } finally {
       setLoading(false);
     }
@@ -166,25 +147,24 @@ const AttendanceMonitoring = () => {
     const monthlyAggregates = {};
     const today = new Date();
 
-    // Initialize for the last 6 months including current
     for (let i = 5; i >= 0; i--) {
-        const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; // YYYY-MM
-        monthlyAggregates[monthKey] = { present: 0, absent: 0, late: 0, label: monthNames[d.getMonth()] };
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      monthlyAggregates[monthKey] = { present: 0, absent: 0, late: 0, label: monthNames[d.getMonth()] };
     }
     
     records.forEach(record => {
-      if (record.date) { // Ensure date exists
-        const recordDate = new Date(record.date + "T00:00:00"); // Ensure date is parsed correctly
+      if (record.date) {
+        const recordDate = new Date(record.date + "T00:00:00");
         const monthKey = `${recordDate.getFullYear()}-${String(recordDate.getMonth() + 1).padStart(2, '0')}`;
         
         if (monthlyAggregates[monthKey]) {
-          if (record.isPresent) { // Assuming 'isPresent' boolean field
+          if (record.isPresent) {
             monthlyAggregates[monthKey].present += 1;
-          } else if (record.isLate) { // Assuming 'isLate' boolean field
-             monthlyAggregates[monthKey].late += 1;
+          } else if (record.isLate) {
+            monthlyAggregates[monthKey].late += 1;
           } else {
-             monthlyAggregates[monthKey].absent += 1;
+            monthlyAggregates[monthKey].absent += 1;
           }
         }
       }
@@ -205,39 +185,34 @@ const AttendanceMonitoring = () => {
     
     records.forEach(record => {
       if (record.isPresent) present++;
-      else if (record.isLate) late++; // Assuming 'isLate' field
+      else if (record.isLate) late++;
       else absent++;
     });
     
     const totalRecorded = present + absent + late;
-    const overallPercentage = totalRecorded > 0 ? parseFloat(((present + late * 0.5) / totalRecorded * 100).toFixed(1)) : 0; // Late counts as half present for percentage
+    const overallPercentage = totalRecorded > 0 ? parseFloat(((present + late * 0.5) / totalRecorded * 100).toFixed(1)) : 0;
     
     return { present, absent, late, overallPercentage };
   };
 
   const processDailyRecords = (records) => {
-    // Show last 30 daily records for the table, or fewer if less data
     return records.slice(0, 30).map(record => {
       let status = 'absent';
       if (record.isPresent) status = 'present';
-      if (record.isLate) status = 'late'; // Assuming 'isLate' field for 'late' status
+      if (record.isLate) status = 'late';
 
       return {
         id: record.id,
-        date: record.date, // Assuming date is in 'YYYY-MM-DD' format
+        date: record.date,
         status: status,
-        time: record.checkInTime || null, // Assuming 'checkInTime' field like '08:45 AM'
-        // Trend data needs more complex historical aggregation logic or can be a placeholder
-        // For now, a placeholder or a very simple calculation based on recent history could be used.
-        // Let's use a placeholder to match the original UI's expectation of a 4-value array.
-        trend: [70, 75, 80, record.isPresent ? 90 : (record.isLate ? 60 : 40)], // Placeholder trend
+        time: record.checkInTime || null,
+        trend: [70, 75, 80, record.isPresent ? 90 : (record.isLate ? 60 : 40)],
       };
     });
   };
 
   const dataToUse = fetchedData || initialSampleData;
 
-  // Enhanced Chart Options (from original UI)
   const commonChartOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -293,7 +268,6 @@ const AttendanceMonitoring = () => {
       x: { ...commonChartOptions.scales.x, display: false },
     },
   };
-
 
   const doughnutChartAPIData = {
     labels: ['Present', 'Absent', 'Late'],
@@ -351,17 +325,16 @@ const AttendanceMonitoring = () => {
     (record.date.toLowerCase().includes(searchQuery.toLowerCase()) || record.status.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-
-  if (loading && !fetchedData) { // Show full page loader only on initial load
+  if (loading && !fetchedData) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">
-        <ArrowPathIcon className="w-8 h-8 animate-spin mr-3 text-indigo-400" />
+        <SparklesIcon className="w-8 h-8 animate-spin mr-3 text-indigo-400" />
         Loading your attendance data...
       </div>
     );
   }
 
-  if (error && !fetchedData) { // Show full page error only if no data could be loaded initially
+  if (error && !fetchedData) {
     return (
       <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center text-center p-4">
         <XCircleIcon className="w-16 h-16 text-red-400 mb-4" />
@@ -379,75 +352,51 @@ const AttendanceMonitoring = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 flex text-gray-200">
-      <aside
-        className={`fixed top-0 left-0 h-screen w-64 bg-gray-800/95 backdrop-blur-md border-r border-gray-700/50 transform transition-transform duration-300 ease-in-out ${
-          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } z-50 flex flex-col shadow-2xl lg:translate-x-0`}
-      >
-        <div className="h-full flex flex-col">
-          <div className="p-6 relative">
-             <div className="absolute w-36 h-36 bg-indigo-600/10 rounded-full -top-12 -right-12 blur-2xl opacity-50" />
-             <div className="absolute w-48 h-48 bg-purple-600/10 rounded-full -bottom-20 -left-16 blur-2xl opacity-50" />
-            <div className="flex items-center gap-3 mb-8 relative">
-              {isMobile && ( // Only show close button on mobile if sidebar is explicitly opened
-                 <button
-                    onClick={() => setIsSidebarOpen(false)}
-                    className="absolute -right-2 top-1/2 -translate-y-1/2 p-1.5 bg-gray-800 rounded-full hover:bg-gray-700 transition-colors lg:hidden"
-                 >
-                    <ChevronLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-200" />
-                 </button>
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.aside 
+            key="sidebar"
+            initial={{ x: '-100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '-100%' }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30, duration: 0.3 }}
+            className={`fixed top-0 left-0 h-full w-64 bg-gray-800/80 backdrop-blur-xl border-r border-gray-700/60 shadow-2xl z-50 flex flex-col md:h-screen md:z-40 md:fixed md:translate-x-0`}
+          >
+            <div className="p-5 flex items-center gap-3.5 border-b border-gray-700/60 relative">
+              <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg shadow-lg">
+                <SparklesIcon className="w-7 h-7 text-white" />
+              </div>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">SPARK-IQ</h1>
+              {!isDesktop && (
+                <button onClick={() => setIsSidebarOpen(false)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-white rounded-full hover:bg-gray-700/50 transition-colors">
+                  <XMarkIcon className="w-5 h-5"/>
+                </button>
               )}
-              <ClipboardDocumentIcon className="w-8 h-8 text-indigo-400 animate-pulse" />
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent [text-shadow:0_0_8px_theme(colors.indigo.500_/_0.4)]">
-                SPARK-IQ
-              </h1>
             </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto px-4 pb-4 styled-scrollbar">
-            <nav>
-              <ul className="space-y-1.5">
-                {studentMenu.map((item) => (
-                  <li key={item.title}>
-                    <Link
-                      to={item.link}
-                      onClick={() => isMobile && setIsSidebarOpen(false)} // Close on mobile click
-                      className={`flex items-center gap-x-3.5 px-3.5 py-2.5 rounded-lg transition-all duration-200 group hover:bg-gray-700/70 ${
-                        item.active 
-                          ? 'bg-indigo-500/15 text-indigo-300 border-l-4 border-indigo-400 font-semibold shadow-inner shadow-indigo-500/10' 
-                          : `text-gray-400 hover:text-gray-100 ${item.special ? '' : 'hover:translate-x-1'}`
-                      } ${item.special ? 'mt-4 border-t border-gray-700 pt-4' : ''}`}
-                    >
-                      <item.Icon className={`w-5 h-5 flex-shrink-0 ${item.active ? 'text-indigo-400' : (item.special ? 'text-yellow-400' : 'text-gray-500 group-hover:text-indigo-400 transition-colors')}`} />
-                      <span className="text-sm">{item.title}</span>
-                      {item.special && (
-                        <span className="ml-auto text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full">Pro</span>
-                      )}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+            <nav className="flex-1 overflow-y-auto p-3 space-y-1.5 scrollbar-thin scrollbar-thumb-gray-600 hover:scrollbar-thumb-gray-500 scrollbar-track-gray-800/50 scrollbar-thumb-rounded-md">
+              {studentMenu.map(item => {
+                const isActive = location.pathname === item.link;
+                return (
+                  <Link key={item.title} to={item.link} onClick={() => !isDesktop && setIsSidebarOpen(false)}
+                        className={`flex items-center gap-3.5 px-3.5 py-2.5 rounded-lg text-gray-300 transition-all group
+                                  ${isActive ? 'bg-indigo-500/30 text-indigo-200 font-semibold shadow-inner' : 'hover:bg-indigo-500/10 hover:text-indigo-300'}
+                                  ${item.special ? `mt-auto mb-1 bg-gradient-to-r from-purple-600/90 to-indigo-600/90 !text-white shadow-md hover:shadow-lg hover:opacity-90 ${isActive ? 'ring-2 ring-purple-400' : ''}` : ''}`}>
+                    <item.Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-indigo-300' : 'text-indigo-400'} group-hover:scale-110 transition-transform`} />
+                    <span className="text-sm font-medium">{item.title}</span>
+                  </Link>
+                );
+              })}
             </nav>
-          </div>
-          <div className="p-4 mt-auto border-t border-gray-700/50">
-            {currentUser ? (
-                <div className="text-xs text-gray-500">Logged in as: <span className="font-medium text-gray-400">{currentUser.email}</span></div>
-            ) : (
-                <div className="text-xs text-gray-500">Not logged in</div>
-            )}
-          </div>
-        </div>
-      </aside>
+          </motion.aside>
+        )}
+      </AnimatePresence>
+      {isSidebarOpen && !isDesktop && <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
 
-      <main
-        className={`flex-1 p-6 sm:p-8 overflow-y-auto relative transition-margin duration-300 ease-in-out ${
-          isSidebarOpen && isMobile ? 'ml-64' : (!isSidebarOpen && isMobile ? 'ml-0' : 'lg:ml-64') // Adjust margin based on sidebar state and screen size
-        }`}
-      >
-        {isMobile && !isSidebarOpen && ( // Show hamburger only on mobile when sidebar is closed
+      <main className={`flex-1 p-6 sm:p-8 overflow-y-auto relative transition-margin duration-300 ease-in-out md:ml-64`}>
+        {!isDesktop && (
           <button
             onClick={() => setIsSidebarOpen(true)}
-            className="fixed left-4 top-4 z-40 p-2 bg-gray-800/80 backdrop-blur-sm rounded-lg hover:bg-gray-700 transition-colors shadow-lg lg:hidden"
+            className="fixed left-4 top-4 z-40 p-2 bg-gray-800/80 backdrop-blur-sm rounded-lg hover:bg-gray-700 transition-colors shadow-lg"
           >
             <Bars3Icon className="w-6 h-6 text-gray-300" />
           </button>
@@ -465,7 +414,7 @@ const AttendanceMonitoring = () => {
                 Track your attendance, view trends, and manage records efficiently.
               </p>
             </div>
-             {error && <div className="mt-2 text-sm text-red-400 bg-red-900/30 p-2 rounded-md">{error}</div>}
+            {error && <div className="mt-2 text-sm text-red-400 bg-red-900/30 p-2 rounded-md">{error}</div>}
             <button className="mt-4 sm:mt-0 p-2.5 bg-gray-800 border border-gray-700 rounded-lg hover:bg-indigo-500/20 hover:border-indigo-500/40 transition-all duration-300 group"
                 title="Print Attendance Report"
                 onClick={() => window.print()}
@@ -611,7 +560,6 @@ const AttendanceMonitoring = () => {
                             <div className="h-40">
                               <Line data={trendDataForChart(record.trend)} options={trendLineChartOptions} />
                             </div>
-                            {/* You can add more details here, e.g., record.subject, record.notes */}
                             <p className="text-xs text-gray-500 mt-2">More detailed information for {record.date} could be shown here.</p>
                           </div>
                         </td>
@@ -641,17 +589,16 @@ const AttendanceMonitoring = () => {
           height: 8px;
         }
         .styled-scrollbar::-webkit-scrollbar-track {
-          background: rgba(55, 65, 81, 0.5); /* gray-700 with opacity */
+          background: rgba(55, 65, 81, 0.5);
           border-radius: 10px;
         }
         .styled-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(107, 114, 128, 0.7); /* gray-500 with opacity */
+          background: rgba(107, 114, 128, 0.7);
           border-radius: 10px;
         }
         .styled-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(156, 163, 175, 0.9); /* gray-400 with opacity */
+          background: rgba(156, 163, 175, 0.9);
         }
-        /* For Firefox */
         .styled-scrollbar {
           scrollbar-width: thin;
           scrollbar-color: rgba(107, 114, 128, 0.7) rgba(55, 65, 81, 0.5);
