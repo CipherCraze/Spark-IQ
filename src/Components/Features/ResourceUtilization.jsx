@@ -1,5 +1,8 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import { useMediaQuery } from 'react-responsive';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   FolderIcon,
   DocumentMagnifyingGlassIcon,
@@ -7,29 +10,31 @@ import {
   VideoCameraIcon,
   TrashIcon,
   ShareIcon,
-  PlusCircleIcon, // Keep for potential future use (e.g., add local resource)
+  PlusCircleIcon,
   SparklesIcon,
-  UsersIcon,
   PresentationChartLineIcon,
   ChatBubbleLeftRightIcon,
   EnvelopeIcon,
-  // ArrowsPointingOutIcon, // Replaced with ArchiveBoxIcon for zip
-  ArchiveBoxIcon, // For zip files
-  ChevronLeftIcon,
+  ArchiveBoxIcon,
   Bars3Icon,
   ClipboardDocumentIcon,
   DocumentTextIcon,
   ChartBarIcon,
-  // ArrowUpTrayIcon, // Replaced with PaperAirplaneIcon for search or CloudArrowUpIcon for upload
-  PaperAirplaneIcon, // For search submit
+  PaperAirplaneIcon,
   MagnifyingGlassIcon,
   LinkIcon,
-  PlayCircleIcon, // More visually distinct for video
+  PlayCircleIcon,
   DocumentIcon,
-  AcademicCapIcon, // For courses
-  LightBulbIcon,   // For exercises/practice
-  ExclamationTriangleIcon, // For errors
-  InformationCircleIcon, // For info messages
+  AcademicCapIcon,
+  LightBulbIcon,
+  ExclamationTriangleIcon,
+  InformationCircleIcon,
+  HomeIcon,
+  QuestionMarkCircleIcon,
+  NewspaperIcon,
+  WrenchScrewdriverIcon,
+  XMarkIcon,
+  CheckCircleIcon,
 } from '@heroicons/react/24/outline';
 
 // Debounce function
@@ -43,21 +48,33 @@ const debounce = (func, delay) => {
   };
 };
 
+// Student menu
+const studentMenu = [
+  { title: 'Dashboard', Icon: HomeIcon, link: '/dashboard', description: "Overview of your progress." },
+  { title: 'My Resources', Icon: FolderIcon, link: '/resource-utilization', description: "Access course materials." },
+  { title: 'Tests', Icon: ClipboardDocumentIcon, link: '/student-tests', description: "Take and view your test results." },
+  { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-monitoring', description: "Track your attendance." },
+  { title: 'Assignments', Icon: DocumentTextIcon, link: '/assignment-submission', description: "View & submit assignments." },
+  { title: 'Grades & Feedback', Icon: PresentationChartLineIcon, link: '/GradesAndFeedback', description: "Check your grades." },
+  { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/voice-chat', description: "Discuss with peers." },
+  { title: 'Ask Sparky', Icon: QuestionMarkCircleIcon, link: '/chatbot-access', description: "Your AI study assistant." },
+  { title: 'AI Questions', Icon: LightBulbIcon, link: '/ai-generated-questions', description: "Practice with AI questions." },
+  { title: 'Educational News', Icon: NewspaperIcon, link: '/educational-news', description: "Latest in education." },
+  { title: 'Smart Review', Icon: WrenchScrewdriverIcon, link: '/smart-review', description: "Enhance your writing." },
+  { title: 'Virtual Meetings', Icon: VideoCameraIcon, link: '/meeting-participation', description: "Join online classes." },
+  { title: 'My Inbox', Icon: EnvelopeIcon, link: '/inbox-for-suggestions', description: "Messages & suggestions." },
+  { title: 'Upgrade to Pro', Icon: SparklesIcon, link: '/pricing', special: true, description: "Unlock premium features." },
+];
 
-// Function to call Gemini API (minor logging adjustment for production)
+// Function to call Gemini API
 const fetchResourcesFromLLM = async (query) => {
   try {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     if (!apiKey) {
       console.error('Gemini API key is missing. Ensure VITE_GEMINI_API_KEY is set in your .env file.');
-      // In a real app, you might want to show a user-facing error here.
       return { error: 'API key not configured', courses: [], videos: [], books: [], websites: [], exercises: [] };
     }
 
-    // console.log('Using API Key:', apiKey.substring(0, 5) + '...'); // Debug: remove or conditionalize for prod
-
-    // Using a more specific model - check for latest recommended models if issues arise.
-    // gemini-1.5-flash-latest might be a good alternative.
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: {
@@ -82,16 +99,15 @@ const fetchResourcesFromLLM = async (query) => {
             `
           }]
         }],
-        // Add generationConfig for better control
         "generationConfig": {
-          "responseMimeType": "application/json", // Request JSON directly
-          "temperature": 0.3, // Lower temperature for more factual/structured output
+          "responseMimeType": "application/json",
+          "temperature": 0.3,
         }
       })
     });
 
     if (!response.ok) {
-      const errorText = await response.text(); // Get raw error text
+      const errorText = await response.text();
       console.error('API Error Response Text:', errorText);
       let errorDetail = 'Unknown API error';
       try {
@@ -104,17 +120,11 @@ const fetchResourcesFromLLM = async (query) => {
     }
 
     const data = await response.json();
-    // console.log('Gemini API Parsed Response:', data); // Debug log
-
     if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
       console.warn('Unexpected response structure from Gemini API:', data);
       throw new Error('Invalid response format from Gemini API (no candidates or content)');
     }
     
-    // Since we requested application/json, data.candidates[0].content.parts[0].text should be the JSON string
-    // or data itself might be the direct JSON object if the API handles responseMimeType perfectly.
-    // The Gemini API with "responseMimeType": "application/json" should put the JSON directly in parts[0].text or similar.
-    // However, sometimes it might still be a string that needs parsing.
     let resources = data.candidates[0].content.parts[0].text;
     if (typeof resources === 'string') {
       try {
@@ -125,14 +135,11 @@ const fetchResourcesFromLLM = async (query) => {
       }
     }
 
-    // console.log('Parsed Resources:', resources); // Debug log
-    // Ensure all categories exist, even if empty, to prevent runtime errors
     const defaultStructure = { courses: [], videos: [], books: [], websites: [], exercises: [] };
     return { ...defaultStructure, ...resources };
 
   } catch (error) {
     console.error('Error fetching or processing resources:', error);
-    // Return a default structure with an error flag
     return {
       error: error.message || 'Failed to fetch resources',
       courses: [],
@@ -144,29 +151,46 @@ const fetchResourcesFromLLM = async (query) => {
   }
 };
 
-
 const ResourceUtilization = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [submittedQuery, setSubmittedQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
-  const [foundResources, setFoundResources] = useState(null); // null initially, then object
+  const [foundResources, setFoundResources] = useState(null);
   const [searchError, setSearchError] = useState(null);
+  const isDesktop = useMediaQuery({ minWidth: 768 });
+  const location = useLocation();
 
   const [localResources, setLocalResources] = useState([
-    { id: 1, name: 'Calculus Fundamentals', type: 'folder', items: [
+    {
+      id: 1,
+      name: 'Calculus Fundamentals',
+      type: 'folder',
+      items: [
         { id: 11, name: 'Chapter 1 - Limits.pdf', type: 'pdf', uploaded: '2024-03-01' },
         { id: 12, name: 'Derivative Rules.mp4', type: 'video', uploaded: '2024-03-02' },
         { id: 13, name: 'Integration Techniques.pdf', type: 'pdf', uploaded: '2024-03-05' },
       ],
     },
-    { id: 2, name: 'Physics Mechanics', type: 'folder', items: [
+    {
+      id: 2,
+      name: 'Physics Mechanics',
+      type: 'folder',
+      items: [
         { id: 21, name: 'Lab Report Template.docx', type: 'doc', uploaded: '2024-03-03' },
         { id: 22, name: 'Newtonian Motion Sim.zip', type: 'zip', uploaded: '2024-03-08' },
       ],
     },
     { id: 3, name: 'Python Programming Basics.pdf', type: 'pdf', uploaded: '2024-02-15' }
   ]);
+
+  useEffect(() => {
+    if (isDesktop) {
+      setIsSidebarOpen(true);
+    } else {
+      setIsSidebarOpen(false);
+    }
+  }, [isDesktop]);
 
   const getLocalResourceIcon = (type) => {
     switch (type.toLowerCase()) {
@@ -183,7 +207,7 @@ const ResourceUtilization = () => {
     if (!query.trim()) return;
     
     setIsSearching(true);
-    setFoundResources(null); // Clear previous results
+    setFoundResources(null);
     setSearchError(null);
     setSubmittedQuery(query);
 
@@ -191,11 +215,11 @@ const ResourceUtilization = () => {
       const resourcesData = await fetchResourcesFromLLM(query);
       if (resourcesData.error) {
         setSearchError(resourcesData.error);
-        setFoundResources({ courses: [], videos: [], books: [], websites: [], exercises: [] }); // Ensure structure
+        setFoundResources({ courses: [], videos: [], books: [], websites: [], exercises: [] });
       } else {
         setFoundResources(resourcesData);
       }
-    } catch (error) { // Should be caught by fetchResourcesFromLLM, but as a fallback
+    } catch (error) {
       console.error('Error in handleSearch:', error);
       setSearchError(error.message || 'An unexpected error occurred.');
       setFoundResources({ courses: [], videos: [], books: [], websites: [], exercises: [] });
@@ -204,18 +228,6 @@ const ResourceUtilization = () => {
     }
   };
 
-  // Debounced search can be re-added if auto-search on type is desired.
-  // For now, using explicit search button.
-  // const debouncedSearch = useCallback(debounce(handleSearch, 800), []);
-  // useEffect(() => {
-  //   if (searchQuery.trim()) {
-  //     debouncedSearch(searchQuery);
-  //   } else {
-  //     setFoundResources(null); // Clear results if search query is empty
-  //     setSearchError(null);
-  //   }
-  // }, [searchQuery, debouncedSearch]);
-  
   const onSearchSubmit = (e) => {
     e.preventDefault();
     handleSearch(searchQuery);
@@ -295,76 +307,48 @@ const ResourceUtilization = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 flex text-gray-200">
-      {/* Sidebar - using previously enhanced style, adapt as needed */}
-       <aside
-        className={`fixed top-0 left-0 h-screen w-64 bg-gray-800/95 backdrop-blur-md border-r border-gray-700/50 transform transition-transform duration-300 ease-in-out ${
-          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } z-50 flex flex-col shadow-2xl`}
-      >
-        <div className="h-full flex flex-col">
-          <div className="p-6 relative">
-            <div className="absolute w-36 h-36 bg-indigo-600/10 rounded-full -top-12 -right-12 blur-2xl opacity-50" />
-            <div className="absolute w-48 h-48 bg-purple-600/10 rounded-full -bottom-20 -left-16 blur-2xl opacity-50" />
-            <div className="flex items-center gap-3 mb-8 relative">
-              <button
-                onClick={() => setIsSidebarOpen(false)}
-                className="absolute -right-2 top-1/2 -translate-y-1/2 p-1.5 bg-gray-800 rounded-full hover:bg-gray-700 transition-colors"
-              >
-                <ChevronLeftIcon className="w-5 h-5 text-gray-400 hover:text-gray-200" />
-              </button>
-              <ClipboardDocumentIcon className="w-8 h-8 text-indigo-400 animate-pulse" />
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent [text-shadow:0_0_8px_theme(colors.indigo.500_/_0.4)]">
-                SPARK-IQ
-              </h1>
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.aside 
+            key="sidebar"
+            initial={{ x: '-100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '-100%' }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30, duration: 0.3 }}
+            className={`fixed top-0 left-0 h-full w-64 bg-gray-800/80 backdrop-blur-xl border-r border-gray-700/60 shadow-2xl z-50 flex flex-col md:h-screen md:z-40 md:fixed md:translate-x-0`}
+          >
+            <div className="p-5 flex items-center gap-3.5 border-b border-gray-700/60 relative">
+              <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg shadow-lg">
+                <SparklesIcon className="w-7 h-7 text-white" />
+              </div>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">SPARK-IQ</h1>
+              {!isDesktop && (
+                <button onClick={() => setIsSidebarOpen(false)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-white rounded-full hover:bg-gray-700/50 transition-colors">
+                  <XMarkIcon className="w-5 h-5"/>
+                </button>
+              )}
             </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto px-4 pb-4 styled-scrollbar">
-            <nav>
-              <ul className="space-y-1.5">
-                {[
-                  { title: 'Dashboard', link: '/dashboard', Icon: ChartBarIcon },
-                  { title: 'Assignments', link: '/assignment-submission', Icon: DocumentTextIcon },
-                  { title: 'Tests', Icon: ClipboardDocumentIcon, link: '/student-tests' },
-                  { title: 'Resources', link: '/resource-utilization', Icon: FolderIcon, active: true },
-                  { title: 'Attendance', Icon: CheckCircleIcon, link: '/attendance-monitoring' },
-                  { title: 'Grades & Feedback', Icon: PresentationChartLineIcon, link: '/GradesAndFeedback' },
-                  { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/voice-chat' },
-                  { title: 'Ask Sparky', Icon: SparklesIcon, link: '/chatbot-access' },
-                  { title: 'AI Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
-                  { title: 'News Feed', Icon: UsersIcon, link: '/educational-news' },
-                  { title: 'Smart Review', Icon: DocumentMagnifyingGlassIcon, link: '/smart-review' },
-                  { title: 'Meetings', Icon: VideoCameraIcon, link: '/meeting-participation' },
-                  { title: 'Inbox', Icon: EnvelopeIcon, link: '/inbox-for-suggestions' },
-                ].map((item) => (
-                  <li key={item.title}>
-                    <Link
-                      to={item.link}
-                      className={`flex items-center gap-x-3.5 px-3.5 py-2.5 rounded-lg transition-all duration-200 group hover:bg-gray-700/70 ${
-                        item.active 
-                          ? 'bg-indigo-500/15 text-indigo-300 border-l-4 border-indigo-400 font-semibold shadow-inner shadow-indigo-500/10' 
-                          : 'text-gray-400 hover:text-gray-100 hover:translate-x-1'
-                      }`}
-                    >
-                      <item.Icon className={`w-5 h-5 flex-shrink-0 ${item.active ? 'text-indigo-400' : 'text-gray-500 group-hover:text-indigo-400 transition-colors'}`} />
-                      <span className="text-sm">{item.title}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+            <nav className="flex-1 overflow-y-auto p-3 space-y-1.5 scrollbar-thin scrollbar-thumb-gray-600 hover:scrollbar-thumb-gray-500 scrollbar-track-gray-800/50 scrollbar-thumb-rounded-md">
+              {studentMenu.map(item => {
+                const isActive = location.pathname === item.link;
+                return (
+                  <Link key={item.title} to={item.link} onClick={() => !isDesktop && setIsSidebarOpen(false)}
+                        className={`flex items-center gap-3.5 px-3.5 py-2.5 rounded-lg text-gray-300 transition-all group
+                                  ${isActive ? 'bg-indigo-500/30 text-indigo-200 font-semibold shadow-inner' : 'hover:bg-indigo-500/10 hover:text-indigo-300'}
+                                  ${item.special ? `mt-auto mb-1 bg-gradient-to-r from-purple-600/90 to-indigo-600/90 !text-white shadow-md hover:shadow-lg hover:opacity-90 ${isActive ? 'ring-2 ring-purple-400' : ''}` : ''}`}>
+                    <item.Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-indigo-300' : 'text-indigo-400'} group-hover:scale-110 transition-transform`} />
+                    <span className="text-sm font-medium">{item.title}</span>
+                  </Link>
+                );
+              })}
             </nav>
-          </div>
-        </div>
-      </aside>
+          </motion.aside>
+        )}
+      </AnimatePresence>
+      {isSidebarOpen && !isDesktop && <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
 
-
-      {/* Main Content */}
-      <main
-        className={`flex-1 p-6 sm:p-8 overflow-y-auto relative transition-margin duration-300 ease-in-out ${
-          isSidebarOpen ? 'ml-64' : 'ml-0'
-        }`}
-      >
-        {!isSidebarOpen && (
+      <main className={`flex-1 p-6 sm:p-8 overflow-y-auto relative transition-margin duration-300 ease-in-out md:ml-64`}>
+        {!isDesktop && (
           <button
             onClick={() => setIsSidebarOpen(true)}
             className="fixed left-4 top-4 z-40 p-2 bg-gray-800/80 backdrop-blur-sm rounded-lg hover:bg-gray-700 transition-colors shadow-lg"
@@ -414,7 +398,6 @@ const ResourceUtilization = () => {
           </div>
         </form>
 
-        {/* Search Results Section */}
         <div className="mb-12">
           {isSearching && (
             <div>
@@ -462,16 +445,14 @@ const ResourceUtilization = () => {
           )}
 
           {!isSearching && !foundResources && !searchError && (
-             <div className="max-w-2xl mx-auto p-6 text-center">
-                <InformationCircleIcon className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-gray-300 mb-2">Ready to Explore?</h3>
-                <p className="text-gray-400 text-sm">Enter a topic above to find relevant learning resources.</p>
-              </div>
+            <div className="max-w-2xl mx-auto p-6 text-center">
+              <InformationCircleIcon className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-300 mb-2">Ready to Explore?</h3>
+              <p className="text-gray-400 text-sm">Enter a topic above to find relevant learning resources.</p>
+            </div>
           )}
         </div>
 
-
-        {/* Local Resources */}
         <div className="mt-12 sm:mt-16">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 sm:mb-8">
             <h3 className="text-2xl sm:text-3xl font-semibold text-gray-100 flex items-center gap-3 mb-3 sm:mb-0 [text-shadow:0_0_8px_theme(colors.amber.500_/_0.2)]">
@@ -495,7 +476,7 @@ const ResourceUtilization = () => {
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-gray-700/60 rounded-md">
-                        {getLocalResourceIcon(resource.type)}
+                      {getLocalResourceIcon(resource.type)}
                     </div>
                     <h4 className="text-md font-semibold text-gray-100 group-hover:text-purple-300 transition-colors">{resource.name}</h4>
                   </div>
@@ -521,7 +502,7 @@ const ResourceUtilization = () => {
                         <span className="text-xs text-gray-500 ml-auto shrink-0">{item.uploaded}</span>
                       </div>
                     ))}
-                     {resource.items.length === 0 && <p className="text-xs text-gray-500 p-2">This folder is empty.</p>}
+                    {resource.items.length === 0 && <p className="text-xs text-gray-500 p-2">This folder is empty.</p>}
                   </div>
                 ) : (
                   <div className="text-sm text-gray-400">
@@ -534,42 +515,46 @@ const ResourceUtilization = () => {
                 )}
               </div>
             ))}
-             {localResources.length === 0 && (
-                <div className="md:col-span-2 lg:col-span-3 text-center py-10">
-                    <FolderIcon className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-                    <p className="text-gray-500 text-lg">No local resources yet.</p>
-                    <p className="text-gray-600 text-sm">Click "Upload New" to add your files and folders.</p>
-                </div>
-             )}
+            {localResources.length === 0 && (
+              <div className="md:col-span-2 lg:col-span-3 text-center py-10">
+                <FolderIcon className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                <p className="text-gray-500 text-lg">No local resources yet.</p>
+                <p className="text-gray-600 text-sm">Click "Upload New" to add your files and folders.</p>
+              </div>
+            )}
           </div>
         </div>
 
         <footer className="mt-12 sm:mt-16 pt-8 border-t border-gray-700/50 text-center text-sm text-gray-500">
-            Spark-IQ Smart Resource Finder © {new Date().getFullYear()}
+          Spark-IQ Smart Resource Finder © {new Date().getFullYear()}
         </footer>
       </main>
       
-      <style jsx global>{`
+      <style>{`
         .styled-scrollbar::-webkit-scrollbar {
           width: 8px;
           height: 8px;
         }
         .styled-scrollbar::-webkit-scrollbar-track {
-          background: rgba(55, 65, 81, 0.5); /* gray-700 with opacity */
+          background: rgba(55, 65, 81, 0.5);
           border-radius: 10px;
         }
         .styled-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(107, 114, 128, 0.7); /* gray-500 with opacity */
+          background: rgba(107, 114, 128, 0.7);
           border-radius: 10px;
         }
         .styled-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(156, 163, 175, 0.9); /* gray-400 with opacity */
+          background: rgba(156, 163, 175, 0.9);
         }
         .styled-scrollbar-thin::-webkit-scrollbar {
           width: 6px;
         }
         .styled-scrollbar-thin::-webkit-scrollbar-thumb {
           background: rgba(107, 114, 128, 0.5);
+        }
+        .styled-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(107, 114, 128, 0.7) rgba(55, 65, 81, 0.5);
         }
         .line-clamp-3 {
           display: -webkit-box;
@@ -581,8 +566,5 @@ const ResourceUtilization = () => {
     </div>
   );
 };
-
-// Make sure CheckCircleIcon is imported if used in sidebar
-import { CheckCircleIcon } from '@heroicons/react/24/outline';
 
 export default ResourceUtilization;
