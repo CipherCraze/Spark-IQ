@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   ClipboardDocumentIcon,
   UserGroupIcon,
   CalendarIcon,
   ChartBarIcon,
   DocumentTextIcon,
-  // FunnelIcon, // Not used in final merged version
   ArrowPathIcon,
   VideoCameraIcon,
   LightBulbIcon,
@@ -27,57 +26,57 @@ import {
   XMarkIcon,
   Bars3Icon,
   EllipsisVerticalIcon,
-  PlusIcon
+  PlusIcon,
+  PresentationChartLineIcon,
+  GlobeAltIcon,
+  ChevronLeftIcon,
+  ArrowLeftOnRectangleIcon,
+  Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
+import { UserGroupIcon as SolidUserGroupIcon } from '@heroicons/react/24/solid';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from 'recharts';
 import { motion } from 'framer-motion';
 import { collection, query, where, getDocs, orderBy, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
-import { db, auth } from '../../firebase/firebaseConfig'; // Ensure this path is correct
-import { onAuthStateChanged } from 'firebase/auth';
+import { db, auth } from '../../firebase/firebaseConfig';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 
-// Educator menu from the original UI (first file)
-const educatorMenu = [
-  { title: 'Dashboard', Icon: AcademicCapIcon, link: '/educator-dashboard' },
-  { title: 'Assignments', Icon: ClipboardDocumentIcon, link: '/assignment-management' },
-  { title: 'Grades', Icon: DocumentTextIcon, link: '/grading-system' },
-  { title: 'Resources', Icon: FolderIcon, link: '/resource-management' },
-  { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
-  { title: 'Feedback', Icon: LightBulbIcon, link: '/feedback-dashboard' },
-  { title: 'Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
-  { title: 'News', Icon: UsersIcon, link: '/educational-news' }, // Original used UsersIcon
-  { title: 'Suggestions', Icon: EnvelopeIcon, link: '/suggestions-to-students' },
-  { title: 'Meetings', Icon: VideoCameraIcon, link: '/meeting-host' },  
-  { title: 'Announcements', Icon: MegaphoneIcon, link: '/announcements' },
-  // Adding Attendance to this menu if it's part of the educator's tools
-  { title: 'Attendance', Icon: ClipboardDocumentIcon, link: '/attendance-tracking' }, // Assuming this page's link
+// Educator menu from the provided input
+const educatorSidebarMenu = [
+  { title: 'Dashboard', Icon: PresentationChartLineIcon, link: '/educator-dashboard', current: false },
+  { title: 'Assignments', Icon: ClipboardDocumentIcon, link: '/assignment-management', current: false },
+  { title: 'Tests', Icon: ClipboardDocumentIcon, link: '/teacher-tests', current: false },
+  { title: 'Grades & Analytics', Icon: AcademicCapIcon, link: '/GradesAndAnalytics', current: false },
+  { title: 'Resources', Icon: FolderIcon, link: '/resource-management', current: false },
+  { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-tracking', current: true },
+  { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/teacher-voice-chat', current: false },
+  { title: 'AI Chatbot (Ask Sparky)', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education', current: false },
+  { title: 'AI Questions', Icon: SparklesIcon, link: '/ai-generated-questions', current: false },
+  { title: 'Social / Chat', Icon: SolidUserGroupIcon, link: '/chat-functionality', current: false },
+  { title: 'Educational News', Icon: GlobeAltIcon, link: '/educational-news', current: false },
+  { title: 'Student Suggestions', Icon: EnvelopeIcon, link: '/suggestions-to-students', current: false },
+  { title: 'Meetings & Conferences', Icon: VideoCameraIcon, link: '/meeting-host', current: false },
+  { title: 'Announcements', Icon: MegaphoneIcon, link: '/announcements', current: false },
+  { title: 'Upgrade to Pro', Icon: SparklesIcon, link: '/pricing', current: false, special: true },
 ];
 
-
 const AttendanceTracking = () => {
-  // State management
-  const [students, setStudents] = useState([]); // All students fetched
-  const [filteredStudents, setFilteredStudents] = useState([]); // Students for selected batch
-  const [attendanceRecords, setAttendanceRecords] = useState([]); // Attendance for selected batch & date
-  
+  const [students, setStudents] = useState([]);
+  const [filteredStudents, setFilteredStudents] = useState([]);
+  const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [selectedBatch, setSelectedBatch] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [searchQuery, setSearchQuery] = useState('');
-  
   const [showBatchSelector, setShowBatchSelector] = useState(false);
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
   const [newStudent, setNewStudent] = useState({ name: '', rollNo: '', email: '' });
-  
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
-  
   const [batches, setBatches] = useState([]);
-  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [saving, setSaving] = useState(false); // For individual attendance save
-  // const [saveSuccess, setSaveSuccess] = useState(false); // Optional: for UX feedback
+  const [saving, setSaving] = useState(false);
+  const navigate = useNavigate();
 
-  // Handle window resize
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 1024);
@@ -89,7 +88,6 @@ const AttendanceTracking = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Firebase Auth listener and initial data fetch
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
@@ -102,17 +100,17 @@ const AttendanceTracking = () => {
         setSelectedBatch('');
         setLoading(false);
         setError("Please log in to view attendance data.");
+        navigate('/login');
       }
     });
     return () => unsubscribe();
-  }, []);
+  }, [navigate]);
 
   const fetchStudentsAndBatches = async () => {
     setLoading(true);
     setError(null);
     try {
       const studentsRef = collection(db, 'students');
-      // TODO: If students are teacher-specific, add a where clause for teacherId
       const q = query(studentsRef, orderBy('name'));
       const querySnapshot = await getDocs(q);
       
@@ -140,11 +138,10 @@ const AttendanceTracking = () => {
       console.error('Error fetching students:', err);
       setError('Failed to fetch students. Please try again.');
     } finally {
-      setLoading(false); // Loading for students/batches done here
+      setLoading(false);
     }
   };
 
-  // Filter students when selectedBatch or all students change
   useEffect(() => {
     if (selectedBatch) {
       setFilteredStudents(students.filter(s => s.batch === selectedBatch));
@@ -153,7 +150,6 @@ const AttendanceTracking = () => {
     }
   }, [selectedBatch, students]);
 
-  // Fetch attendance records when selectedBatch or selectedDate changes
   useEffect(() => {
     if (!selectedBatch || !selectedDate) {
       setAttendanceRecords([]);
@@ -161,7 +157,7 @@ const AttendanceTracking = () => {
     }
 
     const fetchAttendance = async () => {
-      setLoading(true); // Consider a more granular loading state if preferred
+      setLoading(true);
       setError(null);
       try {
         const attendanceRef = collection(db, 'attendance');
@@ -188,10 +184,8 @@ const AttendanceTracking = () => {
     fetchAttendance();
   }, [selectedBatch, selectedDate]);
 
-
-  // Toggle attendance status (Firebase update)
   const handleAttendanceChange = async (studentId, currentIsPresent) => {
-    if (saving) return; // Prevent multiple quick clicks
+    if (saving) return;
     setSaving(true);
     const newIsPresent = !currentIsPresent;
 
@@ -201,12 +195,11 @@ const AttendanceTracking = () => {
         attendanceRef,
         where('studentId', '==', studentId),
         where('date', '==', selectedDate),
-        where('batch', '==', selectedBatch) // Ensure batch is part of the query
+        where('batch', '==', selectedBatch)
       );
       const querySnapshot = await getDocs(q);
 
       if (querySnapshot.empty) {
-        // Create new attendance record
         const newRecordRef = await addDoc(attendanceRef, {
           studentId,
           batch: selectedBatch,
@@ -214,19 +207,14 @@ const AttendanceTracking = () => {
           isPresent: newIsPresent,
           markedAt: serverTimestamp()
         });
-        // Update local state optimistically or after fetch
         setAttendanceRecords(prev => [...prev, { id: newRecordRef.id, studentId, batch: selectedBatch, date: selectedDate, isPresent: newIsPresent }]);
       } else {
-        // Update existing record
         const docRef = doc(db, 'attendance', querySnapshot.docs[0].id);
         await updateDoc(docRef, { isPresent: newIsPresent, markedAt: serverTimestamp() });
-        // Update local state
         setAttendanceRecords(prev => prev.map(r => 
           r.id === querySnapshot.docs[0].id ? { ...r, isPresent: newIsPresent } : r
         ));
       }
-      // setSaveSuccess(true); // Optional UX
-      // setTimeout(() => setSaveSuccess(false), 2000);
     } catch (err) {
       console.error('Error updating attendance:', err);
       setError('Failed to update attendance. Please try again.');
@@ -235,26 +223,24 @@ const AttendanceTracking = () => {
     }
   };
 
-  // Add new student (Firebase add)
   const handleAddStudentSubmit = async (e) => {
     e.preventDefault();
     if (!newStudent.name || !newStudent.rollNo || !newStudent.email) {
       setError("All fields are required to add a student.");
       return;
     }
-    setLoading(true); // Use a specific loading for modal if preferred
+    setLoading(true);
     try {
       await addDoc(collection(db, 'students'), {
         name: newStudent.name,
         rollNo: newStudent.rollNo,
         email: newStudent.email,
-        batch: selectedBatch, // Assign to current selected batch
-        // Add other default fields if necessary, e.g., year, photoURL: null
+        batch: selectedBatch,
         createdAt: serverTimestamp(),
       });
       setShowAddStudentModal(false);
       setNewStudent({ name: '', rollNo: '', email: '' });
-      await fetchStudentsAndBatches(); // Re-fetch students to include the new one
+      await fetchStudentsAndBatches();
     } catch (err) {
       console.error('Error adding student:', err);
       setError('Failed to add student. Please try again.');
@@ -263,22 +249,30 @@ const AttendanceTracking = () => {
     }
   };
 
-  // Derived data for UI
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      localStorage.removeItem('profileUser');
+      navigate('/login');
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
+  };
+
   const studentsToDisplay = filteredStudents.filter(student => 
     student.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     student.rollNo?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const presentCount = attendanceRecords.filter(r => r.isPresent).length;
-  const absentCount = filteredStudents.length - presentCount; // Assumes all students in batch should have a record or are implicitly absent
+  const absentCount = filteredStudents.length - presentCount;
 
   const attendanceStatsPie = [
     { name: 'Present', value: presentCount },
-    { name: 'Absent', value: absentCount > 0 ? absentCount : 0 }, // Ensure non-negative
+    { name: 'Absent', value: absentCount > 0 ? absentCount : 0 },
   ];
   const COLORS = ['#10b981', '#ef4444'];
 
-  // Static monthly trend data from original UI
   const monthlyTrendData = [
     { name: 'Week 1', present: 85, absent: 15 },
     { name: 'Week 2', present: 78, absent: 22 },
@@ -286,7 +280,7 @@ const AttendanceTracking = () => {
     { name: 'Week 4', present: 88, absent: 12 },
   ];
 
-  if (loading && students.length === 0) { // Show full page loading only on initial load
+  if (loading && students.length === 0) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <ArrowPathIcon className="w-10 h-10 text-blue-500 animate-spin" />
@@ -294,59 +288,77 @@ const AttendanceTracking = () => {
       </div>
     );
   }
-  
-  // Removed overallAttendance from students, this was dummy.
-  // Stats will be based on current day or need more complex aggregation.
 
   return (
-    <div className="min-h-screen bg-gray-900 flex">
-      {sidebarOpen && isMobile && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      <aside className={`fixed top-0 left-0 h-screen w-64 bg-gray-800 border-r border-gray-700/50 z-50 flex flex-col transition-transform duration-300 ease-in-out ${
-        isMobile ? (sidebarOpen ? 'translate-x-0' : '-translate-x-full') : ''
-      }`}>
-        <div className="p-6">
-          <div className="flex items-center gap-3 mb-8">
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
-              SPARK IQ
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-900 to-gray-900 flex text-slate-100">
+      {/* Desktop Sidebar */}
+      <aside className={`fixed top-0 left-0 h-screen w-64 bg-slate-800/70 backdrop-blur-2xl border-r border-slate-700/50 transform transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} z-50 flex flex-col shadow-2xl lg:translate-x-0`}>
+        <div className="p-5 border-b border-slate-700/50">
+          <Link to="/educator-dashboard" className="flex items-center gap-3 group">
+            <GlobeAltIcon className="w-10 h-10 text-purple-500 group-hover:text-purple-400 transition-all duration-300 transform group-hover:rotate-[20deg] group-hover:scale-110" />
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-500 via-pink-500 to-blue-500 bg-clip-text text-transparent group-hover:opacity-90 transition-opacity">
+              SPARK-IQ
             </h1>
-          </div>
-          <nav>
-            <ul className="space-y-2">
-              {educatorMenu.map((item, index) => (
-                <li key={index}>
-                  <Link
-                    to={item.link}
-                    className={`flex items-center gap-3 p-3 rounded-lg transition-all duration-300 group ${
-                      // Example active link styling (customize as needed)
-                      window.location.pathname === item.link 
-                      ? 'bg-gray-700 text-white' 
-                      : 'text-gray-300 hover:bg-gray-700/50'
-                    }`}
-                    onClick={() => isMobile && setSidebarOpen(false)}
-                  >
-                    <item.Icon className={`w-5 h-5 transition-colors ${
-                       window.location.pathname === item.link 
-                       ? 'text-purple-400'
-                       : 'text-indigo-400 group-hover:text-purple-400'
-                    }`} />
-                    <span>{item.title}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
+          </Link>
         </div>
+        <nav className="flex-1 overflow-y-auto p-3 space-y-1.5 custom-scrollbar">
+          {educatorSidebarMenu.map((item) => (
+            <Link
+              key={item.title}
+              to={item.link}
+              className={`group flex items-center gap-3.5 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ease-in-out
+                ${item.current 
+                  ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg ring-1 ring-purple-500/60 transform scale-[1.01]' 
+                  : item.special 
+                    ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-white font-semibold hover:from-amber-500 hover:to-orange-600 shadow-md hover:shadow-lg'
+                    : 'text-slate-300 hover:bg-slate-700/60 hover:text-purple-300 hover:shadow-md'
+                }`}
+            >
+              <item.Icon className={`w-5 h-5 flex-shrink-0 ${item.current ? 'text-white' : item.special ? 'text-white/90' : 'text-slate-400 group-hover:text-purple-300'} transition-colors`} />
+              <span>{item.title}</span>
+            </Link>
+          ))}
+        </nav>
       </aside>
 
-      <main className={`flex-1 p-4 lg:p-8 transition-all duration-300 ${
-        !isMobile ? 'ml-64' : ''
-      }`}>
+      {/* Mobile Sidebar */}
+      <aside className={`fixed top-0 left-0 h-full w-72 bg-slate-800/95 backdrop-blur-xl border-r border-slate-700/60 transform transition-transform duration-300 ease-in-out z-[60] flex flex-col shadow-2xl ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:hidden`}>
+        <div className="p-5 border-b border-slate-700/60 flex justify-between items-center">
+          <Link to="/educator-dashboard" className="flex items-center gap-2.5 group" onClick={() => setSidebarOpen(false)}>
+            <GlobeAltIcon className="w-7 h-7 text-purple-400 group-hover:text-purple-300 transition-colors" />
+            <h1 className="text-xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent">SPARK-IQ</h1>
+          </Link>
+          <button onClick={() => setSidebarOpen(false)} className="p-2 text-slate-400 hover:bg-slate-700/70 rounded-full">
+            <ChevronLeftIcon className="w-6 h-6" />
+          </button>
+        </div>
+        <nav className="flex-1 overflow-y-auto p-3 space-y-1 custom-scrollbar">
+          {educatorSidebarMenu.map((item) => (
+            <Link
+              key={item.title}
+              to={item.link}
+              onClick={() => setSidebarOpen(false)}
+              className={`group flex items-center gap-3 px-3.5 py-3 text-sm font-medium rounded-lg transition-colors ${
+                item.current ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-md' : 'text-slate-200 hover:bg-slate-700/70 hover:text-white'
+              }`}
+            >
+              <item.Icon className={`w-5 h-5 ${item.current ? 'text-white' : 'text-slate-400 group-hover:text-purple-300'}`} />
+              {item.title}
+            </Link>
+          ))}
+        </nav>
+        <div className="p-4 border-t border-slate-700/60">
+          <Link to="/educator-settings" onClick={() => setSidebarOpen(false)} className="group flex items-center gap-2.5 p-2.5 text-sm text-slate-200 hover:bg-slate-700/70 hover:text-purple-300 rounded-lg transition-colors">
+            <Cog6ToothIcon className="w-5 h-5 text-slate-400 group-hover:text-purple-300" /> Settings
+          </Link>
+          <button onClick={handleLogout} className="group flex items-center gap-2.5 w-full mt-1.5 p-2.5 text-sm text-red-400 hover:bg-red-500/20 hover:text-red-300 rounded-lg transition-colors">
+            <ArrowLeftOnRectangleIcon className="w-5 h-5 text-red-500 group-hover:text-red-400" /> Logout
+          </button>
+        </div>
+      </aside>
+      {sidebarOpen && <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 lg:hidden" onClick={() => setSidebarOpen(false)}></div>}
+
+      <main className={`flex-1 p-4 lg:p-8 transition-all duration-300 ${!isMobile ? 'ml-64' : ''}`}>
         <div className="lg:hidden flex items-center justify-between mb-6">
           <button 
             onClick={() => setSidebarOpen(true)}
@@ -438,7 +450,7 @@ const AttendanceTracking = () => {
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
               className="bg-transparent outline-none w-full text-gray-300"
-              style={{ colorScheme: 'dark' }} // For better date picker appearance in dark mode
+              style={{ colorScheme: 'dark' }}
             />
           </div>
 
@@ -470,7 +482,7 @@ const AttendanceTracking = () => {
             },
             { 
               title: 'Absent Today', 
-              value: absentCount < 0 ? 0 : absentCount, // Ensure non-negative
+              value: absentCount < 0 ? 0 : absentCount, 
               icon: XCircleIcon,
               color: 'red'
             },
@@ -539,7 +551,7 @@ const AttendanceTracking = () => {
                     <tbody>
                       {studentsToDisplay.map(student => {
                         const record = attendanceRecords.find(r => r.studentId === student.id);
-                        const isPresent = record ? record.isPresent : false; // Default to absent if no record
+                        const isPresent = record ? record.isPresent : false;
                         
                         return (
                           <tr key={student.id} className="border-b border-gray-700/50 hover:bg-gray-800/30 transition-colors text-sm lg:text-base">
@@ -568,7 +580,7 @@ const AttendanceTracking = () => {
                               <div className="w-full bg-gray-700 rounded-full h-2">
                                 <div 
                                   className={`h-2 rounded-full ${isPresent ? 'bg-gradient-to-r from-green-400 to-emerald-500' : 'bg-red-500'}`}
-                                  style={{ width: record ? `100%` : '0%' }} // Show 100% if present/absent recorded, 0 if no record
+                                  style={{ width: record ? `100%` : '0%' }}
                                 />
                               </div>
                               <p className="text-xs text-gray-400 mt-1">{record ? (isPresent ? 'Recorded Present' : 'Recorded Absent') : 'No Record Yet'}</p>
@@ -585,8 +597,6 @@ const AttendanceTracking = () => {
                               >
                                 {isPresent ? 'Mark Absent' : 'Mark Present'}
                               </button>
-                              {/* Placeholder for history button if needed later */}
-                              {/* <button className="ml-2 px-2 py-1 rounded-lg text-xs bg-blue-500/20 hover:bg-blue-500/30 text-blue-400">History</button> */}
                             </td>
                           </tr>
                         );
@@ -685,10 +695,6 @@ const AttendanceTracking = () => {
                   <DocumentTextIcon className="w-4 h-4 lg:w-5 lg:h-5 text-purple-400" />
                   <span>Generate Report</span>
                 </button>
-                {/* <button className="w-full flex items-center gap-2 lg:gap-3 p-2 lg:p-3 bg-green-600/20 hover:bg-green-600/30 rounded-lg transition-colors text-sm lg:text-base text-green-300">
-                  <UserGroupIcon className="w-4 h-4 lg:w-5 lg:h-5 text-green-400" />
-                  <span>View All Batches</span>
-                </button> */}
               </div>
             </div>
           </div>
