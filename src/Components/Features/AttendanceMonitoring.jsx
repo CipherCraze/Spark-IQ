@@ -382,7 +382,7 @@ const AttendanceMonitoring = () => {
       <aside
         className={`fixed top-0 left-0 h-screen w-64 bg-gray-800/95 backdrop-blur-md border-r border-gray-700/50 transform transition-transform duration-300 ease-in-out ${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } z-50 flex flex-col shadow-2xl lg:translate-x-0`} // Always show on lg
+        } z-50 flex flex-col shadow-2xl lg:translate-x-0`}
       >
         <div className="h-full flex flex-col">
           <div className="p-6 relative">
@@ -635,7 +635,7 @@ const AttendanceMonitoring = () => {
         </footer>
       </main>
 
-      <style jsx global>{`
+      <style>{`
         .styled-scrollbar::-webkit-scrollbar {
           width: 8px;
           height: 8px;
