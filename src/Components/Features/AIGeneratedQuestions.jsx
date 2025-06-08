@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom'; // Added for navigation
 import axios from 'axios';
 import { 
   SparklesIcon, 
@@ -11,8 +12,8 @@ import {
   XMarkIcon,
   ExclamationTriangleIcon,
   TrashIcon,
-  ChevronDownIcon, // For select dropdowns (optional, can be styled via CSS)
-  CheckCircleIcon, // For copied feedback
+  ChevronDownIcon,
+  CheckCircleIcon,
 } from '@heroicons/react/24/outline';
 import { auth } from '../../firebase/firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -30,8 +31,10 @@ const AIGeneratedQuestions = () => {
   const [history, setHistory] = useState([]);
   const [error, setError] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
-  const [copiedStates, setCopiedStates] = useState({}); // For individual copy confirmations
+  const [copiedStates, setCopiedStates] = useState({});
   const [userId, setUserId] = useState(null);
+  const [userRole, setUserRole] = useState(null); // Added for role-based navigation
+  const navigate = useNavigate(); // Added for navigation
 
   const questionTypes = [
     { value: 'mcq', label: 'Multiple Choice', icon: BookOpenIcon },
@@ -45,6 +48,21 @@ const AIGeneratedQuestions = () => {
     { value: 'medium', label: 'Intermediate' },
     { value: 'hard', label: 'Advanced' },
   ];
+
+  useEffect(() => {
+    // Determine user role for dashboard navigation
+    try {
+      const profile = localStorage.getItem('profileUser');
+      if (profile) {
+        const parsed = JSON.parse(profile);
+        setUserRole(parsed.role || 'educator');
+      } else {
+        setUserRole('educator');
+      }
+    } catch {
+      setUserRole('educator');
+    }
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -87,7 +105,7 @@ const AIGeneratedQuestions = () => {
     
     setIsLoading(true);
     setError(null);
-    setQuestions([]); // Clear previous questions
+    setQuestions([]);
     
     try {
       const prompt = `Generate ${numQuestions} ${difficulty}-level ${questionType} questions about "${topic}" in strict JSON format. Follow this exact structure:
@@ -166,10 +184,10 @@ Requirements:
     const qToRegen = questions.find(q => q.id === questionId);
     if (!qToRegen) return;
     
-    setIsLoading(true); // Or a specific regen loading state
+    setIsLoading(true);
     setError(null);
     try {
-       const prompt = `Regenerate the following ${qToRegen.type} question about "${qToRegen.topic}" at ${qToRegen.difficulty} level.
+      const prompt = `Regenerate the following ${qToRegen.type} question about "${qToRegen.topic}" at ${qToRegen.difficulty} level.
 Original: Text: "${qToRegen.text}", Answer: "${qToRegen.answer}"
 Provide new question in strict JSON: { "question": { "text": "...", ${qToRegen.type === 'mcq' ? `"options": ["...", "...", "...", "..."],` : ''} "answer": "...", "explanation": "..." } }
 Requirements: New, distinct question. For MCQs, 4 options. Raw JSON.`;
@@ -217,7 +235,7 @@ Requirements: New, distinct question. For MCQs, 4 options. Raw JSON.`;
   useEffect(() => {
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [topic, questionType, difficulty, numQuestions, userId, generateQuestions]); // Added generateQuestions to deps
+  }, [topic, questionType, difficulty, numQuestions, userId, generateQuestions]);
 
   const clearHistoryAction = async () => {
     if (!userId) { setError('Sign in to clear history.'); return; }
@@ -250,14 +268,38 @@ Requirements: New, distinct question. For MCQs, 4 options. Raw JSON.`;
           <p className="text-slate-400 text-lg">Craft Perfect Questions with Gemini 1.5 Flash</p>
           
           {userId && (
-            <button 
-              onClick={() => setShowHistory(!showHistory)}
-              className="absolute right-0 top-0 px-4 py-2 bg-slate-800/70 hover:bg-slate-700/70 border border-slate-700 rounded-lg text-sm text-slate-300 hover:text-white flex items-center gap-2 transition-all shadow-md hover:shadow-purple-500/30"
-              title={showHistory ? "Hide History" : "Show History"}
-            >
-              {showHistory ? <XMarkIcon className="w-5 h-5" /> : <BookOpenIcon className="w-5 h-5" />}
-              {showHistory ? "Close" : "History"}
-            </button>
+            <>
+              {/* Dashboard Button - absolute left */}
+              <div className="absolute left-0 top-0 flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    if (userRole === 'student') {
+                      navigate('/dashboard');
+                    } else {
+                      navigate('/educator-dashboard');
+                    }
+                  }}
+                  className="px-3 py-2 bg-slate-800/70 hover:bg-indigo-600/70 border border-slate-700 rounded-lg text-sm text-slate-300 hover:text-white flex items-center gap-2 transition-all shadow-md hover:shadow-indigo-500/30"
+                  title="Back to Dashboard"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Dashboard
+                </button>
+              </div>
+              {/* History Button - absolute right */}
+              <div className="absolute right-0 top-0 flex items-center gap-3">
+                <button 
+                  onClick={() => setShowHistory(!showHistory)}
+                  className="px-4 py-2 bg-slate-800/70 hover:bg-slate-700/70 border border-slate-700 rounded-lg text-sm text-slate-300 hover:text-white flex items-center gap-2 transition-all shadow-md hover:shadow-purple-500/30"
+                  title={showHistory ? "Hide History" : "Show History"}
+                >
+                  {showHistory ? <XMarkIcon className="w-5 h-5" /> : <BookOpenIcon className="w-5 h-5" />}
+                  {showHistory ? "Close" : "History"}
+                </button>
+              </div>
+            </>
           )}
         </header>
 
@@ -522,53 +564,3 @@ Requirements: New, distinct question. For MCQs, 4 options. Raw JSON.`;
 };
 
 export default AIGeneratedQuestions;
-
-// Add to your global CSS (e.g., index.css or App.css) for custom scrollbar and animations:
-/*
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-@layer utilities {
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 8px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background-color: theme('colors.slate.800');
-    border-radius: 10px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background-color: theme('colors.purple.600');
-    border-radius: 10px;
-    border: 2px solid theme('colors.slate.800');
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background-color: theme('colors.purple.500');
-  }
-
-  .range-thumb\:bg-purple-500::-webkit-slider-thumb {
-    @apply bg-purple-500;
-  }
-  .range-thumb\:bg-purple-500::-moz-range-thumb {
-    @apply bg-purple-500;
-  }
-
-
-  @keyframes slideInRight {
-    from { transform: translateX(100%); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
-  }
-  .animate-slideInRight {
-    animation: slideInRight 0.3s ease-out forwards;
-  }
-
-  @keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-    20%, 40%, 60%, 80% { transform: translateX(5px); }
-  }
-  .animate-shake {
-    animation: shake 0.5s ease-in-out;
-  }
-}
-*/
