@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useMediaQuery } from 'react-responsive';
@@ -66,6 +65,7 @@ const AssignmentSubmission = () => {
   const [pastSubmissions, setPastSubmissions] = useState([]);
   const [editingAssignment, setEditingAssignment] = useState(null);
   const [isTeacher, setIsTeacher] = useState(false);
+  const [showFeedback, setShowFeedback] = useState({});
 
   const isDesktop = useMediaQuery({ minWidth: 768 });
   const location = useLocation();
@@ -537,11 +537,21 @@ const AssignmentSubmission = () => {
                         )}
                         {currentSubmission.feedback && (
                           <div className="mt-2">
-                            <h5 className="text-gray-400 text-xs mb-1 font-medium">Feedback:</h5>
-                            <p className="text-sm text-gray-200 italic whitespace-pre-wrap">{currentSubmission.feedback}</p>
+                            <button
+                              onClick={() => setShowFeedback(prev => ({ ...prev, [assignment.id]: !prev[assignment.id] }))}
+                              className="text-xs inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 font-medium transition-colors"
+                            >
+                              {showFeedback[assignment.id] ? 'Hide Feedback' : 'Show Feedback'}
+                            </button>
+                            {showFeedback[assignment.id] && (
+                              <div className="mt-2">
+                                <h5 className="text-gray-400 text-xs mb-1 font-medium">Feedback:</h5>
+                                <p className="text-sm text-gray-200 italic whitespace-pre-wrap">{currentSubmission.feedback}</p>
+                              </div>
+                            )}
                           </div>
                         )}
-                        {currentSubmission.suggestions && currentSubmission.suggestions.length > 0 && (
+                        {currentSubmission.suggestions && currentSubmission.suggestions.length > 0 && showFeedback[assignment.id] && (
                           <div className="mt-2">
                             <h5 className="text-gray-400 text-xs mb-1 font-medium">Suggestions:</h5>
                             <ul className="list-disc list-inside text-sm text-gray-200 pl-2">

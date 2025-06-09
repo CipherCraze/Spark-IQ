@@ -147,6 +147,87 @@ const EducatorProfilePage = () => {
   const safeAvailability = (isEditing ? editData.availability : user.availability) || {};
   const safeSkills = (isEditingSkills ? editData.skills : user.skills) || [];
 
+  // Load user profile data
+  const loadUserProfile = async () => {
+    try {
+      setIsLoading(true);
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        console.log('No authenticated user found in loadUserProfile');
+        return;
+      }
+
+      console.log('Loading profile for educator:', currentUser.uid);
+      const profileData = await getUserProfile(currentUser.uid);
+      console.log('Loaded profile data:', profileData);
+
+      if (!profileData?.avatar) {
+        localStorage.removeItem('profileAvatar');
+      }
+
+      // Create initial educator data
+      const initialEducatorData = {
+        name: currentUser.displayName || '',
+        email: currentUser.email || '',
+        phone: '',
+        location: '',
+        bio: '',
+        education: '',
+        avatar: null,
+        subjects: [],
+        batches: [],
+        researchInterests: [],
+        publications: [],
+        skills: [],
+        social: {},
+        stats: {
+          studentsTaught: 0,
+          coursesCreated: 0,
+          rating: 0,
+          reviews: 0
+        },
+        availability: {
+          officeHours: '',
+          consultationDays: []
+        },
+        role: 'educator'
+      };
+
+      if (profileData) {
+        const mergedData = {
+          ...initialEducatorData,
+          ...profileData,
+          name: currentUser.displayName || profileData.name,
+          email: currentUser.email
+        };
+        console.log('Setting educator data with name:', mergedData.name);
+        setUser(mergedData);
+        setEditData(mergedData);
+        
+        if (mergedData.avatar) {
+          setAvatarUrl(mergedData.avatar);
+          localStorage.setItem('profileAvatar', mergedData.avatar);
+        } else {
+          setAvatarUrl(null);
+          localStorage.removeItem('profileAvatar');
+        }
+      } else {
+        console.log('No profile data, using initial data with name:', initialEducatorData.name);
+        setUser(initialEducatorData);
+        setEditData(initialEducatorData);
+        setAvatarUrl(null);
+        localStorage.removeItem('profileAvatar');
+        
+        await updateUserProfile(currentUser.uid, initialEducatorData);
+      }
+    } catch (err) {
+      console.error('Error loading profile:', err);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Check authentication state
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -173,99 +254,11 @@ const EducatorProfilePage = () => {
       }
 
       // Load the educator profile
-      loadUserProfile(user.uid);
+      loadUserProfile();
     });
 
     return () => unsubscribe();
   }, [navigate]);
-
-  // Load user settings from Firebase
-  useEffect(() => {
-    const loadUserProfile = async () => {
-      try {
-        setIsLoading(true);
-        const currentUser = auth.currentUser;
-        if (!currentUser) {
-          console.log('No authenticated user found in loadUserProfile');
-          return;
-        }
-
-        console.log('Loading profile for educator:', currentUser.uid);
-        const profileData = await getUserProfile(currentUser.uid);
-        console.log('Loaded profile data:', profileData);
-
-        if (!profileData?.avatar) {
-          localStorage.removeItem('profileAvatar');
-        }
-
-        // Create initial educator data
-        const initialEducatorData = {
-          name: currentUser.displayName || '',
-          email: currentUser.email || '',
-          phone: '',
-          location: '',
-          bio: '',
-          education: '',
-          avatar: null,
-          subjects: [],
-          batches: [],
-
-          researchInterests: [],
-          publications: [],
-          skills: [],
-          social: {},
-          stats: {
-            studentsTaught: 0,
-            coursesCreated: 0,
-            rating: 0,
-            reviews: 0
-          },
-          availability: {
-            officeHours: '',
-            consultationDays: []
-          },
-          role: 'educator'
-        };
-
-        if (profileData) {
-          const mergedData = {
-            ...initialEducatorData,
-            ...profileData,
-            name: currentUser.displayName || profileData.name,
-            email: currentUser.email
-          };
-          console.log('Setting educator data with name:', mergedData.name);
-          setUser(mergedData);
-          setEditData(mergedData);
-          
-          if (mergedData.avatar) {
-            setAvatarUrl(mergedData.avatar);
-            localStorage.setItem('profileAvatar', mergedData.avatar);
-          } else {
-            setAvatarUrl(null);
-            localStorage.removeItem('profileAvatar');
-          }
-        } else {
-          console.log('No profile data, using initial data with name:', initialEducatorData.name);
-          setUser(initialEducatorData);
-          setEditData(initialEducatorData);
-          setAvatarUrl(null);
-          localStorage.removeItem('profileAvatar');
-          
-          await updateUserProfile(currentUser.uid, initialEducatorData);
-        }
-      } catch (err) {
-        console.error('Error loading profile:', err);
-        setError(err.message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    if (authChecked && auth.currentUser) {
-      loadUserProfile();
-    }
-  }, [authChecked, navigate]);
 
   const handleAvatarUpload = async (e) => {
     const file = e.target.files[0];
