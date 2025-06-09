@@ -599,7 +599,7 @@ const SettingsPage = () => {
                           type="text"
                           id="name"
                           name="name"
-                          value={user.name}
+                          value={user?.name ?? ''}
                           onChange={handleEditChange}
                           placeholder="Enter your full name"
                           className={`w-full px-4 py-2 text-white bg-gray-700 border ${formErrors.name ? 'border-red-500' : 'border-gray-600'} rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-colors placeholder-gray-500`}
@@ -615,7 +615,7 @@ const SettingsPage = () => {
                           type="email"
                           id="email"
                           name="email"
-                          value={user.email}
+                          value={user?.email ?? ''}
                           onChange={handleEditChange}
                           placeholder="Enter your email"
                           className={`w-full px-4 py-2 text-white bg-gray-700 border ${formErrors.email ? 'border-red-500' : 'border-gray-600'} rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-colors placeholder-gray-500`}
@@ -631,7 +631,7 @@ const SettingsPage = () => {
                           type="tel"
                           id="phone"
                           name="phone"
-                          value={user.phone}
+                          value={user?.phone ?? ''}
                           onChange={handleEditChange}
                           placeholder="Enter your phone number"
                           className={`w-full px-4 py-2 text-white bg-gray-700 border ${formErrors.phone ? 'border-red-500' : 'border-gray-600'} rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-colors placeholder-gray-500`}
@@ -647,7 +647,7 @@ const SettingsPage = () => {
                           type="text"
                           id="location"
                           name="location"
-                          value={user.location}
+                          value={user?.location ?? ''}
                           onChange={handleEditChange}
                           placeholder="Enter your location"
                           className={`w-full px-4 py-2 text-white bg-gray-700 border ${formErrors.location ? 'border-red-500' : 'border-gray-600'} rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-colors placeholder-gray-500`}
@@ -664,7 +664,7 @@ const SettingsPage = () => {
                         id="bio"
                         name="bio"
                         rows={4}
-                        value={user.bio}
+                        value={user?.bio ?? ''}
                         onChange={handleEditChange}
                         placeholder="Tell us about yourself..."
                         className="w-full px-4 py-2 text-white bg-gray-700 border border-gray-600 rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-colors placeholder-gray-500"
@@ -679,7 +679,7 @@ const SettingsPage = () => {
                         type="text"
                         id="education"
                         name="education"
-                        value={user.education}
+                        value={user?.education ?? ''}
                         onChange={handleEditChange}
                         placeholder="Enter your education"
                         className={`w-full px-4 py-2 text-white bg-gray-700 border ${formErrors.education ? 'border-red-500' : 'border-gray-600'} rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-colors placeholder-gray-500`}
@@ -694,7 +694,7 @@ const SettingsPage = () => {
                         type="text"
                         id="experience"
                         name="experience"
-                        value={user.experience}
+                        value={user?.experience ?? ''}
                         onChange={handleEditChange}
                         placeholder="Enter your years of experience"
                         className={`w-full px-4 py-2 text-white bg-gray-700 border ${formErrors.experience ? 'border-red-500' : 'border-gray-600'} rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-colors placeholder-gray-500`}

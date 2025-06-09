@@ -5,8 +5,61 @@ rules_version = '2';
 //    /databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin;
 service firebase.storage {
   match /b/{bucket}/o {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isTeacher() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/teachers/$(request.auth.uid));
+    }
+
+    function isUserInChat(chatId) {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/chats/$(chatId)) &&
+             request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+    }
+
+    // Profile pictures - specific rules
+    match /profile-pictures/{userId}/{allPaths=**} {
+      allow read: if isAuthenticated();  // Any authenticated user can view profile pictures
+      allow write: if isAuthenticated() && request.auth.uid == userId;  // Only user can upload their own picture
+    }
+
+    // Chat attachments and files
+    match /chat/{chatId}/{allPaths=**} {
+      allow read: if isUserInChat(chatId);
+      allow write: if isUserInChat(chatId) && 
+                   request.resource.size < 10 * 1024 * 1024 &&  // 10MB file size limit
+                   request.resource.contentType.matches('image/.*|video/.*|application/pdf');  // Restrict file types
+    }
+
+    // Assignment files
+    match /assignments/{assignmentId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isTeacher() && 
+                   request.resource.size < 20 * 1024 * 1024;  // 20MB file size limit
+      allow delete: if isTeacher(); // Allow teachers to delete assignment files
+    }
+
+    // Submission files - Updated rules
+    match /submissions/{assignmentId}/{studentId}/{fileName} {
+      allow read: if isAuthenticated() && (
+        isTeacher() || // Teachers can read all submissions
+        request.auth.uid == studentId // Students can read their own submissions
+      );
+      allow create, update: if isAuthenticated() && 
+        request.auth.uid == studentId && // Students can only write to their own folder
+        request.resource.size < 50 * 1024 * 1024; // 50MB file size limit
+      allow delete: if isTeacher() || // Teachers can delete any submission
+                   (isAuthenticated() && request.auth.uid == studentId); // Students can delete their own ungraded submissions
+    }
+
+    // Default rule - deny all other access
     match /{allPaths=**} {
-      allow read, write: if false;
+      allow read: if isAuthenticated();
+      allow write: if false;
     }
   }
 }
