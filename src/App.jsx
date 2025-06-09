@@ -25,7 +25,7 @@ import ResourceUtilization from './Components/Features/ResourceUtilization';
 import Grades from './Components/Features/GradingAccess';
 import AIGeneratedQuestions from './Components/Features/AIGeneratedQuestions';
 import SuggestionsInbox from './Components/Features/SuggestionsInbox';
-import PersonalizedFeedback from './Components/Features/Personalized_feedback';
+
 import NotFound from './Components/NotFound';
 import EducatorDashboard from './Components/dashboard/EducatorDashboard';
 import AssignmentManagement from './Components/Features/AssignmentManagement';
@@ -53,6 +53,7 @@ import VoiceChat from './Components/Chatbot/VoiceChat'; // Import the VoiceChat 
 import TeacherVoiceChat from './Components/Chatbot/TeacherVoiceChat'; // Import the TeacherVoiceChat component
 import './styles/animations.css';
 import { AuthProvider } from './context/AuthContext'; // or './contexts/AuthContext' if that's the folder
+import PersonalizedFeedback from './Components/Features/PersonalizedFeedbackStudents';
 
 
 const Layout = ({ children, showHeaderFooter = true }) => (
@@ -281,7 +282,16 @@ function App() {
             </Layout>
           }
         />
-        {/*pricing */}
+        {/* Personalized Feedback For Students */}
+        <Route
+          path="/personalized-feedback-students"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <PersonalizedFeedback />
+            </Layout>
+          }
+        />
+        {/* Pricing */}
         <Route
           path="/pricing"
           element={
