@@ -19,6 +19,7 @@ import {
   NewspaperIcon,
   WrenchScrewdriverIcon,
   VideoCameraIcon,
+  DocumentMagnifyingGlassIcon,
   EnvelopeIcon,
   SparklesIcon,
   MicrophoneIcon,

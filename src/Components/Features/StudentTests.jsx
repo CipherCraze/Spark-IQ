@@ -10,6 +10,7 @@ import {
   ChartBarIcon,
   DocumentTextIcon,
   PresentationChartLineIcon,
+  DocumentMagnifyingGlassIcon,
   ChatBubbleLeftRightIcon,
   QuestionMarkCircleIcon,
   LightBulbIcon,

@@ -54,6 +54,7 @@ import TeacherVoiceChat from './Components/Chatbot/TeacherVoiceChat'; // Import 
 import './styles/animations.css';
 import { AuthProvider } from './context/AuthContext'; // or './contexts/AuthContext' if that's the folder
 import PersonalizedFeedback from './Components/Features/PersonalizedFeedbackStudents';
+import PersonalizedTeacherFeedback from './Components/Features/PersonalizedTeacherFeedback';
 
 
 const Layout = ({ children, showHeaderFooter = true }) => (
@@ -288,6 +289,15 @@ function App() {
           element={
             <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
               <PersonalizedFeedback />
+            </Layout>
+          }
+        />
+        {/* Personalized Feedback For Educators */}
+        <Route
+          path="/personalized-feedback-educators"
+          element={
+            <Layout showHeaderFooter={false}> {/* Hide Header and Footer */}
+              <PersonalizedTeacherFeedback />
             </Layout>
           }
         />

@@ -14,6 +14,7 @@ import {
   ChatBubbleLeftEllipsisIcon,
   LightBulbIcon,
   ExclamationTriangleIcon,
+  DocumentMagnifyingGlassIcon,
   SparklesIcon,
   HomeIcon,
   FolderIcon,

@@ -15,6 +15,7 @@ import {
   DocumentTextIcon,
   PencilIcon,
   TrashIcon,
+  DocumentMagnifyingGlassIcon,
   CheckCircleIcon,
   ClockIcon,
   UserCircleIcon,

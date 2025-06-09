@@ -13,6 +13,7 @@ import {
   PresentationChartLineIcon,
   ChatBubbleLeftRightIcon,
   QuestionMarkCircleIcon,
+  DocumentMagnifyingGlassIcon,
   LightBulbIcon,
   NewspaperIcon,
   WrenchScrewdriverIcon,
