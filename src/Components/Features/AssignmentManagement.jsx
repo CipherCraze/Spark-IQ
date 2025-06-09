@@ -15,6 +15,7 @@ import {
   UserGroupIcon as SolidUserGroupIcon,
   GlobeAltIcon,
   PlusIcon,
+  DocumentMagnifyingGlassIcon,
   PencilIcon,
   TrashIcon,
   ArrowTrendingUpIcon, // Consider ArrowRightOnRectangleIcon for logout
@@ -82,6 +83,7 @@ const AssignmentManagement = () => {
     { title: 'Assignments', Icon: ClipboardDocumentIcon, link: '/assignment-management' },
     { title: 'Tests', Icon: DocumentTextIcon, link: '/teacher-tests' }, // Changed Icon for variety
     { title: 'Grades & Analytics', Icon: AcademicCapIcon, link: '/GradesAndAnalytics' },
+    { title: 'Personalized Feedback', Icon: DocumentMagnifyingGlassIcon, link: '/personalized-feedback-educators' },
     { title: 'Resources', Icon: FolderIcon, link: '/resource-management' },
     { title: 'Attendance', Icon: UsersIcon, link: '/attendance-tracking' }, // Changed Icon
     { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/teacher-voice-chat' },

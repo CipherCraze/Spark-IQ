@@ -13,6 +13,7 @@ import {
   FolderIcon,
   ChartBarIcon,
   ChatBubbleLeftRightIcon,
+  DocumentMagnifyingGlassIcon,
   SparklesIcon,
   GlobeAltIcon,
   EnvelopeIcon,
@@ -143,6 +144,7 @@ const educatorSidebarMenu = [
   { title: 'Grades & Analytics', Icon: AcademicCapIcon, link: '/GradesAndAnalytics' },
   { title: 'Resources', Icon: FolderIcon, link: '/resource-management' },
   { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-tracking' },
+  { title: 'Teacher Insights', Icon: DocumentMagnifyingGlassIcon, link: '/personalized-feedback-educators' },
   { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/teacher-voice-chat', current: true },
   { title: 'AI Chatbot (Ask Sparky)', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
   { title: 'AI Questions', Icon: SparklesIcon, link: '/ai-generated-questions' }, // You can use generateQuestionsWithGemini here

@@ -36,6 +36,7 @@ import {
   Bars3Icon,
   XMarkIcon,
   ChevronDownIcon,
+  DocumentMagnifyingGlassIcon,
   UserCircleIcon,
   Cog6ToothIcon,
   ArrowLeftOnRectangleIcon,
@@ -57,6 +58,7 @@ const educatorSidebarMenuSource = [
     { title: 'Grades & Analytics', Icon: AcademicCapIcon, link: '/GradesAndAnalytics', current: true  }, // Hardcoded current for this page
     { title: 'Resources', Icon: FolderIcon, link: '/resource-management' },
     { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-tracking' },
+    { title: 'Teacher Insights', Icon: DocumentMagnifyingGlassIcon, link: '/personalized-feedback-educators', current: false},
     { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/teacher-voice-chat' },
     { title: 'AI Chatbot (Ask Sparky)', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
     { title: 'AI Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },

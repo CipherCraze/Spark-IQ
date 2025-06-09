@@ -85,6 +85,7 @@ const DesktopEducatorDashboard = () => {
     { title: 'Grades & Analytics', Icon: AcademicCapIcon, link: '/GradesAndAnalytics', color: 'blue' },
     { title: 'Resources', Icon: FolderIcon, link: '/resource-management', color: 'green' },
     { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-tracking', color: 'indigo' },
+    { title: 'Teacher Insights', Icon: DocumentMagnifyingGlassIcon, link: '/personalized-feedback-educators', color: 'violet' },
     { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education', color: 'pink' },
     { title: 'AI Questions', Icon: SparklesIcon, link: '/ai-generated-questions', color: 'yellow' },
     { title: 'Social / Chat', Icon: SolidUserGroupIcon, link: '/chat-functionality', color: 'teal' },
