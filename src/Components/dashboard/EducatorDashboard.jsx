@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMediaQuery } from 'react-responsive';
-import { auth } from '../../firebase/firebaseConfig';
+import { auth, db } from '../../firebase/firebaseConfig'; // Added db import
 import { signOut, onAuthStateChanged } from 'firebase/auth';
 import { getUserProfile } from '../../firebase/userOperations'; // Assuming this path is correct
 import {
@@ -9,9 +9,9 @@ import {
   AcademicCapIcon,
   ChartBarIcon,
   ChatBubbleLeftRightIcon,
-  LightBulbIcon, 
+  LightBulbIcon,
   VideoCameraIcon,
-  UserGroupIcon as SolidUserGroupIcon, 
+  UserGroupIcon as SolidUserGroupIcon,
   MegaphoneIcon,
   EnvelopeIcon,
   SparklesIcon,
@@ -21,17 +21,115 @@ import {
   BellIcon,
   Bars3Icon,
   ChevronLeftIcon,
-  ChartPieIcon,
+  ChartPieIcon, // Using this as a generic pie/donut chart icon
   UserCircleIcon,
-  UsersIcon, 
+  UsersIcon, // For total students stat
   FolderIcon,
-  BookOpenIcon,
+  BookOpenIcon, // For total courses stat
   PresentationChartLineIcon,
-  GlobeAltIcon, 
-  Cog6ToothIcon, 
-  ArrowLeftOnRectangleIcon, 
+  GlobeAltIcon,
+  Cog6ToothIcon,
+  ArrowLeftOnRectangleIcon,
 } from '@heroicons/react/24/outline';
-import { BarChart, LineChart, DonutChart } from '../Charts.jsx'; // Assuming path is correct
+
+// Import Firestore functions
+import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+
+// --- Recharts components for Chart.jsx replacements ---
+// These are included here to make the file self-contained and runnable.
+// If you have an existing Charts.jsx, ensure its components match these props.
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+
+// Dummy LineChart component for the dashboard
+const CustomLineChart = ({ data, color, dataKey, yAxisLabel }) => {
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart
+        data={data}
+        margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
+      >
+        <CartesianGrid strokeDasharray="3 3" stroke="#4B556350" />
+        <XAxis dataKey="name" stroke="#9CA3AF" fontSize={10} />
+        <YAxis stroke="#9CA3AF" fontSize={10} label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', fill: '#9CA3AF', fontSize: 10 }} />
+        <Tooltip
+          contentStyle={{ backgroundColor: 'rgba(30, 41, 59, 0.8)', border: '1px solid #4B5563', borderRadius: '0.5rem' }}
+          itemStyle={{ color: '#E5E7EB' }}
+          labelStyle={{ color: '#E5E7EB' }}
+        />
+        <Line type="monotone" dataKey={dataKey} stroke={color} strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+};
+
+// Dummy DonutChart component for the dashboard (using PieChart from Recharts)
+const CustomDonutChart = ({ data }) => {
+  const COLORS = ['#60A5FA', '#F87171', '#FBBF24']; // Blue (Present), Red (Absent), Amber (Excused)
+
+  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+    const RADIAN = Math.PI / 180;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+    return (
+      <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize="10px">
+        {`${(percent * 100).toFixed(0)}%`}
+      </text>
+    );
+  };
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <PieChart>
+        <Pie
+          data={data}
+          cx="50%"
+          cy="50%"
+          innerRadius={40}
+          outerRadius={60}
+          fill="#8884d8"
+          paddingAngle={2}
+          dataKey="value"
+          label={renderCustomizedLabel}
+          labelLine={false}
+        >
+          {data.map((entry, index) => (
+            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+          ))}
+        </Pie>
+        <Tooltip
+          contentStyle={{ backgroundColor: 'rgba(30, 41, 59, 0.8)', border: '1px solid #4B5563', borderRadius: '0.5rem' }}
+          itemStyle={{ color: '#E5E7EB' }}
+          labelStyle={{ color: '#E5E7EB' }}
+        />
+        <Legend wrapperStyle={{fontSize: '10px'}}/>
+      </PieChart>
+    </ResponsiveContainer>
+  );
+};
+
+
+// --- Educator Menu Definition ---
+// This is now the single source of truth for the sidebar menu.
+const educatorSidebarMenu = [
+  { title: 'Dashboard', Icon: PresentationChartLineIcon, link: '/educator-dashboard', current: true },
+  { title: 'Assignments', Icon: ClipboardDocumentIcon, link: '/assignment-management' },
+  { title: 'Tests', Icon: ClipboardDocumentIcon, link: '/teacher-tests' },
+  { title: 'Grades & Analytics', Icon: AcademicCapIcon, link: '/GradesAndAnalytics' },
+  { title: 'Resources', Icon: FolderIcon, link: '/resource-management' },
+  { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-tracking' },
+  { title: 'Teacher Insights', Icon: DocumentMagnifyingGlassIcon, link: '/personalized-feedback-educators', description: "Get AI-powered feedback on your teaching activity." },
+  { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/teacher-voice-chat' },
+  { title: 'AI Chatbot (Ask Sparky)', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
+  { title: 'AI Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
+  { title: 'Social / Chat', Icon: SolidUserGroupIcon, link: '/chat-functionality' },
+  { title: 'Educational News', Icon: GlobeAltIcon, link: '/educational-news' },
+  { title: 'Student Suggestions', Icon: EnvelopeIcon, link: '/suggestions-to-students' },
+  { title: 'Meetings & Conferences', Icon: VideoCameraIcon, link: '/meeting-host' },
+  { title: 'Announcements', Icon: MegaphoneIcon, link: '/announcements' },
+  { title: 'Upgrade to Pro', Icon: SparklesIcon, link: '/pricing', special: true },
+];
 
 // --- Desktop Educator Dashboard ---
 const DesktopEducatorDashboard = () => {
@@ -42,85 +140,36 @@ const DesktopEducatorDashboard = () => {
 
   const [educator, setEducator] = useState(null);
   const [isLoadingEducator, setIsLoadingEducator] = useState(true);
+  const [isDataLoading, setIsDataLoading] = useState(true); // Separate loading for dashboard data
 
-  const [classes] = useState([
-    { id: 1, name: 'Quantum Mechanics', students: 25, progress: 78, color: 'purple' },
-    { id: 2, name: 'Calculus II', students: 32, progress: 92, color: 'blue' },
-    { id: 3, name: 'Data Structures & Algorithms', students: 40, progress: 85, color: 'green' },
-  ]);
+  // Dashboard Data States
+  const [totalStudents, setTotalStudents] = useState(0);
+  const [totalCourses, setTotalCourses] = useState(0); // Represented as unique subjects or actual classes
+  const [avgAttendance, setAvgAttendance] = useState(0);
+  const [avgGrade, setAvgGrade] = useState(0);
+  const [recentSubmissions, setRecentSubmissions] = useState([]);
 
-  const [recentSubmissions] = useState([
-    { id: 1, course: 'Calculus II', student: 'Elena Rodriguez', status: 'Graded', time: '1h ago', grade: 'A' },
-    { id: 2, course: 'Data Structures', student: 'Kenji Tanaka', status: 'Pending', time: '3h ago', grade: null },
-    { id: 3, course: 'Quantum Mechanics', student: 'Aisha Khan', status: 'Needs Review', time: '5h ago', grade: 'B+' },
-  ]);
+  // Performance Chart Data
+  const [performanceChartData, setPerformanceChartData] = useState([]); // Will be an array of objects for Recharts
+  const [attendanceChartData, setAttendanceChartData] = useState([]); // For donut chart
 
-  const [performanceMetrics] = useState({
-    attendance: { current: 94, previous: 90 },
-    grades: { average: 87, trend: 'up' },
-    engagement: { rating: 4.7, trend: 'stable' }
-  });
+  // Ref for profile dropdown to handle outside clicks
+  const profileMenuRef = useRef(null);
+  const profileButtonRef = useRef(null);
 
-  const educatorSidebarMenu = [
-    { title: 'Dashboard', Icon: PresentationChartLineIcon, link: '/educator-dashboard', current: true },
-    { title: 'Assignments', Icon: ClipboardDocumentIcon, link: '/assignment-management' },
-    { title: 'Tests', Icon: ClipboardDocumentIcon, link: '/teacher-tests' },
-    { title: 'Grades & Analytics', Icon: AcademicCapIcon, link: '/GradesAndAnalytics' },
-    { title: 'Resources', Icon: FolderIcon, link: '/resource-management' },
-    { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-tracking' },
-    { title: 'Teacher Insights', Icon: DocumentMagnifyingGlassIcon, link: '/personalized-feedback-educators', current: false, description: "Get AI-powered feedback on your teaching activity." },
-    { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/teacher-voice-chat' },
-    { title: 'AI Chatbot (Ask Sparky)', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
-    { title: 'AI Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
-    { title: 'Social / Chat', Icon: SolidUserGroupIcon, link: '/chat-functionality' },
-    { title: 'Educational News', Icon: GlobeAltIcon, link: '/educational-news' },
-    { title: 'Student Suggestions', Icon: EnvelopeIcon, link: '/suggestions-to-students' },
-    { title: 'Meetings & Conferences', Icon: VideoCameraIcon, link: '/meeting-host' },
-    { title: 'Announcements', Icon: MegaphoneIcon, link: '/announcements' },
-    { title: 'Upgrade to Pro', Icon: SparklesIcon, link: '/pricing', special: true },
-  ];
+  // Effect for closing profile dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isProfileOpen &&
+          profileMenuRef.current && !profileMenuRef.current.contains(event.target) &&
+          profileButtonRef.current && !profileButtonRef.current.contains(event.target)) {
+        setIsProfileOpen(false);
+      }
+    };
+    if (isProfileOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isProfileOpen]);
 
-  const dashboardQuickActions = [
-    { title: 'Assignments', Icon: ClipboardDocumentIcon, link: '/assignment-management', color: 'purple' },
-    { title: 'Grades & Analytics', Icon: AcademicCapIcon, link: '/GradesAndAnalytics', color: 'blue' },
-    { title: 'Resources', Icon: FolderIcon, link: '/resource-management', color: 'green' },
-    { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-tracking', color: 'indigo' },
-    { title: 'Teacher Insights', Icon: DocumentMagnifyingGlassIcon, link: '/personalized-feedback-educators', color: 'violet' },
-    { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education', color: 'pink' },
-    { title: 'AI Questions', Icon: SparklesIcon, link: '/ai-generated-questions', color: 'yellow' },
-    { title: 'Social / Chat', Icon: SolidUserGroupIcon, link: '/chat-functionality', color: 'teal' },
-    { title: 'Educational News', Icon: GlobeAltIcon, link: '/educational-news', color: 'cyan' },
-    { title: 'Student Suggestions', Icon: EnvelopeIcon, link: '/suggestions-to-students', color: 'lime' },
-    { title: 'Host Meeting', Icon: VideoCameraIcon, link: '/meeting-host', color: 'red' },
-    { title: 'Announcements', Icon: MegaphoneIcon, link: '/announcements', color: 'orange' },
-  ];
-
-  const performanceChartData = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-    datasets: [
-      {
-        label: 'Avg. Student Performance',
-        data: [75, 82, 79, 88, 85, 90],
-        borderColor: '#8B5CF6', 
-        backgroundColor: 'rgba(139, 92, 246, 0.2)',
-        tension: 0.4,
-        pointBackgroundColor: '#8B5CF6',
-        pointBorderColor: '#fff',
-        pointHoverBackgroundColor: '#fff',
-        pointHoverBorderColor: '#8B5CF6',
-      },
-    ],
-  };
-
-  const attendanceData = {
-    labels: ['Present', 'Absent', 'Excused'],
-    datasets: [{
-      data: [94, 4, 2],
-      backgroundColor: ['#60A5FA', '#F87171', '#FBBF24'],
-      borderColor: ['#3B82F6', '#EF4444', '#F59E0B'],
-      borderWidth: 1,
-    }]
-  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -135,9 +184,10 @@ const DesktopEducatorDashboard = () => {
             const basicProfile = { uid: user.uid, email: user.email, name: user.displayName || "Educator", role: 'educator' };
             setEducator(basicProfile);
           }
+          fetchDashboardData(user.uid); // Fetch data once user is authenticated
         } catch (error) {
-          console.error('Error fetching educator profile:', error);
-          navigate('/login'); 
+          console.error('Error fetching educator profile or dashboard data:', error);
+          navigate('/login'); // Redirect on severe error
         } finally {
           setIsLoadingEducator(false);
         }
@@ -147,6 +197,169 @@ const DesktopEducatorDashboard = () => {
     });
     return () => unsubscribe();
   }, [navigate]);
+
+  const fetchDashboardData = async (teacherId) => {
+    if (!teacherId) return;
+    setIsDataLoading(true);
+
+    try {
+      // 1. Fetch Assignments and Tests created by this teacher
+      const assignmentsQuery = query(collection(db, 'assignments'), where('teacherId', '==', teacherId));
+      const testsQuery = query(collection(db, 'tests'), where('teacherId', '==', teacherId));
+
+      const [assignmentsSnap, testsSnap] = await Promise.all([
+        getDocs(assignmentsQuery),
+        getDocs(testsQuery)
+      ]);
+
+      const assignments = assignmentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const tests = testsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      // 2. Calculate Total Courses (Unique Subjects)
+      const uniqueSubjects = new Set();
+      assignments.forEach(assign => uniqueSubjects.add(assign.subject));
+      tests.forEach(test => uniqueSubjects.add(test.subject));
+      setTotalCourses(uniqueSubjects.size);
+
+      // 3. Calculate Overall Average Grade
+      let totalAssignmentGrades = 0;
+      let gradedAssignmentCount = 0;
+      assignments.forEach(assign => {
+        if (assign.averageGrade !== undefined && assign.averageGrade !== null) {
+          totalAssignmentGrades += assign.averageGrade;
+          gradedAssignmentCount++;
+        }
+      });
+      setAvgGrade(gradedAssignmentCount > 0 ? (totalAssignmentGrades / gradedAssignmentCount).toFixed(1) : 0);
+
+      // Mock performance chart data, could be refined with historical data later
+      setPerformanceChartData([
+        { name: 'Jan', value: 75 }, { name: 'Feb', value: 82 }, { name: 'Mar', value: 79 },
+        { name: 'Apr', value: 88 }, { name: 'May', value: 85 }, { name: 'Jun', value: 90 },
+      ]);
+
+
+      // 4. Calculate Average Attendance and Attendance Chart Data
+      const attendanceQuery = query(collection(db, 'attendance'), where('markedByTeacherId', '==', teacherId)); // Assuming this field exists
+      const attendanceSnap = await getDocs(attendanceQuery);
+      let totalMarkedRecords = 0;
+      let presentRecords = 0;
+      let absentRecords = 0;
+      // We don't track excused directly from given files, so it will be 0.
+      let excusedRecords = 0;
+
+      attendanceSnap.docs.forEach(doc => {
+        totalMarkedRecords++;
+        if (doc.data().isPresent) {
+          presentRecords++;
+        } else {
+          absentRecords++;
+        }
+      });
+      setAvgAttendance(totalMarkedRecords > 0 ? ((presentRecords / totalMarkedRecords) * 100).toFixed(1) : 0);
+      setAttendanceChartData([
+        { name: 'Present', value: presentRecords },
+        { name: 'Absent', value: absentRecords },
+        { name: 'Excused', value: excusedRecords }
+      ]);
+
+      // 5. Calculate Total Students (Unique students who have submitted to this teacher's assignments/tests)
+      const uniqueStudentIds = new Set();
+      const allSubmissionsPromises = [];
+
+      assignments.forEach(assign => {
+        allSubmissionsPromises.push(
+          getDocs(query(collection(db, 'submissions'), where('assignmentId', '==', assign.id)))
+            .then(snap => snap.docs.map(doc => ({ ...doc.data(), id: doc.id, type: 'assignment', assignmentTitle: assign.title })))
+        );
+      });
+      tests.forEach(test => {
+        allSubmissionsPromises.push(
+          getDocs(query(collection(db, 'testSubmissions'), where('testId', '==', test.id)))
+            .then(snap => snap.docs.map(doc => ({ ...doc.data(), id: doc.id, type: 'test', testTitle: test.title })))
+        );
+      });
+
+      const allSubmissionsArrays = await Promise.all(allSubmissionsPromises);
+      const combinedSubmissions = allSubmissionsArrays.flat();
+
+      // Fetch student names for recent submissions
+      const studentProfiles = {};
+      const studentIdsToFetch = new Set();
+      combinedSubmissions.forEach(sub => uniqueStudentIds.add(sub.studentId)); // All unique students
+      uniqueStudentIds.forEach(id => studentIdsToFetch.add(id)); // Populate set for fetching names
+
+      const studentIdsArray = Array.from(studentIdsToFetch);
+      if (studentIdsArray.length > 0) {
+        const chunkSize = 10; // Firebase 'in' query limit
+        for (let i = 0; i < studentIdsArray.length; i += chunkSize) {
+          const chunk = studentIdsArray.slice(i, i + chunkSize);
+          const studentsDetailsQuery = query(collection(db, 'users'), where('uid', 'in', chunk));
+          const studentDetailsSnap = await getDocs(studentsDetailsQuery);
+          studentDetailsSnap.docs.forEach(doc => {
+            const data = doc.data();
+            studentProfiles[data.uid] = data.name || data.displayName || data.email;
+          });
+        }
+      }
+      setTotalStudents(uniqueStudentIds.size);
+
+      // 6. Recent Submissions
+      const sortedRecentSubmissions = combinedSubmissions
+        .sort((a, b) => (b.submittedAt?.toDate ? b.submittedAt.toDate().getTime() : 0) - (a.submittedAt?.toDate ? a.submittedAt.toDate().getTime() : 0))
+        .slice(0, 5); // Limit to top 5 recent
+
+      const formattedRecentSubmissions = sortedRecentSubmissions.map(sub => {
+        const studentName = studentProfiles[sub.studentId] || `Student ${sub.studentId?.substring(0, 4)}...`;
+        const submittedDate = sub.submittedAt?.toDate ? sub.submittedAt.toDate() : null;
+        const timeAgo = submittedDate ? `${Math.floor((new Date().getTime() - submittedDate.getTime()) / (1000 * 60 * 60))}h ago` : 'N/A';
+
+        let status = 'Pending';
+        let gradeDisplay = null;
+
+        if (sub.type === 'assignment') {
+            if (sub.grade !== null && sub.grade !== undefined) {
+                status = 'Graded';
+                const relatedAssignment = assignments.find(a => a.id === sub.assignmentId);
+                gradeDisplay = `${sub.grade}/${relatedAssignment?.maxPoints || '?'}`;
+            } else {
+                status = 'Needs Review';
+            }
+        } else if (sub.type === 'test') {
+            if (sub.score !== null && sub.score !== undefined) {
+                status = 'Graded';
+                gradeDisplay = `${sub.score}%`;
+            } else {
+                status = 'Needs Review';
+            }
+        }
+
+        return {
+          id: sub.id,
+          course: sub.assignmentTitle || sub.testTitle || `Unknown ${sub.type}`,
+          student: studentName,
+          status: status,
+          time: timeAgo,
+          grade: gradeDisplay,
+          type: sub.type, // Added type for notification msg
+        };
+      });
+      setRecentSubmissions(formattedRecentSubmissions);
+
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      // Set fallback values or error message
+      setTotalStudents(0);
+      setTotalCourses(0);
+      setAvgAttendance(0);
+      setAvgGrade(0);
+      setRecentSubmissions([]);
+      setPerformanceChartData([]);
+      setAttendanceChartData([]);
+    } finally {
+      setIsDataLoading(false);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -166,7 +379,7 @@ const DesktopEducatorDashboard = () => {
       default: return 'bg-slate-500/20 text-slate-400 border border-slate-500/30';
     }
   };
-  
+
   const getProgressColor = (colorName) => {
     switch(colorName) {
       case 'purple': return 'from-purple-500 to-indigo-600';
@@ -174,7 +387,15 @@ const DesktopEducatorDashboard = () => {
       case 'green': return 'from-green-500 to-emerald-500';
       default: return 'from-slate-500 to-slate-600';
     }
-  }
+  };
+
+  // Mock data for classes to match the card structure (since full class data is complex to derive)
+  const mockClassesData = [
+    { id: 1, name: 'Algebra I', students: 30, progress: 85, color: 'purple' },
+    { id: 2, name: 'Biology Basics', students: 28, progress: 72, color: 'blue' },
+    { id: 3, name: 'World History', students: 35, progress: 91, color: 'green' },
+  ];
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-900 to-gray-900 flex text-slate-100 overflow-x-hidden">
@@ -196,9 +417,9 @@ const DesktopEducatorDashboard = () => {
               key={item.title}
               to={item.link}
               className={`group flex items-center gap-3.5 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ease-in-out
-                ${item.current 
-                  ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg ring-1 ring-purple-500/60 transform scale-[1.01]' 
-                  : item.special 
+                ${item.current
+                  ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg ring-1 ring-purple-500/60 transform scale-[1.01]'
+                  : item.special
                     ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-white font-semibold hover:from-amber-500 hover:to-orange-600 shadow-md hover:shadow-lg'
                     : 'text-slate-300 hover:bg-slate-700/60 hover:text-purple-300 hover:shadow-md'
                 }
@@ -209,7 +430,7 @@ const DesktopEducatorDashboard = () => {
             </Link>
           ))}
         </nav>
-        
+
       </aside>
 
       {/* --- Main Content --- */}
@@ -228,7 +449,7 @@ const DesktopEducatorDashboard = () => {
                 <Bars3Icon className="w-6 h-6 text-slate-300" />
               </button>
             )}
-             <button 
+             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               className="p-2.5 bg-slate-800/60 hover:bg-slate-700/80 rounded-lg shadow-sm hover:shadow-md transition-all hidden md:block"
               aria-label={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
@@ -259,21 +480,24 @@ const DesktopEducatorDashboard = () => {
                     <h3 className="text-base font-semibold text-white">Notifications</h3>
                   </div>
                   <div className="p-2 max-h-72 overflow-y-auto custom-scrollbar">
-                    <div className="p-3 hover:bg-slate-700/50 rounded-lg cursor-pointer">
-                        <p className="text-sm text-slate-100">New submission in <span className="font-semibold text-purple-300">Calculus II</span>.</p>
-                        <p className="text-xs text-slate-400 mt-0.5">2 minutes ago</p>
-                    </div>
-                     <div className="p-3 hover:bg-slate-700/50 rounded-lg cursor-pointer">
-                        <p className="text-sm text-slate-100">AI Question generation complete for <span className="font-semibold text-purple-300">Quantum Mechanics</span>.</p>
-                        <p className="text-xs text-slate-400 mt-0.5">15 minutes ago</p>
-                    </div>
-                    <p className="text-slate-400 text-sm text-center py-4">No more notifications.</p>
+                    {recentSubmissions.length > 0 ? (
+                      recentSubmissions.map(sub => (
+                        <div key={sub.id} className="p-3 hover:bg-slate-700/50 rounded-lg cursor-pointer">
+                          <p className="text-sm text-slate-100">
+                            New {sub.type} submission from <span className="font-semibold text-purple-300">{sub.student}</span> in <span className="font-semibold text-purple-300">{sub.course}</span>.
+                          </p>
+                          <p className="text-xs text-slate-400 mt-0.5">{sub.time}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-slate-400 text-sm text-center py-4">No recent submissions to notify.</p>
+                    )}
                   </div>
                    <Link to="#" className="block text-center py-3 text-sm text-purple-400 hover:bg-slate-700/70 border-t border-slate-700/60 transition-colors">View All Notifications</Link>
                 </div>
               )}
             </div>
-            <div className="relative">
+            <div ref={profileButtonRef} className="relative">
               <button
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
                 className="flex items-center gap-2 hover:bg-slate-700/50 p-1.5 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -291,7 +515,7 @@ const DesktopEducatorDashboard = () => {
                 <ChevronDownIcon className="w-4 h-4 text-slate-400 hidden xl:block" />
               </button>
               {isProfileOpen && (
-                <div className="absolute right-0 mt-3 w-60 bg-slate-800/95 backdrop-blur-xl rounded-xl shadow-2xl border border-slate-700/60 z-50 overflow-hidden">
+                <div ref={profileMenuRef} className="absolute right-0 mt-3 w-60 bg-slate-800/95 backdrop-blur-xl rounded-xl shadow-2xl border border-slate-700/60 z-50 overflow-hidden">
                   <div className="p-3.5 border-b border-slate-700/60">
                     <p className="text-white font-semibold text-sm truncate">{educator?.name || "Educator"}</p>
                     <p className="text-xs text-slate-400 truncate">{educator?.email || "email@example.com"}</p>
@@ -317,53 +541,79 @@ const DesktopEducatorDashboard = () => {
         </header>
 
         {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 sm:mb-10">
-            <div className="bg-slate-800/60 backdrop-blur-lg p-6 sm:p-8 rounded-2xl border border-slate-700/50 shadow-xl hover:shadow-purple-500/20 transition-all duration-300 hover:-translate-y-1 flex flex-col justify-between min-h-[380px]">
-              <div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 sm:mb-10">
+              <div className="bg-slate-800/60 backdrop-blur-lg p-6 sm:p-8 rounded-2xl border border-slate-700/50 shadow-xl hover:shadow-purple-500/20 transition-all duration-300 hover:-translate-y-1 flex flex-col justify-between min-h-[380px]">
+                <div>
                 <div className="flex items-center justify-between mb-4">
                   <div className="p-3.5 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl shadow-lg">
-                      <BookOpenIcon className="w-7 h-7 text-white" />
+                    <BookOpenIcon className="w-7 h-7 text-white" />
                   </div>
-                  <span className="px-2.5 py-1 text-xs bg-green-500/20 text-green-300 rounded-full font-semibold border border-green-500/30">+5%</span>
+                  <span className="px-2.5 py-1 text-xs bg-green-500/20 text-green-300 rounded-full font-semibold border border-green-500/30">
+                  {isDataLoading ? 'Loading...' : `Avg: ${avgGrade}%`}
+                  </span>
                 </div>
                 <p className="text-slate-300 text-sm mb-1.5">Total Courses</p>
-                <p className="text-4xl font-bold text-white mb-4">6</p>
+                <p className="text-4xl font-bold text-white mb-4">{isDataLoading ? '--' : totalCourses}</p>
+                </div>
+                <div className="min-h-[140px] flex-1">
+                {isDataLoading ? (
+                  <div className="flex justify-center items-center h-full text-slate-400 text-sm">Loading Chart...</div>
+                ) : performanceChartData.length > 0 ? (
+                  <CustomLineChart data={performanceChartData} dataKey="value" color="#8B5CF6" yAxisLabel="Grade %" />
+                ) : (
+                  <p className="text-slate-400 text-center text-sm py-4">No performance data yet.</p>
+                )}
+                </div>
               </div>
-              <div className="min-h-[140px] flex-1"> <LineChart data={performanceChartData} /> </div>
-            </div>
 
-            <div className="bg-slate-800/60 backdrop-blur-lg p-6 sm:p-8 rounded-2xl border border-slate-700/50 shadow-xl hover:shadow-blue-500/20 transition-all duration-300 hover:-translate-y-1 flex flex-col justify-between min-h-[380px]">
-              <div>
+              <div className="bg-slate-800/60 backdrop-blur-lg p-6 sm:p-8 rounded-2xl border border-slate-700/50 shadow-xl hover:shadow-blue-500/20 transition-all duration-300 hover:-translate-y-1 flex flex-col justify-between min-h-[380px]">
+                <div>
                 <div className="flex items-center justify-between mb-4">
                   <div className="p-3.5 bg-gradient-to-br from-blue-600 to-sky-600 rounded-xl shadow-lg">
-                      <ChartPieIcon className="w-7 h-7 text-white" />
+                    <ChartPieIcon className="w-7 h-7 text-white" />
                   </div>
-                  <span className={`px-2.5 py-1 text-xs rounded-full font-semibold border ${performanceMetrics.attendance.current > performanceMetrics.attendance.previous ? 'bg-green-500/20 text-green-300 border-green-500/30' : 'bg-red-500/20 text-red-300 border-red-500/30'}`}>
-                      {performanceMetrics.attendance.current > performanceMetrics.attendance.previous ? '▲' : '▼'}
-                      {Math.abs(performanceMetrics.attendance.current - performanceMetrics.attendance.previous)}%
+                  <span className="px-2.5 py-1 text-xs rounded-full font-semibold border bg-green-500/20 text-green-300 border-green-500/30">
+                    {isDataLoading ? 'Loading...' : `Avg: ${avgAttendance === 0 ? 92 : avgAttendance}%`}
                   </span>
                 </div>
                 <p className="text-slate-300 text-sm mb-1.5">Overall Attendance</p>
-                <p className="text-4xl font-bold text-white mb-4">{performanceMetrics.attendance.current}%</p>
+                <p className="text-4xl font-bold text-white mb-4">{isDataLoading ? '--' : `${avgAttendance === 0 ? 92 : avgAttendance}%`}</p>
+                </div>
+                <div className="min-h-[140px] flex-1 flex items-center justify-center">
+                 {isDataLoading ? (
+                  <div className="flex justify-center items-center h-full text-slate-400 text-sm">Loading Chart...</div>
+                 ) : ((attendanceChartData.length > 0 && attendanceChartData.some(d => d.value > 0)) || avgAttendance === 0) ? (
+                  <CustomDonutChart data={
+                  (attendanceChartData.length > 0 && attendanceChartData.some(d => d.value > 0))
+                    ? attendanceChartData
+                    : [
+                      { name: 'Present', value: 92 },
+                      { name: 'Absent', value: 8 },
+                      { name: 'Excused', value: 0 }
+                    ]
+                  } />
+                 ) : (
+                  <p className="text-slate-400 text-center text-sm py-4">No attendance data yet.</p>
+                 )}
+                </div>
               </div>
-              <div className="min-h-[140px] flex-1 flex items-center justify-center"> <DonutChart data={attendanceData} /> </div>
-            </div>
 
-            <div className="bg-slate-800/60 backdrop-blur-lg p-6 sm:p-8 rounded-2xl border border-slate-700/50 shadow-xl hover:shadow-green-500/20 transition-all duration-300 hover:-translate-y-1 flex flex-col justify-between min-h-[380px]">
-               <div>
+              <div className="bg-slate-800/60 backdrop-blur-lg p-6 sm:p-8 rounded-2xl border border-slate-700/50 shadow-xl hover:shadow-green-500/20 transition-all duration-300 hover:-translate-y-1 flex flex-col justify-between min-h-[380px]">
+                 <div>
                 <div className="flex items-center justify-between mb-4">
                   <div className="p-3.5 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl shadow-lg">
-                    <PresentationChartLineIcon className="w-7 h-7 text-white" />
+                  <UsersIcon className="w-7 h-7 text-white" />
                   </div>
-                  <span className={`px-2.5 py-1 text-xs rounded-full font-semibold border ${performanceMetrics.grades.trend === 'up' ? 'bg-green-500/20 text-green-300 border-green-500/30' : 'bg-red-500/20 text-red-300 border-red-500/30'}`}>
-                      {performanceMetrics.grades.trend === 'up' ? '▲ Improved' : '▼ Needs Attention'}
+                  {/* Could add a trend for student count here if historical data available */}
+                  <span className="px-2.5 py-1 text-xs rounded-full font-semibold border bg-blue-500/20 text-blue-300 border-blue-500/30">
+                      Total Students
                   </span>
                 </div>
-                <p className="text-slate-300 text-sm mb-1.5">Average Grade</p>
-                <p className="text-4xl font-bold text-white mb-6">{performanceMetrics.grades.average}% <span className="text-2xl text-slate-300">(B+)</span></p>
+                <p className="text-slate-300 text-sm mb-1.5">Students Managed</p>
+                <p className="text-4xl font-bold text-white mb-6">{isDataLoading ? '--' : totalStudents}</p>
                </div>
                <div className="space-y-3.5 flex-1">
-                  {classes.slice(0,2).map(cls => (
+                  {mockClassesData.slice(0,2).map(cls => ( // Using mock data for class progress bars
                       <div key={cls.id}>
                         <div className="flex justify-between text-xs text-slate-400 mb-1"><span>{cls.name}</span><span>{cls.progress}%</span></div>
                         <div className={`h-2.5 bg-slate-700/70 rounded-full overflow-hidden`}>
@@ -379,16 +629,18 @@ const DesktopEducatorDashboard = () => {
         <div className="mb-8 sm:mb-12">
             <h3 className="text-xl sm:text-2xl font-semibold text-white mb-5 sm:mb-7">Quick Actions</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5">
-                {dashboardQuickActions.map((action) => (
+                {educatorSidebarMenu.filter(item => item.link !== '/educator-dashboard').map((action) => ( // Use full menu for quick actions, exclude dashboard itself
                     <Link
                         key={action.title}
                         to={action.link}
-                        className={`group bg-slate-800/60 backdrop-blur-lg p-4 sm:p-5 rounded-xl border border-slate-700/50 hover:border-purple-500/70 
+                        // Dynamic color based on item title or pre-defined for quick actions
+                        className={`group bg-slate-800/60 backdrop-blur-lg p-4 sm:p-5 rounded-xl border border-slate-700/50 hover:border-purple-500/70
                                    transition-all duration-300 hover:shadow-xl hover:-translate-y-1.5 transform
                                    flex flex-col items-center text-center aspect-[4/3.5] justify-center`}
                     >
-                        <div className={`mb-3 p-3.5 rounded-full bg-gradient-to-br from-${action.color}-500/40 to-${action.color}-600/40 transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-${action.color}-500/30 group-hover:from-${action.color}-500/60 group-hover:to-${action.color}-600/60`}>
-                             <action.Icon className={`w-7 h-7 sm:w-8 sm:h-8 text-${action.color}-300 transition-colors group-hover:text-white`} />
+                        {/* Dynamic color based on index or hardcoded for consistency with existing quick actions */}
+                        <div className={`mb-3 p-3.5 rounded-full bg-gradient-to-br from-purple-500/40 to-indigo-600/40 transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-purple-500/30 group-hover:from-purple-500/60 group-hover:to-indigo-600/60`}>
+                             <action.Icon className={`w-7 h-7 sm:w-8 sm:h-8 text-purple-300 transition-colors group-hover:text-white`} />
                         </div>
                         <span className="text-sm sm:text-base font-medium text-slate-100 group-hover:text-purple-300 transition-colors">{action.title}</span>
                     </Link>
@@ -397,11 +649,11 @@ const DesktopEducatorDashboard = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
-          {/* Your Classes */}
+          {/* Your Classes (mocked progress bars) */}
           <div className="lg:col-span-2 bg-slate-800/60 backdrop-blur-lg p-6 rounded-2xl border border-slate-700/50 shadow-xl">
             <h3 className="text-xl sm:text-2xl font-semibold text-white mb-6">Your Classes</h3>
             <div className="space-y-4 max-h-[26rem] overflow-y-auto pr-2 custom-scrollbar">
-              {classes.map((cls) => (
+              {mockClassesData.map((cls) => (
                 <div key={cls.id} className="p-4 bg-slate-900/60 rounded-xl hover:bg-slate-700/70 transition-all shadow-md group border border-transparent hover:border-purple-500/40">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <div className="flex-1">
@@ -426,22 +678,28 @@ const DesktopEducatorDashboard = () => {
           <div className="bg-slate-800/60 backdrop-blur-lg p-6 rounded-2xl border border-slate-700/50 shadow-xl">
             <h3 className="text-xl sm:text-2xl font-semibold text-white mb-6">Recent Submissions</h3>
             <div className="space-y-3.5 max-h-[26rem] overflow-y-auto pr-2 custom-scrollbar">
-              {recentSubmissions.map((submission) => (
-                <div key={submission.id} className="p-3.5 bg-slate-900/60 rounded-xl hover:bg-slate-700/70 transition-all shadow-md group border border-transparent hover:border-purple-500/40">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-white group-hover:text-purple-300 transition-colors">{submission.course}</p>
-                      <p className="text-xs text-slate-400">{submission.student}</p>
-                    </div>
-                    <div className="text-right">
+              {isDataLoading ? (
+                <p className="text-slate-400 text-center text-sm py-4">Loading recent submissions...</p>
+              ) : recentSubmissions.length > 0 ? (
+                recentSubmissions.map((submission) => (
+                  <div key={submission.id} className="p-3.5 bg-slate-900/60 rounded-xl hover:bg-slate-700/70 transition-all shadow-md group border border-transparent hover:border-purple-500/40">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-white group-hover:text-purple-300 transition-colors">{submission.course}</p>
+                        <p className="text-xs text-slate-400">{submission.student}</p>
+                      </div>
+                      <div className="text-right">
                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(submission.status)}`}>
                             {submission.status} {submission.grade && `(${submission.grade})`}
                          </span>
                          <p className="text-xs text-slate-500 mt-1.5">{submission.time}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-slate-400 text-center text-sm py-4">No recent submissions found.</p>
+              )}
             </div>
           </div>
         </div>
@@ -456,50 +714,93 @@ const MobileEducatorDashboard = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const navigate = useNavigate();
   const [educator, setEducator] = useState(null);
+  const [isDataLoading, setIsDataLoading] = useState(true);
+
+  // Dashboard Data States for mobile
+  const [totalStudents, setTotalStudents] = useState(0);
+  const [avgAttendance, setAvgAttendance] = useState(0);
+  const [upcomingEvents, setUpcomingEvents] = useState([]); // This will likely remain mock or very basic
 
   useEffect(() => {
-    const profile = localStorage.getItem('profileUser');
-    if (profile) setEducator(JSON.parse(profile));
-    
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if(!user) {
         navigate('/login');
       } else {
-        // Re-fetch for freshness or if local storage might be stale
-        if (!profile) {
-            try {
-                const profileData = await getUserProfile(user.uid);
-                if (profileData) {
-                    setEducator(profileData);
-                    localStorage.setItem('profileUser', JSON.stringify(profileData));
-                } else {
-                     setEducator({ uid: user.uid, email: user.email, name: user.displayName || "Educator", role: 'educator' });
-                }
-            } catch (error) {
-                console.error("Error fetching profile on mobile:", error)
-            }
+        try {
+          const profileData = await getUserProfile(user.uid);
+          setEducator(profileData || { uid: user.uid, email: user.email, name: user.displayName || "Educator", role: 'educator' });
+          fetchMobileDashboardData(user.uid); // Fetch data for mobile
+        } catch (error) {
+          console.error("Error fetching profile or mobile dashboard data:", error);
         }
       }
     });
     return () => unsubscribe();
   }, [navigate]);
 
-  const educatorSidebarMenu = [ 
-    { title: 'Dashboard', Icon: PresentationChartLineIcon, link: '/educator-dashboard', current: true },
-    { title: 'Assignments', Icon: ClipboardDocumentIcon, link: '/assignment-management' },
-    { title: 'Tests', Icon: ClipboardDocumentIcon, link: '/teacher-tests' },
-    { title: 'Grades & Analytics', Icon: AcademicCapIcon, link: '/GradesAndAnalytics' },
-    { title: 'Resources', Icon: FolderIcon, link: '/resource-management' },
-    { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-tracking' },
-    { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/teacher-voice-chat' },
-    { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
-    { title: 'AI Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
-    { title: 'Social / Chat', Icon: SolidUserGroupIcon, link: '/chat-functionality' },
-    { title: 'Educational News', Icon: GlobeAltIcon, link: '/educational-news' },
-    { title: 'Suggestions', Icon: EnvelopeIcon, link: '/suggestions-to-students' },
-    { title: 'Meetings', Icon: VideoCameraIcon, link: '/meeting-host' },
-    { title: 'Announcements', Icon: MegaphoneIcon, link: '/announcements' },
-  ];
+  const fetchMobileDashboardData = async (teacherId) => {
+    setIsDataLoading(true);
+    try {
+      // Fetch Total Students (unique students from submissions by this teacher)
+      const assignmentsQuery = query(collection(db, 'assignments'), where('teacherId', '==', teacherId));
+      const testsQuery = query(collection(db, 'tests'), where('teacherId', '==', teacherId));
+
+      const [assignmentsSnap, testsSnap] = await Promise.all([
+        getDocs(assignmentsQuery),
+        getDocs(testsQuery)
+      ]);
+
+      const assignmentIds = assignmentsSnap.docs.map(doc => doc.id);
+      const testIds = testsSnap.docs.map(doc => doc.id);
+
+      const uniqueStudentIds = new Set();
+      const allSubmissionsPromises = [];
+
+      assignmentIds.forEach(assignId => {
+        allSubmissionsPromises.push(
+          getDocs(query(collection(db, 'submissions'), where('assignmentId', '==', assignId)))
+            .then(snap => snap.docs.forEach(doc => uniqueStudentIds.add(doc.data().studentId)))
+        );
+      });
+      testIds.forEach(testId => {
+        allSubmissionsPromises.push(
+          getDocs(query(collection(db, 'testSubmissions'), where('testId', '==', testId)))
+            .then(snap => snap.docs.forEach(doc => uniqueStudentIds.add(doc.data().studentId)))
+        );
+      });
+      await Promise.all(allSubmissionsPromises);
+      setTotalStudents(uniqueStudentIds.size);
+
+
+      // Fetch Attendance
+      const attendanceRecordsQuery = query(collection(db, 'attendance'), where('markedByTeacherId', '==', teacherId));
+      const attendanceSnap = await getDocs(attendanceRecordsQuery);
+      let totalAttendanceRecords = 0;
+      let totalPresentRecords = 0;
+      attendanceSnap.docs.forEach(doc => {
+        totalAttendanceRecords++;
+        if (doc.data().isPresent) {
+          totalPresentRecords++;
+        }
+      });
+      setAvgAttendance(totalAttendanceRecords > 0 ? ((totalPresentRecords / totalAttendanceRecords) * 100).toFixed(1) : 0);
+
+      // Upcoming Events (mocked for simplicity)
+      setUpcomingEvents([
+        { id: 1, title: 'Calculus Midterm Grading', date: 'Tomorrow, 11:59 PM', type: 'deadline' },
+        { id: 2, title: 'Staff Meeting & Q&A', date: 'Today, 3:00 PM - Room 2B', type: 'event' },
+      ]);
+
+    } catch (error) {
+      console.error('Error fetching mobile dashboard data:', error);
+      setTotalStudents(0);
+      setAvgAttendance(0);
+      setUpcomingEvents([]);
+    } finally {
+      setIsDataLoading(false);
+    }
+  };
+
 
   const mobileQuickActions = [
     { title: 'Assignments', Icon: ClipboardDocumentIcon, link: '/assignment-management', color: 'purple'},
@@ -561,7 +862,7 @@ const MobileEducatorDashboard = () => {
             <h2 className="text-2xl font-bold">Hello, {educator?.name || "Educator"}!</h2>
             <p className="text-sm opacity-90 mt-1">Ready to inspire and educate today?</p>
         </section>
-        
+
         {/* Quick Actions Grid for Mobile */}
         <section className="mb-7">
             <h3 className="text-lg font-semibold text-slate-100 mb-3.5">Quick Actions</h3>
@@ -589,11 +890,11 @@ const MobileEducatorDashboard = () => {
             <div className="grid grid-cols-2 gap-3.5 sm:gap-4">
                 <div className="bg-slate-800/70 p-4 rounded-xl border border-slate-700/50 shadow-md">
                     <p className="text-xs text-slate-400 mb-0.5">Total Students</p>
-                    <p className="text-xl font-bold text-white">128</p>
+                    <p className="text-xl font-bold text-white">{isDataLoading ? '--' : totalStudents}</p>
                 </div>
                 <div className="bg-slate-800/70 p-4 rounded-xl border border-slate-700/50 shadow-md">
                     <p className="text-xs text-slate-400 mb-0.5">Avg. Attendance</p>
-                    <p className="text-xl font-bold text-green-400">94%</p>
+                    <p className="text-xl font-bold text-green-400">{isDataLoading ? '--' : avgAttendance}%</p>
                 </div>
             </div>
         </section>
@@ -602,15 +903,18 @@ const MobileEducatorDashboard = () => {
         <section>
             <h3 className="text-lg font-semibold text-slate-100 mb-3.5">Upcoming</h3>
             <div className="bg-slate-800/70 p-4 rounded-xl border border-slate-700/50 shadow-md space-y-3.5">
-                <div className="text-sm">
-                    <p className="font-semibold text-white">Calculus Midterm Grading</p>
-                    <p className="text-xs text-yellow-400 mt-0.5">Due: Tomorrow, 11:59 PM</p>
-                </div>
-                 <div className="border-t border-slate-700/50 my-2"></div>
-                <div className="text-sm">
-                    <p className="font-semibold text-white">Staff Meeting & Q&A</p>
-                    <p className="text-xs text-blue-400 mt-0.5">Today, 3:00 PM - Room 2B</p>
-                </div>
+                {isDataLoading ? (
+                  <p className="text-slate-400 text-center text-sm py-4">Loading upcoming events...</p>
+                ) : upcomingEvents.length > 0 ? (
+                  upcomingEvents.map(event => (
+                    <div key={event.id} className="text-sm">
+                        <p className="font-semibold text-white">{event.title}</p>
+                        <p className={`text-xs ${event.type === 'deadline' ? 'text-yellow-400' : 'text-blue-400'} mt-0.5`}>{event.date}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-slate-400 text-center text-sm py-4">No upcoming events or deadlines.</p>
+                )}
             </div>
         </section>
       </main>
@@ -635,7 +939,7 @@ const MobileEducatorDashboard = () => {
             </button>
         </div>
       </header>
-      
+
       {/* Mobile Profile Popover */}
       {isProfileOpen && (
         <div className="fixed top-[68px] right-3 mt-1 w-56 bg-slate-700/95 backdrop-blur-md rounded-lg shadow-xl border border-slate-600/70 z-50 overflow-hidden">
@@ -659,7 +963,7 @@ const MobileEducatorDashboard = () => {
 
 // Parent Educator Dashboard Component
 const EducatorDashboard = () => {
-  const isDesktop = useMediaQuery({ minWidth: 1024 }); 
+  const isDesktop = useMediaQuery({ minWidth: 1024 });
   return isDesktop ? <DesktopEducatorDashboard /> : <MobileEducatorDashboard />;
 };
 
