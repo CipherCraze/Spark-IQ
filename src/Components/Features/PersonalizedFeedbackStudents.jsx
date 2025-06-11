@@ -50,6 +50,7 @@ const studentMenu = [
   { title: 'Educational News', Icon: NewspaperIcon, link: '/educational-news' },
   { title: 'Smart Review', Icon: WrenchScrewdriverIcon, link: '/smart-review' },
   { title: 'Virtual Meetings', Icon: VideoCameraIcon, link: '/meeting-participation' },
+  { title: 'Chat Platform', Icon: ChatBubbleLeftRightIcon, link: '/chat-functionality', description: "Connect with peers." },
   { title: 'My Inbox', Icon: EnvelopeIcon, link: '/inbox-for-suggestions' },
   { title: 'Upgrade to Pro', Icon: SparklesIcon, link: '/pricing', special: true },
 ];

@@ -69,7 +69,7 @@ const educatorSidebarMenuSource = [
     { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-tracking' },
     // --- NEW MENU ITEM ---
     // Use the InsightsIcon alias defined above for the new menu item
-    { title: 'Teacher Insights', Icon: DocumentMagnifyingGlassIcon, link: '/teacher-insights', description: "Get AI-powered feedback on your teaching activity." },
+    { title: 'Teacher Insights', Icon: DocumentMagnifyingGlassIcon, link: '/personalized-feedback-educators', description: "Get AI-powered feedback on your teaching activity." },
     // --- END NEW MENU ITEM ---
     { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/teacher-voice-chat' },
     { title: 'AI Chatbot (Ask Sparky)', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
