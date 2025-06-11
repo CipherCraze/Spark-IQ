@@ -3,6 +3,7 @@ import { initializeApp, getApps } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore, collection } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { getAnalytics, isSupported } from "firebase/analytics";
 
 // Firebase configuration
 const firebaseConfig = {
@@ -17,9 +18,12 @@ const firebaseConfig = {
 
 // Initialize Firebase
 let app;
+let analytics;
 try {
   if (!getApps().length) {
     app = initializeApp(firebaseConfig);
+    // Initialize Analytics only if it's supported (browser environment)
+    isSupported().then(yes => yes && (analytics = getAnalytics(app)));
   } else {
     app = getApps()[0];
   }
@@ -69,6 +73,7 @@ if (app) {
 // Export all Firebase services and collections
 export {
   app,
+  analytics,
   auth,
   googleProvider,
   db,

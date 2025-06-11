@@ -30,6 +30,7 @@ import {
   NewspaperIcon,
   WrenchScrewdriverIcon,
   VideoCameraIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
 import { useMediaQuery } from 'react-responsive';
 import { motion, AnimatePresence } from 'framer-motion';

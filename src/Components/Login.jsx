@@ -5,6 +5,7 @@ import { getAuth, signInWithPopup, signInWithEmailAndPassword } from 'firebase/a
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { app, googleProvider } from '../firebase/firebaseConfig';
 import '../styles/animations.css';
+import { trackUserAction, EVENT_NAMES, trackError } from '../firebase/analytics';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -47,6 +48,11 @@ export default function Login() {
       const studentDoc = await getDoc(studentRef);
       
       if (studentDoc.exists()) {
+        trackUserAction(EVENT_NAMES.LOGIN, {
+          user_id: userId,
+          role: 'student',
+          method: 'email'
+        });
         navigate('/dashboard');
         return;
       }
@@ -56,16 +62,29 @@ export default function Login() {
       const teacherDoc = await getDoc(teacherRef);
       
       if (teacherDoc.exists()) {
+        trackUserAction(EVENT_NAMES.LOGIN, {
+          user_id: userId,
+          role: 'teacher',
+          method: 'email'
+        });
         navigate('/educator-dashboard');
         return;
       }
       
       // If we get here, the user doesn't exist in either collection
       setError('User account not found. Please sign up first.');
+      trackError('login_error', {
+        error_type: 'user_not_found',
+        user_id: userId
+      });
       
     } catch (error) {
       console.error('Error checking user role:', error);
       setError('Failed to retrieve your account information. Please try again.');
+      trackError('login_error', {
+        error_type: 'role_check_failed',
+        error_message: error.message
+      });
     }
   };
 
@@ -76,40 +95,19 @@ export default function Login() {
       return;
     }
 
+    setLoading(true);
+    setError('');
+
     try {
-      setError('');
-      setLoading(true);
-      
-      // Use Firebase's built-in email/password authentication
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-      
-      // Check if user exists in Firestore and redirect to appropriate dashboard
-      await checkUserRoleAndRedirect(user.uid);
-      
+      await checkUserRoleAndRedirect(userCredential.user.uid);
     } catch (error) {
-      console.error('Login error:', error.message);
-      
-      // Handle specific error codes with user-friendly messages
-      switch (error.code) {
-        case 'auth/user-not-found':
-          setError('No account found with this email. Please sign up first.');
-          break;
-        case 'auth/wrong-password':
-          setError('Incorrect password. Please try again.');
-          break;
-        case 'auth/invalid-email':
-          setError('Invalid email address format.');
-          break;
-        case 'auth/too-many-requests':
-          setError('Too many failed login attempts. Please try again later.');
-          break;
-        case 'auth/user-disabled':
-          setError('This account has been disabled. Please contact support.');
-          break;
-        default:
-          setError('Login failed. Please check your credentials and try again.');
-      }
+      console.error('Login error:', error);
+      setError('Failed to log in. Please check your credentials.');
+      trackError('login_error', {
+        error_type: 'authentication_failed',
+        error_message: error.message
+      });
     } finally {
       setLoading(false);
     }
