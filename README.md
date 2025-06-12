@@ -14,10 +14,28 @@ Spark IQ is an AI-powered Learning Management System (LMS) designed to revolutio
 
 ## 📸 Screenshots
 
-![Dashboard Screenshot](screenshots/dashboard.png)
-![Voice Chat Feature](screenshots/voicechat.gif)
-![Student Interface](screenshots/student-interface.png)
-![Teacher Dashboard](screenshots/teacher-dashboard.png)
+### 🧠 Dashboard Overview
+![Dashboard](screenshots/Dashboard.png)
+![Educator Dashboard](screenshots/educator-dashboard.png)
+![Profile](screenshots/Profile.png)
+
+### 🎙️ AI & Communication Tools
+![Sparky AI Chatbot](screenshots/sparky-ai-chatbot.png)
+![Voice Chat](screenshots/voice-chat.png)
+![Chat](screenshots/Chat.png)
+![AI Questions Generator](screenshots/ai-questions-generator.png)
+
+### 📚 Learning & Teaching Modules
+![Assignment Hub](screenshots/assignment-hub.png)
+![Personalized Feedback](screenshots/personalized-feedback.png)
+![Attendance Tracker](screenshots/attendance-tracker.png)
+![Smart Review](screenshots/smart-review.png)
+![Resources](screenshots/Resources.png)
+
+### 📰 Extra Features
+![Educational News](screenshots/educational-news.png)
+![Meetings and Conference](screenshots/meetings-and-conference.png)
+
 
 ---
 
