@@ -56,6 +56,7 @@ import PersonalizedFeedback from './Components/Features/PersonalizedFeedbackStud
 import PersonalizedTeacherFeedback from './Components/Features/PersonalizedTeacherFeedback';
 import { trackPageView } from './firebase/analytics';
 import AIGeneratedQuestionseducator from './Components/Features/AIGeneratedQuestionsTeachers';
+import EducationalNewsPageeducator from './Components/Features/EducationalNewsPageTeacher';
 
 // Page view tracking component
 const PageViewTracker = () => {
@@ -414,6 +415,15 @@ function App() {
             element={
               <Layout showHeaderFooter={false}>
                 <EducationalNewsPage />
+              </Layout>
+            }
+          />
+          {/*Educational News Page for Educators */}
+          <Route
+            path="/educational-news-educator"
+            element={
+              <Layout showHeaderFooter={false}>
+                <EducationalNewsPageeducator />
               </Layout>
             }
           />

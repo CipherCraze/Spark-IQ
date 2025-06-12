@@ -449,7 +449,7 @@ const EducationalNewsPage = () => {
               {/* Back to Dashboard Button */}
               <button
                 onClick={() => {
-                  navigate('/dashboard');
+                  navigate('/educator-dashboard');
                 }}
                 className="mr-3 px-3 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-medium flex items-center transition-colors"
                 title="Back to Dashboard"
