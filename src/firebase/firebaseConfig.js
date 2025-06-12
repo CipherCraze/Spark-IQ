@@ -72,6 +72,7 @@ if (app) {
 
 // Export all Firebase services and collections
 export {
+  firebaseConfig,
   app,
   analytics,
   auth,

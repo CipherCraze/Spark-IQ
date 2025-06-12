@@ -1,5 +1,8 @@
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
+import { initializeApp } from 'firebase/app';
+import { getPerformance } from 'firebase/performance';
+import { firebaseConfig } from './firebase/firebaseConfig';
 import Header from './Components/Header';
 import Footer from './Components/Footer';
 import Hero from './Components/LandingPage/Hero';
@@ -79,6 +82,10 @@ const Layout = ({ children, showHeaderFooter = true }) => (
     {showHeaderFooter && <Footer />}
   </div>
 );
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const perf = getPerformance(app);
 
 function App() {
   return (

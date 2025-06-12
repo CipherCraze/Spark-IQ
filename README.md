@@ -14,11 +14,10 @@ Spark IQ is an AI-powered Learning Management System (LMS) designed to revolutio
 
 ## 📸 Screenshots
 
-<!--
-Add screenshots/gifs here. Example:
 ![Dashboard Screenshot](screenshots/dashboard.png)
 ![Voice Chat Feature](screenshots/voicechat.gif)
--->
+![Student Interface](screenshots/student-interface.png)
+![Teacher Dashboard](screenshots/teacher-dashboard.png)
 
 ---
 
