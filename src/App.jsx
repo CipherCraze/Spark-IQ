@@ -55,6 +55,7 @@ import { AuthProvider } from './context/AuthContext';
 import PersonalizedFeedback from './Components/Features/PersonalizedFeedbackStudents';
 import PersonalizedTeacherFeedback from './Components/Features/PersonalizedTeacherFeedback';
 import { trackPageView } from './firebase/analytics';
+import AIGeneratedQuestionseducator from './Components/Features/AIGeneratedQuestionsTeachers';
 
 // Page view tracking component
 const PageViewTracker = () => {
@@ -385,6 +386,15 @@ function App() {
             element={
               <Layout showHeaderFooter={false}>
                 <AIGeneratedQuestions />
+              </Layout>
+            }
+          />
+          {/*AI Generated Questions for Educators */}
+          <Route
+            path="/ai-generated-questions-educator"
+            element={
+              <Layout showHeaderFooter={false}>
+                <AIGeneratedQuestionseducator />
               </Layout>
             }
           />

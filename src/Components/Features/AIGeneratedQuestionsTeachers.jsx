@@ -273,7 +273,7 @@ Requirements: New, distinct question. For MCQs, 4 options. Raw JSON.`;
               <div className="absolute left-0 top-0 flex items-center gap-3">
                 <button
                   onClick={() => {
-                    navigate('/dashboard');
+                    navigate('/educator-dashboard');
                   }}
                   className="px-3 py-2 bg-slate-800/70 hover:bg-indigo-600/70 border border-slate-700 rounded-lg text-sm text-slate-300 hover:text-white flex items-center gap-2 transition-all shadow-md hover:shadow-indigo-500/30"
                   title="Back to Dashboard"

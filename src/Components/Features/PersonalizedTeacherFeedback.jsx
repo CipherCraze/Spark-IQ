@@ -73,7 +73,7 @@ const educatorSidebarMenuSource = [
     // --- END NEW MENU ITEM ---
     { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/teacher-voice-chat' },
     { title: 'AI Chatbot (Ask Sparky)', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
-    { title: 'AI Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
+    { title: 'AI Questions', Icon: SparklesIcon, link: '/ai-generated-questions-educator' },
     // Using SolidUserGroupIcon as it appeared in one of the provided menus for this role
     { title: 'Social / Chat', Icon: SolidUserGroupIcon, link: '/chat-functionality' },
     { title: 'Educational News', Icon: GlobeAltIcon, link: '/educational-news' },

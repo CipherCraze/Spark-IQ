@@ -152,7 +152,7 @@ const TeacherTests = () => {
     { title: 'Teacher Insights', Icon: DocumentMagnifyingGlassIcon, link: '/personalized-feedback-educators' },
     { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/teacher-voice-chat', current: false },
     { title: 'AI Chatbot (Ask Sparky)', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education', current: false },
-    { title: 'AI Questions', Icon: SparklesIcon, link: '/ai-generated-questions', current: false },
+    { title: 'AI Questions', Icon: SparklesIcon, link: '/ai-generated-questions-educator', current: false },
     { title: 'Social / Chat', Icon: SolidUserGroupIcon, link: '/chat-functionality', current: false },
     { title: 'Educational News', Icon: GlobeAltIcon, link: '/educational-news', current: false },
     { title: 'Student Suggestions', Icon: EnvelopeIcon, link: '/suggestions-to-students', current: false },

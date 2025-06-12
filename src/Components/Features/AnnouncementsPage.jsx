@@ -56,7 +56,7 @@ const educatorSidebarMenu = [
   { title: 'Teacher Insights', Icon: DocumentMagnifyingGlassIcon, link: '/personalized-feedback-educators', description: "Get AI-powered feedback on your teaching activity." },
   { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/teacher-voice-chat' },
   { title: 'AI Chatbot (Ask Sparky)', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
-  { title: 'AI Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
+  { title: 'AI Questions', Icon: SparklesIcon, link: '/ai-generated-questions-educator' },
   { title: 'Social / Chat', Icon: SolidUserGroupIcon, link: '/chat-functionality' },
   { title: 'Educational News', Icon: GlobeAltIcon, link: '/educational-news' },
   { title: 'Student Suggestions', Icon: EnvelopeIcon, link: '/suggestions-to-students' },
