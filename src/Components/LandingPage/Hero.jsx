@@ -46,7 +46,7 @@ export default function Hero() {
             </Link>
 
             <a
-              href="https://youtu.be/smi-9N_w-5I?si=PwAYqwKJs-ieGSnF"
+              href="https://youtu.be/bQB2Csz36c4?si=8KbpEhmUcnIWn5PE"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-3 px-8 py-4 text-lg font-medium text-white transition-all border border-gray-600 rounded-lg bg-gray-800/50 backdrop-blur-lg hover:border-indigo-400 hover:bg-indigo-500/10"
