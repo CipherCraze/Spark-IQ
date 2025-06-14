@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
@@ -140,6 +139,7 @@ const studentMenu = [
 const VoiceChat = () => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
+  const [inputText, setInputText] = useState('');
   const [messages, setMessages] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState('');
@@ -262,6 +262,7 @@ const VoiceChat = () => {
     const updatedMessages = [...messages, userMessage];
     setMessages(updatedMessages);
     setTranscript('');
+    setInputText('');
     setIsProcessing(true);
 
     try {
@@ -297,6 +298,16 @@ const VoiceChat = () => {
       setMessages(prev => [...prev, { id: `error-${Date.now()}`, text: errorMsg, sender: 'assistant', timestamp: new Date().toISOString() }]);
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      const textToSend = inputText.trim();
+      if (textToSend && !isProcessing && !isListening) {
+        handleSendMessage(textToSend);
+      }
     }
   };
 
@@ -422,10 +433,21 @@ const VoiceChat = () => {
             >
               {isListening ? <StopIcon className="w-5 h-5 md:w-6 md:h-6" /> : <MicrophoneIcon className="w-5 h-5 md:w-6 md:h-6" />}
             </button>
-            <div className="flex-1 bg-slate-700/80 rounded-lg p-3 md:p-3.5 min-h-[48px] md:min-h-[54px] text-slate-300 italic text-sm flex items-center border border-slate-600/50 shadow-inner">
-              {isListening && !transcript.trim() && <span className="animate-pulse">Listening...</span>}
-              {transcript || (!isListening && !isProcessing ? "Tap mic or type..." : '')}
-              {isProcessing && <span className="animate-pulse">Sparky is thinking...</span>}
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                value={isListening ? transcript : inputText}
+                onChange={(e) => isListening ? setTranscript(e.target.value) : setInputText(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder={isListening ? "Listening..." : "Type your message..."}
+                disabled={isProcessing}
+                className="w-full bg-slate-700/80 rounded-lg p-3 md:p-3.5 min-h-[48px] md:min-h-[54px] text-slate-300 text-sm border border-slate-600/50 shadow-inner focus:outline-none focus:ring-2 focus:ring-sky-500/50 disabled:opacity-50"
+              />
+              {isProcessing && (
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 animate-pulse">
+                  Sparky is thinking...
+                </span>
+              )}
             </div>
             {isSpeaking ? (
               <button
@@ -449,11 +471,11 @@ const VoiceChat = () => {
               </button>
             )}
             <button
-              onClick={() => handleSendMessage(transcript)}
-              disabled={!transcript.trim() || isProcessing || isListening}
+              onClick={() => handleSendMessage(isListening ? transcript : inputText)}
+              disabled={(!transcript.trim() && !inputText.trim()) || isProcessing || isListening}
               title="Send message"
               className={`p-3 md:p-3.5 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 ${
-                transcript.trim() && !isProcessing && !isListening
+                ((transcript.trim() || inputText.trim()) && !isProcessing && !isListening)
                   ? 'bg-green-500 hover:bg-green-600 focus-visible:ring-green-400'
                   : 'bg-slate-600 text-slate-400 cursor-not-allowed'
               } text-white shadow-lg`}
@@ -463,7 +485,7 @@ const VoiceChat = () => {
           </div>
         </footer>
       </div>
-      <style jsx global>{`
+      <style>{`
         .styled-scrollbar::-webkit-scrollbar {
           width: 8px;
           height: 8px;

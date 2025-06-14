@@ -4,6 +4,7 @@ import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore, collection } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getAnalytics, isSupported } from "firebase/analytics";
+import { getPerformance } from "firebase/performance";
 
 // Firebase configuration
 const firebaseConfig = {
@@ -19,11 +20,18 @@ const firebaseConfig = {
 // Initialize Firebase
 let app;
 let analytics;
+let performance;
 try {
   if (!getApps().length) {
     app = initializeApp(firebaseConfig);
     // Initialize Analytics only if it's supported (browser environment)
-    isSupported().then(yes => yes && (analytics = getAnalytics(app)));
+    isSupported().then(yes => {
+      if (yes) {
+        analytics = getAnalytics(app);
+        // Initialize Performance Monitoring
+        performance = getPerformance(app);
+      }
+    });
   } else {
     app = getApps()[0];
   }
@@ -75,6 +83,7 @@ export {
   firebaseConfig,
   app,
   analytics,
+  performance,
   auth,
   googleProvider,
   db,
