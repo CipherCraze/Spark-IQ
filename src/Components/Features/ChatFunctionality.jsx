@@ -186,6 +186,12 @@ const ChatFunctionality = () => {
 
   const navigate = useNavigate();
 
+  // --- NEW: Go Back Function ---
+  const handleGoBack = () => {
+    navigate(-1); // Navigates one step back in the browser's history
+  };
+  // --- END NEW ---
+
   // --- Firebase Auth Effect ---
   useEffect(() => {
     setLoadingAuth(true);
@@ -675,6 +681,14 @@ const ChatFunctionality = () => {
           ) : (
             // Expanded view: Title and collapse chevron
             <>
+              {/* NEW: Back Button */}
+                <button
+                    onClick={handleGoBack}
+                    className="p-2 -ml-1 hover:bg-gray-700 rounded-lg"
+                    title="Go Back"
+                >
+                    <ArrowLeftIcon className="w-5 h-5 text-gray-400" />
+                </button>
               <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
                 SparkChat
               </h1>
@@ -841,6 +855,9 @@ const ChatFunctionality = () => {
             {/* Chat Header */}
             <div className="p-3 md:p-4 border-b border-gray-700 flex items-center justify-between bg-gray-800 shrink-0">
               <div className="flex items-center gap-2 md:gap-3 min-w-0">
+                
+
+                {/* Existing: Sidebar Toggle (only on mobile) */}
                 <button
                     onClick={() => setIsSidebarCollapsed(prev => !prev)}
                     className="md:hidden p-2 -ml-1 hover:bg-gray-700 rounded-lg"
@@ -848,6 +865,8 @@ const ChatFunctionality = () => {
                 >
                     {isSidebarCollapsed ? <Bars3Icon className="w-5 h-5 text-gray-400" /> : <XMarkIcon className="w-5 h-5 text-gray-400" />}
                 </button>
+                {/* END EXISTING */}
+
                 {activeChatOtherParticipant?.avatar ? <img src={activeChatOtherParticipant.avatar} alt={activeChat.name} className="w-9 h-9 md:w-10 md:h-10 rounded-full object-cover shrink-0"/> : <UserCircleIcon className="w-9 h-9 md:w-10 md:h-10 text-gray-400 shrink-0"/>}
                 <div className="min-w-0">
                   <h2 className="text-md md:text-lg font-bold text-white truncate">{activeChat.name}</h2>
@@ -1066,7 +1085,7 @@ const ChatFunctionality = () => {
 // --- MessageItem Component ---
 const MessageItem = ({ msg, currentUserId, participantInfo, decryptMessage, handleReaction, setReplyingTo, pinMessage, deleteMessage, isSearchResult, isMessagePinned }) => {
   const [menuOpen, setMenuOpen] = useState(false);
-  const messageItemRef = useRef(null);
+  const messageItemRef = useRef(null); // Ref for the outermost message container
   const reactionsEmojis = ['👍', '❤️', '😂', '😮', '😢', '🙏']; // Common reactions
 
   const senderIsCurrentUser = msg.sender === currentUserId;
@@ -1074,11 +1093,17 @@ const MessageItem = ({ msg, currentUserId, participantInfo, decryptMessage, hand
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (messageItemRef.current && !messageItemRef.current.contains(event.target)) setMenuOpen(false);
+      // Check if click is outside the entire message item AND outside the specific menu dropdown
+      if (
+        messageItemRef.current && !messageItemRef.current.contains(event.target) &&
+        !document.getElementById(`message-menu-${msg.id}`)?.contains(event.target)
+      ) {
+        setMenuOpen(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [msg.id]); // Dependency on msg.id because the ID used for the menu is dynamic
 
   const msgTimestamp = typeof msg.timestamp === 'string' ? msg.timestamp : msg.timestamp?.toDate?.().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || '...';
 
@@ -1106,11 +1131,11 @@ const MessageItem = ({ msg, currentUserId, participantInfo, decryptMessage, hand
             <img src={senderProfile.avatar} alt={senderProfile.name || 'User Avatar'} className="w-6 h-6 rounded-full object-cover self-end mb-1 shrink-0"/> :
             <UserCircleIcon className="w-6 h-6 text-gray-500 self-end mb-1 shrink-0"/>
         )}
-        <div
+        <div /* THIS IS THE MESSAGE BUBBLE - NOW IT'S THE RELATIVE PARENT FOR THE MENU */
           className={`max-w-[80%] sm:max-w-[75%] md:max-w-[70%] p-2 md:p-2.5 rounded-xl relative transition-all shadow-md
           ${senderIsCurrentUser ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-br-lg' : 'bg-gray-700 text-gray-100 rounded-bl-lg'}
           ${isSearchResult ? '!bg-indigo-800/80 shadow-lg' : ''}
-          ${displayedMessageText ? '' : 'min-w-[80px]'}`} // Ensure some min-width for file-only messages
+          ${displayedMessageText ? '' : 'min-w-[80px]'}`}
         >
           {!senderIsCurrentUser && senderProfile && (<p className="text-xs font-medium text-indigo-300 mb-0.5">{senderProfile.name}</p>)}
 
@@ -1162,28 +1187,26 @@ const MessageItem = ({ msg, currentUserId, participantInfo, decryptMessage, hand
               <button title="More options" onClick={() => setMenuOpen(prev => !prev)} className="p-1.5 hover:bg-gray-700/80"><EllipsisVerticalIcon className="w-4 h-4 text-gray-300" /></button>
             </div>
           )}
+
+          {/* MESSAGE ACTION MENU - NOW A CHILD OF THE MESSAGE BUBBLE */}
+          {menuOpen && (
+            <div id={`message-menu-${msg.id}`} // Added ID for `handleClickOutside`
+                 className={`absolute z-20 w-48 origin-top rounded-md bg-gray-800 shadow-xl ring-1 ring-black ring-opacity-10 focus:outline-none
+                             ${senderIsCurrentUser ? 'right-0 -top-10' : 'left-0 -top-10'}
+                            `}>
+              <div className="py-1">
+                <button onClick={() => { setReplyingTo({ id: msg.id, text: msg.text, sender: msg.sender, senderName: senderProfile?.name || 'User', files: msg.files }); setMenuOpen(false); }} className="flex items-center w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"><ArrowUturnLeftIcon className="w-3.5 h-3.5 mr-2" />Reply</button>
+                <button onClick={() => { pinMessage(msg); setMenuOpen(false); }} className="flex items-center w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                    {isMessagePinned ? <SolidPinIcon className="w-3.5 h-3.5 mr-2 text-yellow-400"/> : <MapPinIcon className="w-3.5 h-3.5 mr-2" />}
+                    {isMessagePinned ? 'Unpin' : 'Pin Message'}
+                </button>
+                {displayedMessageText && <button onClick={() => { navigator.clipboard.writeText(displayedMessageText); setMenuOpen(false); }} className="flex items-center w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"><PaperClipIcon className="w-3.5 h-3.5 mr-2" />Copy Text</button>}
+                {senderIsCurrentUser && <button onClick={() => { deleteMessage(msg.id); setMenuOpen(false); }} className="flex items-center w-full text-left px-3 py-1.5 text-xs text-red-400 hover:bg-gray-700 hover:text-red-300 transition-colors"><TrashIcon className="w-3.5 h-3.5 mr-2" />Delete Message</button>}
+              </div>
+            </div>
+          )}
         </div>
       </div>
-
-      {menuOpen && (
-        <div className={`absolute z-20 mt-1 w-48 origin-top rounded-md bg-gray-800 shadow-xl ring-1 ring-black ring-opacity-10 focus:outline-none
-                        ${senderIsCurrentUser ?
-                            (window.innerWidth < 768 ? 'right-0 bottom-full mb-1' : 'right-full mr-[-0.5rem] top-0') :
-                            (window.innerWidth < 768 ? 'left-0 bottom-full mb-1' : 'left-full ml-[-0.5rem] top-0')
-                         }
-                       `}
-        >
-          <div className="py-1">
-            <button onClick={() => { setReplyingTo({ id: msg.id, text: msg.text, sender: msg.sender, senderName: senderProfile?.name || 'User', files: msg.files }); setMenuOpen(false); }} className="flex items-center w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"><ArrowUturnLeftIcon className="w-3.5 h-3.5 mr-2" />Reply</button>
-            <button onClick={() => { pinMessage(msg); setMenuOpen(false); }} className="flex items-center w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
-                {isMessagePinned ? <SolidPinIcon className="w-3.5 h-3.5 mr-2 text-yellow-400"/> : <MapPinIcon className="w-3.5 h-3.5 mr-2" />}
-                {isMessagePinned ? 'Unpin' : 'Pin Message'}
-            </button>
-            {displayedMessageText && <button onClick={() => { navigator.clipboard.writeText(displayedMessageText); setMenuOpen(false); }} className="flex items-center w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"><PaperClipIcon className="w-3.5 h-3.5 mr-2" />Copy Text</button>}
-            {senderIsCurrentUser && <button onClick={() => { deleteMessage(msg.id); setMenuOpen(false); }} className="flex items-center w-full text-left px-3 py-1.5 text-xs text-red-400 hover:bg-gray-700 hover:text-red-300 transition-colors"><TrashIcon className="w-3.5 h-3.5 mr-2" />Delete Message</button>}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
