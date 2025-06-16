@@ -56,6 +56,16 @@ service firebase.storage {
                    (isAuthenticated() && request.auth.uid == studentId); // Students can delete their own ungraded submissions
     }
 
+    // Suggestions files
+    match /suggestions/{userId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && 
+                   request.auth.uid == userId && // Users can only write to their own folder
+                   request.resource.size < 10 * 1024 * 1024 && // 10MB file size limit
+                   request.resource.contentType.matches('image/.*|video/.*|application/pdf'); // Restrict file types
+      allow delete: if isAuthenticated() && request.auth.uid == userId; // Users can delete their own suggestions
+    }
+
     // Default rule - deny all other access
     match /{allPaths=**} {
       allow read: if isAuthenticated();

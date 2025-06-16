@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react'; // Added useEffect, useRef
 import { Link, useLocation, useNavigate } from 'react-router-dom'; // Added useLocation, useNavigate
-import { auth, db } from '../../firebase/firebaseConfig'; // Import auth and db
+import { auth, db, storage } from '../../firebase/firebaseConfig'; // Import auth, db, and storage
 import { signOut, onAuthStateChanged } from 'firebase/auth'; // Import auth functions
 import { getUserProfile } from '../../firebase/userOperations'; // Assuming this path is correct
 
 // Import Firestore functions if saving suggestions to DB
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, doc, writeBatch, serverTimestamp, setDoc, getDoc } from 'firebase/firestore';
 // Import Storage functions if saving attachments to Storage
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
@@ -34,6 +34,8 @@ import {
   ArrowLeftOnRectangleIcon, // Logout icon
   BellIcon, // Notifications icon
   ChevronDownIcon, // Profile dropdown chevron
+  ExclamationTriangleIcon, // Add this import
+  CheckCircleIcon,
 } from '@heroicons/react/24/outline';
 
 import { UserGroupIcon as SolidUserGroupIcon } from '@heroicons/react/24/solid'; // From menu
@@ -85,32 +87,104 @@ const SuggestionsToStudents = () => {
   const [submitError, setSubmitError] = useState(null);
   const [submitSuccess, setSubmitSuccess] = useState(null);
 
-  // Effect for authentication and fetching user profile (Copied from Dashboard)
+  const [loadingStudents, setLoadingStudents] = useState(true);
+  const [students, setStudents] = useState([]);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [isAddingTestStudents, setIsAddingTestStudents] = useState(false);
+
+  // Move fetchStudents outside useEffect
+  const fetchStudents = async () => {
+    try {
+      console.log('Starting to fetch students from \'students\' collection...');
+      // Query the 'students' collection
+      const studentsRef = collection(db, 'students');
+      const q = query(
+        studentsRef,
+        where('role', '==', 'student')
+      );
+      
+      const snapshot = await getDocs(q);
+      console.log('Number of documents from \'students\' collection:', snapshot.docs.length);
+      
+      // Create a Map to store unique students by email
+      const uniqueStudents = new Map();
+      
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        console.log('Student data from \'students\' collection:', data);
+        // Use email as the unique identifier
+        if (!uniqueStudents.has(data.email)) {
+          uniqueStudents.set(data.email, {
+            id: doc.id,
+            ...data
+          });
+        }
+      });
+      
+      // Convert Map values to array
+      const studentsList = Array.from(uniqueStudents.values());
+      console.log('Unique students from \'students\' collection:', studentsList);
+      
+      setStudents(studentsList);
+    } catch (error) {
+      console.error('Error fetching students from \'students\' collection:', error);
+      displayMessage('error', 'Failed to load students list.');
+    } finally {
+      setLoadingStudents(false);
+    }
+  };
+
+  // Update useEffect to fetch students when component mounts
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
+  // Effect for authentication and fetching user profile
    useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
           setIsLoadingEducator(true);
-          // Fetch profile specific to the educator role if applicable, or use generic user profile
-          const profileData = await getUserProfile(user.uid); // Assuming getUserProfile fetches from 'users' or 'educators'
-          if (profileData) {
-            setEducator(profileData);
+          console.log('Auth state changed - Current user:', user);
+
+          // First check if user is in teachers collection
+          const teacherDoc = await getDoc(doc(db, 'teachers', user.uid));
+          
+          if (teacherDoc.exists()) {
+            const teacherData = teacherDoc.data();
+            console.log('Found teacher data:', teacherData);
+            setEducator({
+              ...teacherData,
+              uid: user.uid, // Ensure we have the correct uid
+              role: 'educator'
+            });
           } else {
-             // Fallback if no profile data is found (should ideally be created on signup)
-             const basicProfile = { uid: user.uid, email: user.email, name: user.displayName || "Educator", role: 'educator' };
-             setEducator(basicProfile);
+            // If not found in teachers collection, try to create teacher profile
+            console.log('No teacher profile found, creating one...');
+            const educatorData = {
+              uid: user.uid,
+              email: user.email,
+              name: user.displayName || "Educator",
+              role: 'educator',
+              joinDate: new Date().toISOString(),
+              lastUpdated: new Date().toISOString()
+            };
+            
+            // Save to teachers collection
+            await setDoc(doc(db, 'teachers', user.uid), educatorData);
+            setEducator(educatorData);
           }
         } catch (error) {
-          console.error('Error fetching educator profile:', error);
-          // Decide how to handle profile fetch error (e.g., show generic user data, redirect)
-          // For now, just log and allow access with basic user data
+          console.error('Error handling educator profile:', error);
+          displayMessage('error', 'Failed to load educator profile. Please try logging in again.');
+          navigate('/login');
         } finally {
           setIsLoadingEducator(false);
         }
       } else {
-        setEducator(null); // Clear educator profile on logout
+        setEducator(null);
         setIsLoadingEducator(false);
-        navigate('/login'); // Redirect if not authenticated
+        navigate('/login');
       }
     });
 
@@ -144,7 +218,7 @@ const SuggestionsToStudents = () => {
         document.removeEventListener('mousedown', handleClickOutsideProfile);
         window.removeEventListener('resize', handleResize);
     };
-  }, [navigate, isProfileOpen]); // Depend on navigate and isProfileOpen
+  }, [navigate]);
 
   // Function to display toast messages
    const displayMessage = (type, message) => {
@@ -185,19 +259,36 @@ const SuggestionsToStudents = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitError(null); // Clear previous errors
-    setSubmitSuccess(null); // Clear previous success
+    setSubmitError(null);
+    setSubmitSuccess(null);
+
+    // Debug current state
+    console.log('Submit attempt - Current state:', {
+      educator,
+      authUser: auth.currentUser,
+      selectedStudent,
+      attachments
+    });
 
     if (!title.trim() || !description.trim()) {
       displayMessage('error', 'Please fill out both the title and description fields.');
       return;
     }
 
-    if (!auth.currentUser) {
-       displayMessage('error', 'You must be logged in to submit suggestions.');
-       return;
+    if (!selectedStudent) {
+      displayMessage('error', 'Please select a student to send the suggestion to.');
+      return;
     }
 
+    if (!auth.currentUser) {
+      displayMessage('error', 'You must be logged in to submit suggestions.');
+      return;
+    }
+
+    if (!educator || educator.role !== 'educator') {
+      displayMessage('error', 'You must be logged in as a teacher to submit suggestions.');
+      return;
+    }
 
     setIsSubmitting(true);
     let uploadedFileUrls = [];
@@ -205,47 +296,166 @@ const SuggestionsToStudents = () => {
     try {
       // 1. Upload attachments to Firebase Storage
       if (attachments.length > 0) {
-         const uploadPromises = attachments.map(async (attachment) => {
-            const uniqueFileName = `${Date.now()}_${attachment.name.replace(/\s+/g, '_')}`;
-            const storageRef = ref(storage, `suggestions/${auth.currentUser.uid}/${uniqueFileName}`);
+        const uploadPromises = attachments.map(async (attachment) => {
+          // Validate file type
+          if (!attachment.type.match(/^(image\/.*|video\/.*|application\/pdf)$/)) {
+            throw new Error(`File type ${attachment.type} is not allowed. Only images, videos, and PDFs are permitted.`);
+          }
+
+          // Validate file size (10MB limit)
+          if (attachment.size > 10 * 1024 * 1024) {
+            throw new Error(`File ${attachment.name} is too large. Maximum size is 10MB.`);
+          }
+
+          const uniqueFileName = `${Date.now()}_${attachment.name.replace(/\s+/g, '_')}`;
+          
+          // Use the authenticated user's ID for the storage path
+          const teacherId = auth.currentUser.uid;
+          console.log('Using teacher ID for upload:', teacherId);
+          
+          if (!teacherId) {
+            console.error('Teacher ID missing from auth state:', auth.currentUser);
+            throw new Error('Teacher ID not found. Please ensure you are logged in as a teacher.');
+          }
+
+          // Create the storage path using the teacher's ID
+          const storagePath = `suggestions/${teacherId}/${uniqueFileName}`;
+          console.log('Storage path for upload:', storagePath);
+
+          const storageRef = ref(storage, storagePath);
+          
+          try {
+            // Log the upload attempt
+            console.log('Attempting to upload file:', {
+              fileName: attachment.name,
+              fileType: attachment.type,
+              fileSize: attachment.size,
+              storagePath
+            });
+
             await uploadBytes(storageRef, attachment.fileObject);
-            return getDownloadURL(storageRef);
-         });
-         uploadedFileUrls = await Promise.all(uploadPromises);
+            const downloadURL = await getDownloadURL(storageRef);
+            console.log('File uploaded successfully:', downloadURL);
+            return downloadURL;
+          } catch (uploadError) {
+            console.error('Error uploading file:', {
+              error: uploadError,
+              storagePath,
+              teacherId,
+              educator
+            });
+            throw new Error(`Failed to upload ${attachment.name}: ${uploadError.message}`);
+          }
+        });
+        uploadedFileUrls = await Promise.all(uploadPromises);
       }
 
       // 2. Save suggestion details to Firestore
       const suggestionData = {
-        teacherId: auth.currentUser.uid,
-        teacherName: educator?.name || auth.currentUser.displayName || 'Teacher',
-        teacherEmail: auth.currentUser.email,
+        teacherId: auth.currentUser.uid, // Use the authenticated user's ID
+        teacherName: educator.name || auth.currentUser.displayName || 'Teacher',
+        teacherEmail: educator.email || auth.currentUser.email,
+        studentId: selectedStudent.id,
+        studentName: selectedStudent.name || selectedStudent.email,
         title: title.trim(),
         description: description.trim(),
+        preview: description.trim().substring(0, 100) + (description.length > 100 ? '...' : ''),
         attachmentUrls: uploadedFileUrls,
         createdAt: new Date().toISOString(),
-        status: 'submitted', // e.g., 'submitted', 'under review', 'implemented', 'rejected'
-        // Add fields like assignedTo (admin?), response, etc. if needed
+        status: 'unread',
+        priority: 'medium',
+        category: 'Academic',
+        fullMessage: description.trim(),
+        attachments: uploadedFileUrls.map(url => ({
+          name: url.split('/').pop(),
+          type: url.split('.').pop(),
+          url: url,
+          size: 'Unknown'
+        }))
       };
 
-      await addDoc(collection(db, 'suggestions'), suggestionData);
+      console.log('Saving suggestion data:', suggestionData);
+
+      // Add to Firestore
+      const docRef = await addDoc(collection(db, 'suggestions'), suggestionData);
+      console.log('Suggestion saved with ID:', docRef.id);
 
       // Clear form after successful submission
       setTitle('');
       setDescription('');
       setAttachments([]);
+      setSelectedStudent(null);
 
-      displayMessage('success', 'Suggestion submitted successfully! Thank you for your feedback.');
+      displayMessage('success', 'Suggestion submitted successfully! The student will see this in their inbox.');
 
     } catch (error) {
       console.error('Error submitting suggestion:', error);
       displayMessage('error', `Failed to submit suggestion: ${error.message}. Please try again.`);
-       // Optional: Clean up uploaded files if Firestore save fails? Or rely on a background cleanup process.
-       // For simplicity here, we won't delete files if Firestore fails.
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Update the student selector to show real student data
+  const renderStudentSelector = () => (
+    <div className="mb-4">
+      <div className="flex justify-between items-center mb-2">
+        <label className="block text-sm font-medium text-gray-300">
+          Select Student
+        </label>
+        <button
+          onClick={fetchStudents}
+          disabled={loadingStudents}
+          className="text-xs px-2 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50"
+        >
+          {loadingStudents ? 'Refreshing...' : 'Refresh Students'}
+        </button>
+      </div>
+      {loadingStudents ? (
+        <div className="text-gray-400">Loading students...</div>
+      ) : students.length === 0 ? (
+        <div className="text-gray-400">No students found</div>
+      ) : (
+        <select
+          value={selectedStudent?.id || ''}
+          onChange={(e) => {
+            const student = students.find(s => s.id === e.target.value);
+            console.log('Selected student:', student);
+            setSelectedStudent(student);
+          }}
+          className="w-full p-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+          required
+        >
+          <option value="">Select a student...</option>
+          {students.map(student => {
+            const studentName = student.displayName || student.name || student.email;
+            if (!studentName) {
+              console.error('Student has no display name, name, or email:', student);
+            }
+            return (
+              <option key={student.id} value={student.id}>
+                {studentName || 'Unnamed Student'}
+              </option>
+            );
+          })}
+        </select>
+      )}
+      <div className="mt-2 text-xs text-gray-500">
+        {students.length} unique students found
+      </div>
+    </div>
+  );
+
+  // Add handleLogout function
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      displayMessage('error', 'Failed to sign out. Please try again.');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-900 to-gray-900 flex text-slate-100 overflow-x-hidden">
@@ -289,6 +499,14 @@ const SuggestionsToStudents = () => {
               <span>{item.title}</span>
             </Link>
           ))}
+          {/* Add Logout Button */}
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3.5 px-3.5 py-2.5 rounded-lg text-gray-300 transition-all group hover:bg-red-500/10 hover:text-red-300 w-full"
+          >
+            <ArrowLeftOnRectangleIcon className="w-5 h-5 flex-shrink-0 text-red-400 group-hover:scale-110 transition-transform" />
+            <span className="text-sm font-medium">Logout</span>
+          </button>
         </nav>
 
       </aside>
@@ -411,6 +629,7 @@ const SuggestionsToStudents = () => {
 
           {/* Form Container */}
           <form onSubmit={handleSubmit} className="space-y-6 pt-5"> {/* Added pt-5 to adjust spacing under the header */}
+            {renderStudentSelector()}
             <div className="bg-slate-800/60 backdrop-blur-lg rounded-xl border border-slate-700/50 p-6 sm:p-8 shadow-xl">
               <div className="space-y-6 sm:space-y-8">
                 {/* Title Input */}
@@ -537,17 +756,29 @@ const SuggestionsToStudents = () => {
         )}
 
        {/* Global styles for custom scrollbar - ensure these are added once globally or here */}
-       <style jsx global>{`
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); } /* dark slate background */
-        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; } /* lighter slate thumb */
-        ::-webkit-scrollbar-thumb:hover { background: #64748b; } /* even lighter on hover */
-
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } /* Match sidebar background */
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 3px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #6b7280; }
-      `}</style>
+       <style>
+        {`
+          .styled-scrollbar::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+          }
+          .styled-scrollbar::-webkit-scrollbar-track {
+            background: rgba(55, 65, 81, 0.5);
+            border-radius: 10px;
+          }
+          .styled-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(107, 114, 128, 0.7);
+            border-radius: 10px;
+          }
+          .styled-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(156, 163, 175, 0.9);
+          }
+          .styled-scrollbar {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(107, 114, 128, 0.7) rgba(55, 65, 81, 0.5);
+          }
+        `}
+      </style>
     </div>
   );
 };

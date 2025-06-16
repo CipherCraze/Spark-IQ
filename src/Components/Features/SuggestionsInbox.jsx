@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { auth, db } from '../../firebase/firebaseConfig';
+import { collection, query, where, orderBy, getDocs, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import {
   EnvelopeIcon,
   HomeIcon,
@@ -34,6 +37,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { useMediaQuery } from 'react-responsive';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../../context/AuthContext';
 
 // Initialize Gemini AI
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "YOUR_API_KEY_HERE";
@@ -68,57 +72,61 @@ const SuggestionsInbox = () => {
   const [aiResponse, setAiResponse] = useState('');
   const [messageDraft, setMessageDraft] = useState('');
   const [attachments, setAttachments] = useState([]);
+  const [suggestions, setSuggestions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const isDesktop = useMediaQuery({ minWidth: 768 });
   const location = useLocation();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [priorityFilter, setPriorityFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [sortOption, setSortOption] = useState('newest');
+  const { currentUser } = useAuth();
 
-  const initialSuggestions = [
-    {
-      id: 1,
-      teacher: 'Dr. Sarah Johnson',
-      subject: 'Research Paper Improvement Suggestions',
-      preview: 'I noticed your paper could benefit from more primary sources. Also, check the attached style guide.',
-      date: '2024-03-15',
-      category: 'Academic',
-      status: 'unread',
-      priority: 'high',
-      fullMessage: `Dear Student,\n\nYour recent paper on climate change shows strong understanding of the core concepts, but could benefit from incorporating more primary sources. Specifically in section 3, you reference several secondary analyses that could be strengthened with data from original research studies.\n\nI'd recommend exploring databases like JSTOR and ScienceDirect for relevant peer-reviewed studies. The university library also has excellent resources to help with this.\n\nAdditionally, your conclusion could better tie back to your thesis statement. The current version feels somewhat abrupt. I've attached the university's official style guide for your reference.\n\nOverall, this is a strong effort and with these improvements could be excellent work. Please don't hesitate to come to office hours if you'd like to discuss further.\n\nBest regards,\nDr. Johnson`,
-      attachments: [
-        { name: 'UniversityStyleGuide.pdf', type: 'pdf', url: '#', size: '780KB' },
-        { name: 'CitationExamples.docx', type: 'doc', url: '#', size: '120KB' },
-      ],
-    },
-    {
-      id: 2,
-      teacher: 'Prof. Michael Chen',
-      subject: 'Career Guidance Opportunity',
-      preview: 'Your performance in the last project suggests you might excel in research roles...',
-      date: '2024-03-14',
-      category: 'Career',
-      status: 'read',
-      priority: 'medium',
-      fullMessage: `Hello,\n\nI've been reviewing your work in our advanced statistics course and believe you have exceptional potential for research roles. Your analytical approach to problem-solving and attention to detail are exactly the skills needed for graduate-level research.\n\nThe university is offering a summer research fellowship that I think would be perfect for you. It's a paid position working with faculty on cutting-edge projects in data science.\n\nI'd be happy to write you a recommendation letter if you're interested. The deadline is April 15th. Let me know if you'd like to discuss this opportunity during office hours.\n\nBest,\nProf. Chen`,
-      attachments: [],
-    },
-    {
-      id: 3,
-      teacher: 'Dr. Emma Rodriguez',
-      subject: 'Internship Recommendation & Company Profile',
-      preview: 'Based on your skills in Python and data visualization, I recommend...',
-      date: '2024-03-10',
-      category: 'Career',
-      status: 'pending-action',
-      priority: 'high',
-      fullMessage: `Dear Student,\n\nBased on your excellent performance in our Data Visualization course and demonstrated skills in Python, I'd like to recommend you for an internship opportunity at TechAnalytics Inc.\n\nThey're looking for students with exactly your skillset to work on their education data visualization tools. This would be a fantastic opportunity to apply what you've learned in a professional setting.\n\nThe position is 15-20 hours per week during the semester and pays $25/hour. I've attached the position description and a company profile to this message.\n\nIf you're interested, I can put you in touch with their hiring manager directly. Please let me know by Friday if you'd like me to make the introduction.\n\nRegards,\nDr. Rodriguez`,
-      attachments: [
-        { name: 'Internship_Description_TechAnalytics.pdf', type: 'pdf', url: '#', size: '350KB' },
-        { name: 'TechAnalytics_Company_Profile.pdf', type: 'pdf', url: '#', size: '1.2MB' },
-      ],
-    },
-  ];
+  // Fetch suggestions from Firestore
+  useEffect(() => {
+    if (!currentUser) {
+      setLoading(false);
+      navigate('/login');
+      return;
+    }
 
-  const [suggestions, setSuggestions] = useState(initialSuggestions);
+    try {
+      const suggestionsRef = collection(db, 'suggestions');
+      const q = query(
+        suggestionsRef,
+        where('studentId', '==', currentUser.uid),
+        orderBy('createdAt', 'desc')
+      );
+      
+      const unsubscribe = onSnapshot(q, 
+        (snapshot) => {
+          const suggestionsList = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          setSuggestions(suggestionsList);
+          setLoading(false);
+        },
+        (error) => {
+          console.error("Error fetching suggestions:", error);
+          setError("Failed to load suggestions. Please try again.");
+          setLoading(false);
+        }
+      );
+
+      return () => unsubscribe();
+    } catch (error) {
+      console.error("Error setting up suggestions listener:", error);
+      setError("Failed to load suggestions. Please try again.");
+      setLoading(false);
+    }
+  }, [currentUser, navigate]);
 
   const statusStyles = {
     unread: 'text-red-400 bg-red-500/10',
@@ -232,25 +240,173 @@ const SuggestionsInbox = () => {
     }
   };
 
-  const handleDeleteSuggestion = (suggestionId) => {
-    setSuggestions(prevSuggestions => prevSuggestions.filter(s => s.id !== suggestionId));
-    if (selectedSuggestion?.id === suggestionId) {
-      setSelectedSuggestion(null);
+  const handleDeleteSuggestion = async (e, suggestionId) => {
+    e.stopPropagation(); // Prevent the click from opening the suggestion modal
+    if (window.confirm('Are you sure you want to delete this suggestion? This action cannot be undone.')) {
+      setLoading(true);
+      try {
+        await deleteDoc(doc(db, 'suggestions', suggestionId));
+        setSuggestions(prevSuggestions => prevSuggestions.filter(sug => sug.id !== suggestionId));
+        alert('Suggestion deleted successfully!');
+      } catch (error) {
+        console.error("Error deleting suggestion: ", error);
+        setError("Failed to delete suggestion. Please try again.");
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
-  const handleSelectSuggestion = (suggestion) => {
+  const handleSelectSuggestion = async (suggestion) => {
     setSelectedSuggestion(suggestion);
     setAiResponse('');
     setMessageDraft('');
     setAttachments([]);
+
+    // If suggestion is unread, mark it as read
+    if (suggestion.status === 'unread') {
+      try {
+        const suggestionRef = doc(db, 'suggestions', suggestion.id);
+        await updateDoc(suggestionRef, {
+          status: 'read'
+        });
+      } catch (error) {
+        console.error("Error marking suggestion as read:", error);
+      }
+    }
   };
 
-  const filteredSuggestions = suggestions.filter(suggestion =>
-    suggestion.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    suggestion.teacher.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    suggestion.preview.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter and sort suggestions
+  const filteredSuggestions = suggestions
+    .filter(suggestion => {
+      if (!suggestion) return false;
+      
+      const matchesSearch = searchTerm === '' || 
+        (suggestion.title?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+        (suggestion.description?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+        (suggestion.teacherName?.toLowerCase() || '').includes(searchTerm.toLowerCase());
+
+      const matchesStatus = statusFilter === 'all' || suggestion.status === statusFilter;
+      const matchesPriority = priorityFilter === 'all' || suggestion.priority === priorityFilter;
+      const matchesCategory = categoryFilter === 'all' || suggestion.category === categoryFilter;
+
+      return matchesSearch && matchesStatus && matchesPriority && matchesCategory;
+    })
+    .sort((a, b) => {
+      if (!a || !b) return 0;
+      
+      switch (sortOption) {
+        case 'newest':
+          return (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0);
+        case 'oldest':
+          return (a.createdAt?.toDate?.() || 0) - (b.createdAt?.toDate?.() || 0);
+        case 'priority':
+          return getPriorityWeight(b.priority) - getPriorityWeight(a.priority);
+        default:
+          return 0;
+      }
+    });
+
+  // Get priority weight for sorting
+  const getPriorityWeight = (priority) => {
+    switch (priority) {
+      case 'high':
+        return 3;
+      case 'medium':
+        return 2;
+      case 'low':
+        return 1;
+      default:
+        return 0;
+    }
+  };
+
+  // Get status color
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'unread':
+        return 'bg-blue-500';
+      case 'read':
+        return 'bg-green-500';
+      case 'archived':
+        return 'bg-gray-500';
+      default:
+        return 'bg-gray-500';
+    }
+  };
+
+  // Get priority color
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case 'high':
+        return 'bg-red-500';
+      case 'medium':
+        return 'bg-yellow-500';
+      case 'low':
+        return 'bg-green-500';
+      default:
+        return 'bg-gray-500';
+    }
+  };
+
+  // Get category color
+  const getCategoryColor = (category) => {
+    switch (category) {
+      case 'Academic':
+        return 'bg-purple-500';
+      case 'Behavioral':
+        return 'bg-orange-500';
+      case 'Social':
+        return 'bg-blue-500';
+      case 'Other':
+        return 'bg-gray-500';
+      default:
+        return 'bg-gray-500';
+    }
+  };
+
+  // Format date
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  // Handle suggestion click
+  const handleSuggestionClick = async (suggestion) => {
+    if (!suggestion || !suggestion.id) return;
+    
+    setSelectedSuggestion(suggestion);
+    setIsModalOpen(true);
+
+    // Update status to 'read' if it's unread
+    if (suggestion.status === 'unread') {
+      try {
+        const suggestionRef = doc(db, 'suggestions', suggestion.id);
+        await updateDoc(suggestionRef, {
+          status: 'read',
+          readAt: new Date().toISOString()
+        });
+
+        // Update local state
+        setSuggestions(prevSuggestions =>
+          prevSuggestions.map(s =>
+            s.id === suggestion.id
+              ? { ...s, status: 'read', readAt: new Date().toISOString() }
+              : s
+          )
+        );
+      } catch (error) {
+        console.error('Error updating suggestion status:', error);
+      }
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-900 flex text-gray-200">
@@ -341,8 +497,8 @@ const SuggestionsInbox = () => {
                   type="text"
                   placeholder="Search suggestions..."
                   className="pl-10 pr-4 py-2.5 bg-gray-700/50 rounded-xl text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500 w-full transition-all text-sm"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
             )}
@@ -352,59 +508,59 @@ const SuggestionsInbox = () => {
         <div className="flex-1 overflow-y-auto p-4 md:p-6 styled-scrollbar">
           {!selectedSuggestion ? (
             <div className="grid grid-cols-1 gap-4">
-              {filteredSuggestions.length > 0 ? filteredSuggestions.map((suggestion) => (
-                <div
-                  key={suggestion.id}
-                  className={`group p-4 md:p-6 bg-gray-800/50 rounded-xl border border-gray-700/50 hover:border-purple-400/50 transition-all cursor-pointer shadow-lg hover:shadow-purple-500/10 backdrop-blur-sm ${suggestion.status === 'unread' ? 'border-l-4 border-l-purple-400' : 'border-l-4 border-l-transparent'}`}
-                  onClick={() => handleSelectSuggestion(suggestion)}
-                >
-                  <div className="flex items-start gap-4">
-                    <div className={`w-2.5 h-2.5 rounded-full mt-1.5 flex-shrink-0 ${suggestion.priority === 'high' ? 'bg-red-400' : suggestion.priority === 'medium' ? 'bg-amber-400' : 'bg-blue-400'} ${suggestion.status === 'unread' ? 'animate-pulse' : ''}`} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-3 mb-1 flex-wrap">
-                        <h3 className="text-white font-medium group-hover:text-purple-300 transition-colors truncate text-lg" title={suggestion.subject}>
-                          {suggestion.subject}
-                        </h3>
-                        <span className={`px-2 py-0.5 text-xs rounded-full ${statusStyles[suggestion.status]} capitalize`}>
-                          {suggestion.status.replace('-', ' ')}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-400 mb-1">From: <span className="text-gray-300">{suggestion.teacher}</span></p>
-                      <p className="text-gray-400 text-sm mb-3 line-clamp-2">{suggestion.preview}</p>
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
-                        <div className="flex items-center gap-1 text-gray-500">
-                          <ClockIcon className="w-4 h-4" />
-                          <span>{suggestion.date}</span>
+              {loading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto"></div>
+                  <p className="mt-4 text-gray-400">Loading suggestions...</p>
+                </div>
+              ) : error ? (
+                <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 text-red-400">
+                  {error}
+                </div>
+              ) : suggestions.length === 0 ? (
+                <div className="text-center py-8">
+                  <EnvelopeIcon className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                  <p className="text-gray-400">No suggestions in your inbox yet.</p>
+                </div>
+              ) : (
+                filteredSuggestions.map((suggestion) => (
+                  <div
+                    key={suggestion.id}
+                    className="group p-4 md:p-6 bg-gray-800/50 rounded-xl border border-gray-700/50 hover:border-purple-400/50 transition-all cursor-pointer shadow-lg hover:shadow-purple-500/10 backdrop-blur-sm"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1" onClick={() => handleSuggestionClick(suggestion)}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(suggestion.status)}`}>
+                            {suggestion.status}
+                          </span>
+                          <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(suggestion.priority)}`}>
+                            {suggestion.priority}
+                          </span>
+                          <span className={`px-2 py-1 rounded-full text-xs ${getCategoryColor(suggestion.category)}`}>
+                            {suggestion.category}
+                          </span>
                         </div>
-                        <div className="flex items-center gap-1 text-gray-500">
-                          <DocumentTextIcon className="w-4 h-4" />
-                          <span>{suggestion.category}</span>
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="text-xl font-bold text-white">{suggestion.title}</h3>
+                          <span className="text-gray-500">•</span>
+                          <span className="text-gray-400">{suggestion.teacherName}</span>
                         </div>
-                        <span className={`px-2 py-0.5 rounded-full text-xs ${priorityStyles[suggestion.priority]} capitalize`}>
-                          {suggestion.priority} priority
-                        </span>
+                        <p className="text-gray-400 mb-4">{suggestion.preview}</p>
+                        <div className="flex items-center gap-4 text-sm text-gray-500">
+                          <span>{formatDate(suggestion.createdAt)}</span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex flex-col items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                       <button
-                        className="p-1.5 hover:bg-red-500/20 rounded-lg"
-                        title="Delete"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteSuggestion(suggestion.id);
-                        }}
+                        onClick={(e) => handleDeleteSuggestion(e, suggestion.id)}
+                        className="p-2 hover:bg-red-500/20 rounded-lg transition-all self-start"
+                        title="Delete Suggestion"
                       >
                         <TrashIcon className="w-5 h-5 text-red-400 hover:text-red-300" />
                       </button>
                     </div>
                   </div>
-                </div>
-              )) : (
-                <div className="text-center py-10">
-                  <EnvelopeIcon className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-                  <p className="text-xl text-gray-500">No suggestions match your search.</p>
-                  <p className="text-sm text-gray-600">Try adjusting your search terms.</p>
-                </div>
+                ))
               )}
             </div>
           ) : (
@@ -419,7 +575,7 @@ const SuggestionsInbox = () => {
                         <span>Verified Instructor</span>
                       </div>
                       <button
-                        onClick={() => handleDeleteSuggestion(selectedSuggestion.id)}
+                        onClick={(e) => handleDeleteSuggestion(e, selectedSuggestion.id)}
                         className="p-2 hover:bg-red-500/20 rounded-lg transition-all"
                         title="Delete"
                       >
@@ -478,22 +634,20 @@ const SuggestionsInbox = () => {
                   </div>
                 )}
 
-                {aiResponse && (
-                  <div className="p-4 md:p-6 border-t border-gray-700/50 bg-gradient-to-r from-purple-900/20 to-blue-900/20">
-                    <div className="flex items-center gap-2 mb-3">
-                      <SparklesIcon className="w-5 h-5 text-purple-400" />
-                      <h3 className="text-lg font-medium text-purple-300">AI Assistant</h3>
-                    </div>
-                    <div className="prose prose-sm sm:prose-base prose-invert max-w-none bg-gray-800/40 p-4 rounded-lg border border-gray-700">
+                {/* AI Assistant Section */}
+                <div className="mt-6 p-4 md:p-6 border border-gray-700/50 bg-gray-800/40 rounded-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <SparklesIcon className="w-5 h-5 text-purple-400" />
+                    <h3 className="text-lg font-medium text-purple-300">AI Assistant</h3>
+                  </div>
+                  {aiResponse && (
+                    <div className="prose prose-sm sm:prose-base prose-invert max-w-none bg-gray-800/40 p-4 rounded-lg border border-gray-700 mb-4">
                       {aiResponse.split('\n').map((para, i) => (
                         <p key={i} className="mb-3 text-gray-300 leading-relaxed">{para}</p>
                       ))}
                     </div>
-                  </div>
-                )}
-
-                <div className="p-4 md:p-6 border-t border-gray-700/50 bg-gray-800/50 rounded-b-xl flex flex-wrap items-center justify-between gap-4">
-                  <div className="flex flex-wrap gap-3">
+                  )}
+                  <div className="flex flex-wrap gap-3 mt-4">
                     <button
                       onClick={generateAiResponse}
                       disabled={isGeneratingResponse}
@@ -599,28 +753,145 @@ const SuggestionsInbox = () => {
             </div>
           </div>
         )}
+
+        {/* Suggestion Modal */}
+        {isModalOpen && selectedSuggestion && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={(e) => { e.stopPropagation(); setIsModalOpen(false); }}>
+            <div className="bg-gray-800 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              <div className="p-6">
+                {/* Title Section */}
+                <div className="mb-6">
+                  <h2 className="text-3xl font-bold text-white mb-2">{selectedSuggestion.title}</h2>
+                  <div className="flex items-center gap-2 text-gray-400">
+                    <span className="text-lg font-medium">{selectedSuggestion.teacherName}</span>
+                    <span className="text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1">
+                      <CheckCircleIcon className="w-3 h-3" />
+                      Verified Instructor
+                    </span>
+                    <span>•</span>
+                    <span>{formatDate(selectedSuggestion.createdAt)}</span>
+                  </div>
+                </div>
+
+                {/* Status Badges */}
+                <div className="flex items-center gap-2 mb-6">
+                  <span className={`px-3 py-1 rounded-full text-sm ${getStatusColor(selectedSuggestion.status)}`}>
+                    {selectedSuggestion.status}
+                  </span>
+                  <span className={`px-3 py-1 rounded-full text-sm ${getPriorityColor(selectedSuggestion.priority)}`}>
+                    {selectedSuggestion.priority}
+                  </span>
+                  <span className={`px-3 py-1 rounded-full text-sm ${getCategoryColor(selectedSuggestion.category)}`}>
+                    {selectedSuggestion.category}
+                  </span>
+                </div>
+
+                {/* Close Button */}
+                <button
+                  onClick={(e) => { e.stopPropagation(); setIsModalOpen(false); }}
+                  className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
+                >
+                  <XMarkIcon className="w-6 h-6" />
+                </button>
+
+                {/* Content Section */}
+                <div className="space-y-6">
+                  <div className="prose prose-invert max-w-none">
+                    <p className="text-gray-300 text-lg leading-relaxed">{selectedSuggestion.fullMessage}</p>
+                  </div>
+
+                  {/* Attachments Section */}
+                  {selectedSuggestion.attachments && selectedSuggestion.attachments.length > 0 && (
+                    <div className="mt-6">
+                      <h3 className="text-xl font-semibold text-white mb-4">Attachments</h3>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {selectedSuggestion.attachments.map((file, index) => (
+                          <a
+                            key={index}
+                            href={file.url || '#'}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-4 bg-gray-700/50 rounded-lg hover:bg-gray-700 transition-colors flex flex-col items-center gap-2"
+                          >
+                            <DocumentTextIcon className="w-8 h-8 text-gray-400" />
+                            <span className="text-sm text-gray-300 truncate block text-center">
+                              {file.name}
+                            </span>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* AI Assistant Section */}
+                  <div className="mt-6 p-4 md:p-6 border border-gray-700/50 bg-gray-800/40 rounded-lg">
+                    <div className="flex items-center gap-2 mb-3">
+                      <SparklesIcon className="w-5 h-5 text-purple-400" />
+                      <h3 className="text-lg font-medium text-purple-300">AI Assistant</h3>
+                    </div>
+                    {aiResponse && (
+                      <div className="prose prose-sm sm:prose-base prose-invert max-w-none bg-gray-800/40 p-4 rounded-lg border border-gray-700 mb-4">
+                        {aiResponse.split('\n').map((para, i) => (
+                          <p key={i} className="mb-3 text-gray-300 leading-relaxed">{para}</p>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-3 mt-4">
+                      <button
+                        onClick={generateAiResponse}
+                        disabled={isGeneratingResponse}
+                        className="px-4 py-2 text-sm bg-purple-500/20 text-purple-300 rounded-xl hover:bg-purple-500/30 flex items-center gap-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        <SparklesIcon className="w-5 h-5" />
+                        <span>{isGeneratingResponse && aiResponse.includes('Generating...') ? 'Generating...' : 'AI Reply Draft'}</span>
+                      </button>
+                      <button
+                        onClick={() => translateMessage()}
+                        disabled={isGeneratingResponse}
+                        className="px-4 py-2 text-sm bg-blue-500/20 text-blue-300 rounded-xl hover:bg-blue-500/30 flex items-center gap-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        <LanguageIcon className="w-5 h-5" />
+                        <span>Translate</span>
+                      </button>
+                      <button
+                        onClick={summarizeFeedback}
+                        disabled={isGeneratingResponse}
+                        className="px-4 py-2 text-sm bg-amber-500/20 text-amber-300 rounded-xl hover:bg-amber-500/30 flex items-center gap-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        <LightBulbIcon className="w-5 h-5" />
+                        <span>Summarize</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-      <style jsx global>{`
-        .styled-scrollbar::-webkit-scrollbar {
-          width: 8px;
-          height: 8px;
-        }
-        .styled-scrollbar::-webkit-scrollbar-track {
-          background: rgba(55, 65, 81, 0.5);
-          border-radius: 10px;
-        }
-        .styled-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(107, 114, 128, 0.7);
-          border-radius: 10px;
-        }
-        .styled-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(156, 163, 175, 0.9);
-        }
-        .styled-scrollbar {
-          scrollbar-width: thin;
-          scrollbar-color: rgba(107, 114, 128, 0.7) rgba(55, 65, 81, 0.5);
-        }
-      `}</style>
+      <style>
+        {`
+          .styled-scrollbar::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+          }
+          .styled-scrollbar::-webkit-scrollbar-track {
+            background: rgba(55, 65, 81, 0.5);
+            border-radius: 10px;
+          }
+          .styled-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(107, 114, 128, 0.7);
+            border-radius: 10px;
+          }
+          .styled-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(156, 163, 175, 0.9);
+          }
+          .styled-scrollbar {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(107, 114, 128, 0.7) rgba(55, 65, 81, 0.5);
+          }
+        `}
+      </style>
     </div>
   );
 };
