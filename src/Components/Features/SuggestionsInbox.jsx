@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { auth, db } from '../../firebase/firebaseConfig';
 import { collection, query, where, orderBy, getDocs, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth'; // Keep if used elsewhere, not strictly needed for just currentUser
 import {
   EnvelopeIcon,
   HomeIcon,
@@ -12,11 +12,11 @@ import {
   Bars3Icon,
   XMarkIcon,
   PaperClipIcon,
-  ArrowUpTrayIcon,
+  ArrowUpTrayIcon, // Removed, but keeping for completeness if needed later
   LightBulbIcon,
   LanguageIcon,
   DocumentTextIcon,
-  PencilIcon,
+  PencilIcon, // Removed, but keeping for completeness if needed later
   TrashIcon,
   DocumentMagnifyingGlassIcon,
   CheckCircleIcon,
@@ -65,27 +65,27 @@ const studentMenu = [
 
 const SuggestionsInbox = () => {
   const [selectedSuggestion, setSelectedSuggestion] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [composeOpen, setComposeOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState(''); // This state is unused, 'searchTerm' is used instead
+  // const [composeOpen, setComposeOpen] = useState(false); // REMOVED as per request
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isGeneratingResponse, setIsGeneratingResponse] = useState(false);
   const [aiResponse, setAiResponse] = useState('');
-  const [messageDraft, setMessageDraft] = useState('');
-  const [attachments, setAttachments] = useState([]);
+  const [messageDraft, setMessageDraft] = useState(''); // This state is currently unused
+  const [attachments, setAttachments] = useState([]); // This state is currently unused
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
-  const fileInputRef = useRef(null);
+  const fileInputRef = useRef(null); // This ref is currently unused
   const isDesktop = useMediaQuery({ minWidth: 768 });
   const location = useLocation();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false); // Used for the full-screen modal
+  // const [isLoading, setIsLoading] = useState(true); // This state is redundant with 'loading'
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [priorityFilter, setPriorityFilter] = useState('all');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [sortOption, setSortOption] = useState('newest');
+  const [statusFilter, setStatusFilter] = useState('all'); // This state is currently unused in UI but kept for potential future use
+  const [priorityFilter, setPriorityFilter] = useState('all'); // This state is currently unused in UI but kept for potential future use
+  const [categoryFilter, setCategoryFilter] = useState('all'); // This state is currently unused in UI but kept for potential future use
+  const [sortOption, setSortOption] = useState('newest'); // This state is currently unused in UI but kept for potential future use
   const { currentUser } = useAuth();
 
   // Fetch suggestions from Firestore
@@ -128,6 +128,7 @@ const SuggestionsInbox = () => {
     }
   }, [currentUser, navigate]);
 
+  // Styles for different statuses (kept as reference, not directly used in the current badges)
   const statusStyles = {
     unread: 'text-red-400 bg-red-500/10',
     read: 'text-gray-400 bg-gray-500/10',
@@ -149,24 +150,25 @@ const SuggestionsInbox = () => {
     }
   }, [isDesktop]);
 
-  const handleFileUpload = (e) => {
-    const files = Array.from(e.target.files);
-    setAttachments([...attachments, ...files.map(f => ({ name: f.name, size: f.size, type: f.type, fileObject: f }))]);
-  };
+  // Functions handleFileUpload and removeReplyAttachment are now unused due to compose removal
+  // const handleFileUpload = (e) => {
+  //   const files = Array.from(e.target.files);
+  //   setAttachments([...attachments, ...files.map(f => ({ name: f.name, size: f.size, type: f.type, fileObject: f }))]);
+  // };
 
-  const removeReplyAttachment = (fileName) => {
-    setAttachments(prev => prev.filter(file => file.name !== fileName));
-  };
+  // const removeReplyAttachment = (fileName) => {
+  //   setAttachments(prev => prev.filter(file => file.name !== fileName));
+  // };
 
   const generateAiResponse = async () => {
     if (!selectedSuggestion) return;
     setIsGeneratingResponse(true);
-    setAiResponse('');
+    setAiResponse('Generating...'); // Provide immediate feedback
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-pro" });
       const prompt = `You are an AI teaching assistant helping a student respond to this feedback from their professor:
       
-      Professor: ${selectedSuggestion.teacher}
+      Professor: ${selectedSuggestion.teacherName || selectedSuggestion.teacher}
       Subject: ${selectedSuggestion.subject}
       Message: ${selectedSuggestion.fullMessage}
 
@@ -181,7 +183,7 @@ const SuggestionsInbox = () => {
       const response = await result.response;
       const text = response.text();
       setAiResponse(text);
-      setMessageDraft(text);
+      // setMessageDraft(text); // No longer needed as compose is removed
     } catch (error) {
       console.error("AI generation error:", error);
       setAiResponse("Error: Could not generate response. Please check API key and network.");
@@ -193,7 +195,7 @@ const SuggestionsInbox = () => {
   const translateMessage = async (targetLanguage = 'Spanish') => {
     if (!selectedSuggestion) return;
     setIsGeneratingResponse(true);
-    setAiResponse('');
+    setAiResponse('Translating...'); // Provide immediate feedback
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-pro" });
       const prompt = `Translate the following academic message to ${targetLanguage} while maintaining the formal tone and academic style. Preserve any technical terms and keep the meaning accurate:
@@ -215,7 +217,7 @@ const SuggestionsInbox = () => {
   const summarizeFeedback = async () => {
     if (!selectedSuggestion) return;
     setIsGeneratingResponse(true);
-    setAiResponse('');
+    setAiResponse('Summarizing...'); // Provide immediate feedback
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-pro" });
       const prompt = `Analyze this professor's feedback and extract the 3-5 most important actionable items for the student. Consider any mentioned attachments as part of the feedback. Present them as clear bullet points with brief explanations:
@@ -243,11 +245,15 @@ const SuggestionsInbox = () => {
   const handleDeleteSuggestion = async (e, suggestionId) => {
     e.stopPropagation(); // Prevent the click from opening the suggestion modal
     if (window.confirm('Are you sure you want to delete this suggestion? This action cannot be undone.')) {
-      setLoading(true);
+      setLoading(true); // Indicate loading while deleting
       try {
         await deleteDoc(doc(db, 'suggestions', suggestionId));
         setSuggestions(prevSuggestions => prevSuggestions.filter(sug => sug.id !== suggestionId));
-        alert('Suggestion deleted successfully!');
+        if (selectedSuggestion && selectedSuggestion.id === suggestionId) {
+            setSelectedSuggestion(null); // Close the detail view if the current one is deleted
+            setIsModalOpen(false);
+        }
+        alert('Suggestion deleted successfully!'); // User feedback
       } catch (error) {
         console.error("Error deleting suggestion: ", error);
         setError("Failed to delete suggestion. Please try again.");
@@ -257,24 +263,25 @@ const SuggestionsInbox = () => {
     }
   };
 
-  const handleSelectSuggestion = async (suggestion) => {
-    setSelectedSuggestion(suggestion);
-    setAiResponse('');
-    setMessageDraft('');
-    setAttachments([]);
+  // This function is no longer used, handleSuggestionClick is used directly for opening modal
+  // const handleSelectSuggestion = async (suggestion) => {
+  //   setSelectedSuggestion(suggestion);
+  //   setAiResponse('');
+  //   setMessageDraft('');
+  //   setAttachments([]);
 
-    // If suggestion is unread, mark it as read
-    if (suggestion.status === 'unread') {
-      try {
-        const suggestionRef = doc(db, 'suggestions', suggestion.id);
-        await updateDoc(suggestionRef, {
-          status: 'read'
-        });
-      } catch (error) {
-        console.error("Error marking suggestion as read:", error);
-      }
-    }
-  };
+  //   // If suggestion is unread, mark it as read
+  //   if (suggestion.status === 'unread') {
+  //     try {
+  //       const suggestionRef = doc(db, 'suggestions', suggestion.id);
+  //       await updateDoc(suggestionRef, {
+  //         status: 'read'
+  //       });
+  //     } catch (error) {
+  //       console.error("Error marking suggestion as read:", error);
+  //     }
+  //   }
+  // };
 
   // Filter and sort suggestions
   const filteredSuggestions = suggestions
@@ -286,6 +293,7 @@ const SuggestionsInbox = () => {
         (suggestion.description?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
         (suggestion.teacherName?.toLowerCase() || '').includes(searchTerm.toLowerCase());
 
+      // These filters are not yet exposed in the UI but are here for future use
       const matchesStatus = statusFilter === 'all' || suggestion.status === statusFilter;
       const matchesPriority = priorityFilter === 'all' || suggestion.priority === priorityFilter;
       const matchesCategory = categoryFilter === 'all' || suggestion.category === categoryFilter;
@@ -297,9 +305,14 @@ const SuggestionsInbox = () => {
       
       switch (sortOption) {
         case 'newest':
-          return (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0);
+          // Convert Firestore Timestamp to Date for comparison, handle missing/null dates
+          const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0); // Use epoch for safety
+          const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
+          return dateB.getTime() - dateA.getTime();
         case 'oldest':
-          return (a.createdAt?.toDate?.() || 0) - (b.createdAt?.toDate?.() || 0);
+          const dateAOld = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
+          const dateBOld = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
+          return dateAOld.getTime() - dateBOld.getTime();
         case 'priority':
           return getPriorityWeight(b.priority) - getPriorityWeight(a.priority);
         default:
@@ -321,68 +334,89 @@ const SuggestionsInbox = () => {
     }
   };
 
-  // Get status color
+  // Get status color for badges
   const getStatusColor = (status) => {
     switch (status) {
       case 'unread':
-        return 'bg-blue-500';
+        return 'bg-purple-500/20 text-purple-300 border border-purple-400/30';
       case 'read':
-        return 'bg-green-500';
+        return 'bg-gray-600/20 text-gray-400 border border-gray-500/30';
       case 'archived':
-        return 'bg-gray-500';
+        return 'bg-blue-500/20 text-blue-300 border border-blue-400/30';
+      case 'pending': // Example of a new status
+        return 'bg-amber-500/20 text-amber-300 border border-amber-400/30';
+      case 'resolved': // Example of a new status
+        return 'bg-green-500/20 text-green-300 border border-green-400/30';
       default:
-        return 'bg-gray-500';
+        return 'bg-gray-500/20 text-gray-400 border border-gray-400/30';
     }
   };
 
-  // Get priority color
+  // Get priority color for badges
   const getPriorityColor = (priority) => {
     switch (priority) {
       case 'high':
-        return 'bg-red-500';
+        return 'bg-red-500/20 text-red-300 border border-red-400/30';
       case 'medium':
-        return 'bg-yellow-500';
+        return 'bg-amber-500/20 text-amber-300 border border-amber-400/30';
       case 'low':
-        return 'bg-green-500';
+        return 'bg-blue-500/20 text-blue-300 border border-blue-400/30';
       default:
-        return 'bg-gray-500';
+        return 'bg-gray-500/20 text-gray-400 border border-gray-400/30';
     }
   };
 
-  // Get category color
+  // Get category color for badges
   const getCategoryColor = (category) => {
     switch (category) {
       case 'Academic':
-        return 'bg-purple-500';
+        return 'bg-indigo-500/20 text-indigo-300 border border-indigo-400/30';
       case 'Behavioral':
-        return 'bg-orange-500';
+        return 'bg-orange-500/20 text-orange-300 border border-orange-400/30';
       case 'Social':
-        return 'bg-blue-500';
+        return 'bg-teal-500/20 text-teal-300 border border-teal-400/30';
+      case 'Technical': // Example of a new category
+        return 'bg-pink-500/20 text-pink-300 border border-pink-400/30';
       case 'Other':
-        return 'bg-gray-500';
+        return 'bg-gray-500/20 text-gray-400 border border-gray-400/30';
       default:
-        return 'bg-gray-500';
+        return 'bg-gray-500/20 text-gray-400 border border-gray-400/30';
     }
   };
 
   // Format date
-  const formatDate = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
+  const formatDate = (timestamp) => {
+    if (!timestamp) return '';
+    let date;
+    // Check if it's a Firestore Timestamp or an ISO string
+    if (typeof timestamp.toDate === 'function') {
+      date = timestamp.toDate();
+    } else {
+      date = new Date(timestamp);
+    }
+    
+    // Ensure the date is valid before formatting
+    if (isNaN(date.getTime())) {
+      console.error("Invalid date object:", timestamp);
+      return '';
+    }
+
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      hour12: true // To display AM/PM
     });
   };
 
-  // Handle suggestion click
+  // Handle suggestion click to open modal
   const handleSuggestionClick = async (suggestion) => {
     if (!suggestion || !suggestion.id) return;
     
     setSelectedSuggestion(suggestion);
+    setAiResponse(''); // Clear previous AI response
     setIsModalOpen(true);
 
     // Update status to 'read' if it's unread
@@ -391,10 +425,10 @@ const SuggestionsInbox = () => {
         const suggestionRef = doc(db, 'suggestions', suggestion.id);
         await updateDoc(suggestionRef, {
           status: 'read',
-          readAt: new Date().toISOString()
+          readAt: new Date().toISOString() // Store read timestamp
         });
 
-        // Update local state
+        // Update local state to reflect the change immediately
         setSuggestions(prevSuggestions =>
           prevSuggestions.map(s =>
             s.id === suggestion.id
@@ -409,7 +443,7 @@ const SuggestionsInbox = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 flex text-gray-200">
+    <div className="min-h-screen bg-gray-950 flex text-gray-200">
       <AnimatePresence>
         {isSidebarOpen && (
           <motion.aside
@@ -459,7 +493,7 @@ const SuggestionsInbox = () => {
       </AnimatePresence>
       {isSidebarOpen && !isDesktop && <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
 
-      <div className="flex-1 flex flex-col overflow-x-hidden md:ml-64">
+      <div className="flex-1 flex flex-col overflow-x-hidden md:ml-64 bg-gray-900">
         {!isDesktop && (
           <button
             onClick={() => setIsSidebarOpen(true)}
@@ -472,7 +506,7 @@ const SuggestionsInbox = () => {
           <div className="flex items-center gap-2 md:gap-4">
             {selectedSuggestion ? (
               <button
-                onClick={() => setSelectedSuggestion(null)}
+                onClick={() => setSelectedSuggestion(null)} // This button is not fully functional as `isModalOpen` isn't set to false
                 className="p-2 hover:bg-gray-700/30 rounded-lg transition-all flex items-center gap-2"
               >
                 <ChevronLeftIcon className="w-6 h-6 text-gray-300" />
@@ -506,7 +540,7 @@ const SuggestionsInbox = () => {
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-6 styled-scrollbar">
-          {!selectedSuggestion ? (
+          {!selectedSuggestion && !isModalOpen ? ( // Display inbox list only if no suggestion is selected AND modal is closed
             <div className="grid grid-cols-1 gap-4">
               {loading ? (
                 <div className="text-center py-8">
@@ -518,42 +552,44 @@ const SuggestionsInbox = () => {
                   {error}
                 </div>
               ) : suggestions.length === 0 ? (
-                <div className="text-center py-8">
-                  <EnvelopeIcon className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-                  <p className="text-gray-400">No suggestions in your inbox yet.</p>
+                <div className="text-center py-8 bg-gray-800/40 rounded-xl border border-gray-700/50 shadow-lg p-8">
+                  <EnvelopeIcon className="w-20 h-20 text-gray-600 mx-auto mb-6" />
+                  <p className="text-gray-400 text-lg font-medium">No suggestions in your inbox yet.</p>
+                  <p className="text-gray-500 mt-2">Feedback and messages from your instructors will appear here.</p>
                 </div>
               ) : (
                 filteredSuggestions.map((suggestion) => (
                   <div
                     key={suggestion.id}
                     className="group p-4 md:p-6 bg-gray-800/50 rounded-xl border border-gray-700/50 hover:border-purple-400/50 transition-all cursor-pointer shadow-lg hover:shadow-purple-500/10 backdrop-blur-sm"
+                    onClick={() => handleSuggestionClick(suggestion)} // Click anywhere on the card to open
                   >
                     <div className="flex items-start justify-between">
-                      <div className="flex-1" onClick={() => handleSuggestionClick(suggestion)}>
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(suggestion.status)}`}>
-                            {suggestion.status}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(suggestion.status)}`}>
+                            {suggestion.status.replace('-', ' ')}
                           </span>
-                          <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(suggestion.priority)}`}>
-                            {suggestion.priority}
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getPriorityColor(suggestion.priority)}`}>
+                            {suggestion.priority} Priority
                           </span>
-                          <span className={`px-2 py-1 rounded-full text-xs ${getCategoryColor(suggestion.category)}`}>
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getCategoryColor(suggestion.category)}`}>
                             {suggestion.category}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="text-xl font-bold text-white">{suggestion.title}</h3>
-                          <span className="text-gray-500">•</span>
-                          <span className="text-gray-400">{suggestion.teacherName}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-2">
+                          <h3 className="text-xl font-bold text-white group-hover:text-purple-300 transition-colors">{suggestion.title}</h3>
+                          <span className="text-gray-500 hidden sm:inline">•</span>
+                          <span className="text-gray-400 text-sm">{suggestion.teacherName}</span>
                         </div>
-                        <p className="text-gray-400 mb-4">{suggestion.preview}</p>
+                        <p className="text-gray-400 text-sm mb-4 line-clamp-2">{suggestion.fullMessage}</p>
                         <div className="flex items-center gap-4 text-sm text-gray-500">
                           <span>{formatDate(suggestion.createdAt)}</span>
                         </div>
                       </div>
                       <button
                         onClick={(e) => handleDeleteSuggestion(e, suggestion.id)}
-                        className="p-2 hover:bg-red-500/20 rounded-lg transition-all self-start"
+                        className="p-2 hover:bg-red-500/20 rounded-lg transition-all self-start ml-4 flex-shrink-0"
                         title="Delete Suggestion"
                       >
                         <TrashIcon className="w-5 h-5 text-red-400 hover:text-red-300" />
@@ -563,258 +599,93 @@ const SuggestionsInbox = () => {
                 ))
               )}
             </div>
-          ) : (
-            <div className="max-w-4xl mx-auto">
-              <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 shadow-2xl transform transition-all backdrop-blur-sm">
-                <div className="p-4 md:p-6 border-b border-gray-700/50 bg-gradient-to-r from-gray-800/80 to-gray-900/60 rounded-t-xl">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-3">
-                    <h2 className="text-xl md:text-2xl font-semibold text-white">{selectedSuggestion.subject}</h2>
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-2 text-sm text-green-400 bg-green-500/10 px-2 py-1 rounded-full">
-                        <CheckCircleIcon className="w-5 h-5" />
-                        <span>Verified Instructor</span>
-                      </div>
-                      <button
-                        onClick={(e) => handleDeleteSuggestion(e, selectedSuggestion.id)}
-                        className="p-2 hover:bg-red-500/20 rounded-lg transition-all"
-                        title="Delete"
-                      >
-                        <TrashIcon className="w-5 h-5 text-red-400 hover:text-red-300" />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <UserCircleIcon className="w-4 h-4 text-purple-400" />
-                      <span>{selectedSuggestion.teacher}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <ClockIcon className="w-4 h-4 text-blue-400" />
-                      <span>{selectedSuggestion.date}</span>
-                    </div>
-                    <span className={`px-2 py-0.5 rounded-full text-xs ${statusStyles[selectedSuggestion.status]} capitalize`}>
-                      {selectedSuggestion.status.replace('-', ' ')}
-                    </span>
-                    <span className={`px-2 py-0.5 rounded-full text-xs ${priorityStyles[selectedSuggestion.priority]} capitalize`}>
-                      {selectedSuggestion.priority} priority
-                    </span>
-                  </div>
-                </div>
-
-                <div className="p-4 md:p-6 prose prose-sm sm:prose-base prose-invert max-w-none bg-gray-800/30">
-                  {selectedSuggestion.fullMessage.split('\n').map((para, i) => (
-                    <p key={i} className="mb-3 text-gray-300 leading-relaxed">{para}</p>
-                  ))}
-                </div>
-
-                {selectedSuggestion.attachments && selectedSuggestion.attachments.length > 0 && (
-                  <div className="p-4 md:p-6 border-t border-gray-700/50 bg-gray-800/20">
-                    <h4 className="text-md font-semibold text-gray-200 mb-3 flex items-center gap-2">
-                      <PaperClipIcon className="w-5 h-5 text-purple-400" />
-                      Attachments ({selectedSuggestion.attachments.length})
-                    </h4>
-                    <div className="space-y-2">
-                      {selectedSuggestion.attachments.map((file, index) => (
-                        <a
-                          key={index}
-                          href={file.url || '#'}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center justify-between gap-2 p-2.5 bg-gray-700/40 hover:bg-gray-700/60 rounded-lg transition-colors text-purple-300 hover:text-purple-200 group"
-                          download={file.name}
-                        >
-                          <div className="flex items-center gap-2 overflow-hidden">
-                            <DocumentTextIcon className="w-5 h-5 text-gray-400 group-hover:text-purple-300 transition-colors" />
-                            <span className="truncate" title={file.name}>{file.name}</span>
-                          </div>
-                          {file.size && <span className="text-xs text-gray-500 whitespace-nowrap">{file.size}</span>}
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* AI Assistant Section */}
-                <div className="mt-6 p-4 md:p-6 border border-gray-700/50 bg-gray-800/40 rounded-lg">
-                  <div className="flex items-center gap-2 mb-3">
-                    <SparklesIcon className="w-5 h-5 text-purple-400" />
-                    <h3 className="text-lg font-medium text-purple-300">AI Assistant</h3>
-                  </div>
-                  {aiResponse && (
-                    <div className="prose prose-sm sm:prose-base prose-invert max-w-none bg-gray-800/40 p-4 rounded-lg border border-gray-700 mb-4">
-                      {aiResponse.split('\n').map((para, i) => (
-                        <p key={i} className="mb-3 text-gray-300 leading-relaxed">{para}</p>
-                      ))}
-                    </div>
-                  )}
-                  <div className="flex flex-wrap gap-3 mt-4">
-                    <button
-                      onClick={generateAiResponse}
-                      disabled={isGeneratingResponse}
-                      className="px-4 py-2 text-sm bg-purple-500/20 text-purple-300 rounded-xl hover:bg-purple-500/30 flex items-center gap-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      <SparklesIcon className="w-5 h-5" />
-                      <span>{isGeneratingResponse && aiResponse.includes('Generating...') ? 'Generating...' : 'AI Reply Draft'}</span>
-                    </button>
-                    <button
-                      onClick={() => translateMessage()}
-                      disabled={isGeneratingResponse}
-                      className="px-4 py-2 text-sm bg-blue-500/20 text-blue-300 rounded-xl hover:bg-blue-500/30 flex items-center gap-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      <LanguageIcon className="w-5 h-5" />
-                      <span>Translate</span>
-                    </button>
-                    <button
-                      onClick={summarizeFeedback}
-                      disabled={isGeneratingResponse}
-                      className="px-4 py-2 text-sm bg-amber-500/20 text-amber-300 rounded-xl hover:bg-amber-500/30 flex items-center gap-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      <LightBulbIcon className="w-5 h-5" />
-                      <span>Summarize</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          ) : null }
         </div>
 
-        {!selectedSuggestion && (
-          <button
-            className="fixed bottom-6 right-6 sm:bottom-8 sm:right-8 p-3.5 sm:p-4 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full hover:from-purple-600 hover:to-blue-600 shadow-xl transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2 focus:ring-offset-gray-900"
-            onClick={() => setComposeOpen(true)}
-            title="Compose New Message"
-          >
-            <PencilIcon className="w-6 h-6 text-white" />
-          </button>
-        )}
-
-        {composeOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md" onClick={() => setComposeOpen(false)}>
-            <div className="bg-gray-800 rounded-xl p-4 md:p-6 max-w-2xl w-full shadow-2xl border border-gray-700/50" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-white">New Message</h2>
-                <button
-                  onClick={() => setComposeOpen(false)}
-                  className="p-1.5 hover:bg-gray-700/50 rounded-lg transition-all"
-                >
-                  <XMarkIcon className="w-6 h-6 text-gray-400" />
-                </button>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">To</label>
-                  <input
-                    type="text"
-                    className="w-full p-3 bg-gray-700/60 border border-gray-600 rounded-lg text-white placeholder-gray-400/70 focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
-                    placeholder="Teacher or Admin email"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">Subject</label>
-                  <input
-                    type="text"
-                    className="w-full p-3 bg-gray-700/60 border border-gray-600 rounded-lg text-white placeholder-gray-400/70 focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
-                    placeholder="Message subject"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">Message</label>
-                  <textarea
-                    className="w-full p-3 bg-gray-700/60 border border-gray-600 rounded-lg text-white placeholder-gray-400/70 min-h-[150px] focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
-                    placeholder="Type your message here..."
-                  />
-                </div>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-2">
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-2 px-4 py-2 bg-gray-700/50 text-gray-300 rounded-lg hover:bg-gray-700/70 transition-all text-sm"
-                  >
-                    <ArrowUpTrayIcon className="w-5 h-5" />
-                    Attach Files
-                  </button>
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    multiple
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
-                  <div className="flex gap-3 w-full sm:w-auto">
-                    <button className="flex-1 sm:flex-none px-4 py-2.5 bg-gray-700/50 text-gray-300 rounded-xl hover:bg-gray-700/70 transition-all text-sm">
-                      Save Draft
-                    </button>
-                    <button className="flex-1 sm:flex-none px-4 py-2.5 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-xl hover:from-purple-600 hover:to-blue-600 transition-all font-medium text-sm">
-                      Send Message
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Suggestion Modal */}
+        {/* Suggestion Modal (Replaced inline detail view) */}
         {isModalOpen && selectedSuggestion && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={(e) => { e.stopPropagation(); setIsModalOpen(false); }}>
-            <div className="bg-gray-800 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-              <div className="p-6">
-                {/* Title Section */}
-                <div className="mb-6">
-                  <h2 className="text-3xl font-bold text-white mb-2">{selectedSuggestion.title}</h2>
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <span className="text-lg font-medium">{selectedSuggestion.teacherName}</span>
-                    <span className="text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1">
-                      <CheckCircleIcon className="w-3 h-3" />
-                      Verified Instructor
-                    </span>
-                    <span>•</span>
-                    <span>{formatDate(selectedSuggestion.createdAt)}</span>
-                  </div>
-                </div>
-
-                {/* Status Badges */}
-                <div className="flex items-center gap-2 mb-6">
-                  <span className={`px-3 py-1 rounded-full text-sm ${getStatusColor(selectedSuggestion.status)}`}>
-                    {selectedSuggestion.status}
-                  </span>
-                  <span className={`px-3 py-1 rounded-full text-sm ${getPriorityColor(selectedSuggestion.priority)}`}>
-                    {selectedSuggestion.priority}
-                  </span>
-                  <span className={`px-3 py-1 rounded-full text-sm ${getCategoryColor(selectedSuggestion.category)}`}>
-                    {selectedSuggestion.category}
-                  </span>
-                </div>
-
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in" onClick={() => { setIsModalOpen(false); setSelectedSuggestion(null); }}>
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+              className="bg-gray-800 rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto styled-scrollbar shadow-2xl border border-gray-700/50"
+              onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside modal
+            >
+              <div className="p-6 relative">
                 {/* Close Button */}
                 <button
-                  onClick={(e) => { e.stopPropagation(); setIsModalOpen(false); }}
-                  className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
+                  onClick={() => { setIsModalOpen(false); setSelectedSuggestion(null); }}
+                  className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors p-2 rounded-full hover:bg-gray-700/50"
                 >
                   <XMarkIcon className="w-6 h-6" />
                 </button>
 
+                {/* Title Section */}
+                <div className="mb-6 pb-4 border-b border-gray-700/50">
+                  <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">{selectedSuggestion.title}</h2>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-gray-400 text-sm md:text-md">
+                    <div className="flex items-center gap-2">
+                      <UserCircleIcon className="w-5 h-5 text-purple-400" />
+                      <span className="font-medium">{selectedSuggestion.teacherName}</span>
+                      <span className="text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1">
+                        <CheckCircleIcon className="w-3 h-3" />
+                        Verified
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <ClockIcon className="w-5 h-5 text-blue-400" />
+                      <span>{formatDate(selectedSuggestion.createdAt)}</span>
+                    </div>
+                    {/* Delete button specific to modal view */}
+                    <button
+                        onClick={(e) => handleDeleteSuggestion(e, selectedSuggestion.id)}
+                        className="p-1.5 hover:bg-red-500/20 rounded-lg transition-all"
+                        title="Delete Suggestion"
+                    >
+                        <TrashIcon className="w-5 h-5 text-red-400 hover:text-red-300" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Status Badges */}
+                <div className="flex flex-wrap items-center gap-3 mb-6">
+                  <span className={`px-3 py-1.5 rounded-full text-sm font-semibold ${getStatusColor(selectedSuggestion.status)}`}>
+                    {selectedSuggestion.status.replace('-', ' ')}
+                  </span>
+                  <span className={`px-3 py-1.5 rounded-full text-sm font-semibold ${getPriorityColor(selectedSuggestion.priority)}`}>
+                    {selectedSuggestion.priority} Priority
+                  </span>
+                  <span className={`px-3 py-1.5 rounded-full text-sm font-semibold ${getCategoryColor(selectedSuggestion.category)}`}>
+                    {selectedSuggestion.category}
+                  </span>
+                </div>
+
                 {/* Content Section */}
                 <div className="space-y-6">
-                  <div className="prose prose-invert max-w-none">
-                    <p className="text-gray-300 text-lg leading-relaxed">{selectedSuggestion.fullMessage}</p>
+                  <div className="prose prose-invert max-w-none text-gray-300">
+                    <p className="text-lg leading-relaxed">{selectedSuggestion.fullMessage}</p>
                   </div>
 
                   {/* Attachments Section */}
                   {selectedSuggestion.attachments && selectedSuggestion.attachments.length > 0 && (
-                    <div className="mt-6">
-                      <h3 className="text-xl font-semibold text-white mb-4">Attachments</h3>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="mt-6 p-4 bg-gray-800/30 rounded-lg border border-gray-700/50">
+                      <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                        <PaperClipIcon className="w-6 h-6 text-purple-400" />
+                        Attachments ({selectedSuggestion.attachments.length})
+                      </h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {selectedSuggestion.attachments.map((file, index) => (
                           <a
                             key={index}
                             href={file.url || '#'}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="p-4 bg-gray-700/50 rounded-lg hover:bg-gray-700 transition-colors flex flex-col items-center gap-2"
+                            className="p-3 bg-gray-700/50 rounded-lg hover:bg-gray-700 transition-colors flex flex-col items-center gap-2 text-center group"
                           >
-                            <DocumentTextIcon className="w-8 h-8 text-gray-400" />
-                            <span className="text-sm text-gray-300 truncate block text-center">
+                            <DocumentTextIcon className="w-8 h-8 text-gray-400 group-hover:text-purple-400 transition-colors" />
+                            <span className="text-sm text-gray-300 truncate w-full" title={file.name}>
                               {file.name}
                             </span>
                           </a>
@@ -824,13 +695,19 @@ const SuggestionsInbox = () => {
                   )}
 
                   {/* AI Assistant Section */}
-                  <div className="mt-6 p-4 md:p-6 border border-gray-700/50 bg-gray-800/40 rounded-lg">
-                    <div className="flex items-center gap-2 mb-3">
-                      <SparklesIcon className="w-5 h-5 text-purple-400" />
+                  <div className="mt-6 p-4 md:p-6 border border-gray-700/50 bg-gray-800/40 rounded-lg shadow-inner shadow-purple-500/5">
+                    <div className="flex items-center gap-2 mb-4">
+                      <SparklesIcon className="w-6 h-6 text-purple-400" />
                       <h3 className="text-lg font-medium text-purple-300">AI Assistant</h3>
                     </div>
-                    {aiResponse && (
-                      <div className="prose prose-sm sm:prose-base prose-invert max-w-none bg-gray-800/40 p-4 rounded-lg border border-gray-700 mb-4">
+                    {isGeneratingResponse && aiResponse.includes('Generating...') && (
+                        <div className="text-center py-4">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto"></div>
+                            <p className="mt-2 text-gray-400">{aiResponse}</p>
+                        </div>
+                    )}
+                    {aiResponse && !isGeneratingResponse && (
+                      <div className="prose prose-sm sm:prose-base prose-invert max-w-none bg-gray-800/40 p-4 rounded-lg border border-gray-700 mb-4 shadow-sm">
                         {aiResponse.split('\n').map((para, i) => (
                           <p key={i} className="mb-3 text-gray-300 leading-relaxed">{para}</p>
                         ))}
@@ -840,15 +717,15 @@ const SuggestionsInbox = () => {
                       <button
                         onClick={generateAiResponse}
                         disabled={isGeneratingResponse}
-                        className="px-4 py-2 text-sm bg-purple-500/20 text-purple-300 rounded-xl hover:bg-purple-500/30 flex items-center gap-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="px-4 py-2.5 text-sm bg-purple-500/20 text-purple-300 rounded-xl hover:bg-purple-500/30 flex items-center gap-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed border border-purple-400/30"
                       >
                         <SparklesIcon className="w-5 h-5" />
-                        <span>{isGeneratingResponse && aiResponse.includes('Generating...') ? 'Generating...' : 'AI Reply Draft'}</span>
+                        <span>AI Reply Draft</span>
                       </button>
                       <button
                         onClick={() => translateMessage()}
                         disabled={isGeneratingResponse}
-                        className="px-4 py-2 text-sm bg-blue-500/20 text-blue-300 rounded-xl hover:bg-blue-500/30 flex items-center gap-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="px-4 py-2.5 text-sm bg-blue-500/20 text-blue-300 rounded-xl hover:bg-blue-500/30 flex items-center gap-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed border border-blue-400/30"
                       >
                         <LanguageIcon className="w-5 h-5" />
                         <span>Translate</span>
@@ -856,7 +733,7 @@ const SuggestionsInbox = () => {
                       <button
                         onClick={summarizeFeedback}
                         disabled={isGeneratingResponse}
-                        className="px-4 py-2 text-sm bg-amber-500/20 text-amber-300 rounded-xl hover:bg-amber-500/30 flex items-center gap-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="px-4 py-2.5 text-sm bg-amber-500/20 text-amber-300 rounded-xl hover:bg-amber-500/30 flex items-center gap-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed border border-amber-400/30"
                       >
                         <LightBulbIcon className="w-5 h-5" />
                         <span>Summarize</span>
@@ -865,7 +742,7 @@ const SuggestionsInbox = () => {
                   </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
         )}
       </div>
@@ -889,6 +766,13 @@ const SuggestionsInbox = () => {
           .styled-scrollbar {
             scrollbar-width: thin;
             scrollbar-color: rgba(107, 114, 128, 0.7) rgba(55, 65, 81, 0.5);
+          }
+          @keyframes fade-in {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+          .animate-fade-in {
+            animation: fade-in 0.3s ease-out forwards;
           }
         `}
       </style>
