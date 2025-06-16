@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { auth, db } from '../../firebase/firebaseConfig';
 import { collection, query, where, orderBy, getDocs, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth'; // Keep if used elsewhere, not strictly needed for just currentUser
+import { onAuthStateChanged } from 'firebase/auth'; 
 import {
   EnvelopeIcon,
   HomeIcon,
@@ -12,11 +12,9 @@ import {
   Bars3Icon,
   XMarkIcon,
   PaperClipIcon,
-  ArrowUpTrayIcon, // Removed, but keeping for completeness if needed later
   LightBulbIcon,
   LanguageIcon,
   DocumentTextIcon,
-  PencilIcon, // Removed, but keeping for completeness if needed later
   TrashIcon,
   DocumentMagnifyingGlassIcon,
   CheckCircleIcon,
@@ -40,7 +38,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 
 // Initialize Gemini AI
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "YOUR_API_KEY_HERE";
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
 // --- Student Menu Definition ---
@@ -59,14 +57,13 @@ const studentMenu = [
   { title: 'Smart Review', Icon: WrenchScrewdriverIcon, link: '/smart-review', description: "Enhance your writing." },
   { title: 'Virtual Meetings', Icon: VideoCameraIcon, link: '/meeting-participation', description: "Join online classes." },
   { title: 'Chat Platform', Icon: ChatBubbleLeftRightIcon, link: '/chat-functionality', description: "Connect with peers." },
-  { title: 'My Inbox', Icon: EnvelopeIcon, link: '/inbox-for-suggestions', description: "Messages & suggestions." },
+  { title: 'My Inbox', Icon: EnvelopeIcon, link: '/inbox-for-suggestions', special: true, description: "Messages & suggestions." }, // Added special true for current page
   { title: 'Upgrade to Pro', Icon: SparklesIcon, link: '/pricing', special: true, description: "Unlock premium features." },
 ];
 
 const SuggestionsInbox = () => {
   const [selectedSuggestion, setSelectedSuggestion] = useState(null);
   const [searchQuery, setSearchQuery] = useState(''); // This state is unused, 'searchTerm' is used instead
-  // const [composeOpen, setComposeOpen] = useState(false); // REMOVED as per request
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isGeneratingResponse, setIsGeneratingResponse] = useState(false);
   const [aiResponse, setAiResponse] = useState('');
@@ -80,7 +77,6 @@ const SuggestionsInbox = () => {
   const isDesktop = useMediaQuery({ minWidth: 768 });
   const location = useLocation();
   const [isModalOpen, setIsModalOpen] = useState(false); // Used for the full-screen modal
-  // const [isLoading, setIsLoading] = useState(true); // This state is redundant with 'loading'
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // This state is currently unused in UI but kept for potential future use
   const [priorityFilter, setPriorityFilter] = useState('all'); // This state is currently unused in UI but kept for potential future use
@@ -128,7 +124,6 @@ const SuggestionsInbox = () => {
     }
   }, [currentUser, navigate]);
 
-  // Styles for different statuses (kept as reference, not directly used in the current badges)
   const statusStyles = {
     unread: 'text-red-400 bg-red-500/10',
     read: 'text-gray-400 bg-gray-500/10',
@@ -150,43 +145,49 @@ const SuggestionsInbox = () => {
     }
   }, [isDesktop]);
 
-  // Functions handleFileUpload and removeReplyAttachment are now unused due to compose removal
-  // const handleFileUpload = (e) => {
-  //   const files = Array.from(e.target.files);
-  //   setAttachments([...attachments, ...files.map(f => ({ name: f.name, size: f.size, type: f.type, fileObject: f }))]);
-  // };
-
-  // const removeReplyAttachment = (fileName) => {
-  //   setAttachments(prev => prev.filter(file => file.name !== fileName));
-  // };
-
   const generateAiResponse = async () => {
     if (!selectedSuggestion) return;
     setIsGeneratingResponse(true);
     setAiResponse('Generating...'); // Provide immediate feedback
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-      const prompt = `You are an AI teaching assistant helping a student respond to this feedback from their professor:
-      
-      Professor: ${selectedSuggestion.teacherName || selectedSuggestion.teacher}
-      Subject: ${selectedSuggestion.subject}
-      Message: ${selectedSuggestion.fullMessage}
+      if (GEMINI_API_KEY === "YOUR_API_KEY_HERE" || !GEMINI_API_KEY) {
+        throw new Error("Gemini API key is not configured. Please set VITE_GEMINI_API_KEY in your .env file.");
+      }
 
-      Generate a professional, grateful response that:
-      1. Thanks the professor for their feedback
-      2. Addresses each of their key points (including any attachments if mentioned in the message)
-      3. Shows the student will act on the suggestions
-      4. Asks any clarifying questions if needed
-      
-      Keep it concise (2-3 paragraphs max) and in an appropriate academic tone.`;
-      const result = await model.generateContent(prompt);
+      const model = genAI.getGenerativeModel({ model: "models/gemini-1.5-flash" });
+      const prompt = `You are an AI teaching assistant helping a student respond to this feedback from their professor.
+Output in plain text, do not use any markdown formatting (like **, ##, \`\`\`, bullet points with -, or lists). Separate paragraphs with double line breaks.
+
+Professor: ${selectedSuggestion.teacherName || selectedSuggestion.teacher}
+Subject: ${selectedSuggestion.subject}
+Message: ${selectedSuggestion.fullMessage}
+
+Generate a professional, grateful response from the student to their professor that:
+1.  Thanks the professor for their feedback.
+2.  Addresses each of their key points (including any attachments if mentioned in the message or implicitly referenced in the message).
+3.  Shows the student will act on the suggestions and is committed to improvement.
+4.  Asks any clarifying questions if needed (if the feedback seems ambiguous).
+
+Keep the response concise (2-3 paragraphs maximum) and maintain an appropriate academic tone.`;
+
+      const generationConfig = {
+        temperature: 0.7,
+        topK: 40,
+        topP: 0.95,
+        maxOutputTokens: 1024,
+      };
+
+      const result = await model.generateContent(prompt, generationConfig);
       const response = await result.response;
       const text = response.text();
       setAiResponse(text);
-      // setMessageDraft(text); // No longer needed as compose is removed
     } catch (error) {
       console.error("AI generation error:", error);
-      setAiResponse("Error: Could not generate response. Please check API key and network.");
+      if (error.message.includes("API key is not configured")) {
+        setAiResponse(`Error: ${error.message}`);
+      } else {
+        setAiResponse("Error: Could not generate response. Please try again later.");
+      }
     } finally {
       setIsGeneratingResponse(false);
     }
@@ -197,18 +198,35 @@ const SuggestionsInbox = () => {
     setIsGeneratingResponse(true);
     setAiResponse('Translating...'); // Provide immediate feedback
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-      const prompt = `Translate the following academic message to ${targetLanguage} while maintaining the formal tone and academic style. Preserve any technical terms and keep the meaning accurate:
+      if (GEMINI_API_KEY === "YOUR_API_KEY_HERE" || !GEMINI_API_KEY) {
+        throw new Error("Gemini API key is not configured. Please set VITE_GEMINI_API_KEY in your .env file.");
+      }
 
-      Message to translate:
-      "${selectedSuggestion.fullMessage}"`;
-      const result = await model.generateContent(prompt);
+      const model = genAI.getGenerativeModel({ model: "models/gemini-1.5-flash" });
+      const prompt = `Translate the following academic message to ${targetLanguage} while maintaining a formal tone and academic style. Preserve any technical terms and ensure the meaning is accurately conveyed.
+Output in plain text, do not use any markdown formatting (like **, ##, \`\`\`, bullet points with -, or lists). Separate paragraphs with double line breaks.
+
+Message to translate:
+"${selectedSuggestion.fullMessage}"`;
+
+      const generationConfig = {
+        temperature: 0.7,
+        topK: 40,
+        topP: 0.95,
+        maxOutputTokens: 1024,
+      };
+
+      const result = await model.generateContent(prompt, generationConfig);
       const response = await result.response;
       const text = response.text();
       setAiResponse(`${targetLanguage} Translation:\n\n${text}`);
     } catch (error) {
       console.error("Translation error:", error);
-      setAiResponse(`Error: Could not translate message to ${targetLanguage}.`);
+      if (error.message.includes("API key is not configured")) {
+        setAiResponse(`Error: ${error.message}`);
+      } else {
+        setAiResponse(`Error: Could not translate message to ${targetLanguage}. Please try again later.`);
+      }
     } finally {
       setIsGeneratingResponse(false);
     }
@@ -219,24 +237,43 @@ const SuggestionsInbox = () => {
     setIsGeneratingResponse(true);
     setAiResponse('Summarizing...'); // Provide immediate feedback
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-      const prompt = `Analyze this professor's feedback and extract the 3-5 most important actionable items for the student. Consider any mentioned attachments as part of the feedback. Present them as clear bullet points with brief explanations:
+      if (GEMINI_API_KEY === "YOUR_API_KEY_HERE" || !GEMINI_API_KEY) {
+        throw new Error("Gemini API key is not configured. Please set VITE_GEMINI_API_KEY in your .env file.");
+      }
 
-      Feedback to summarize:
-      "${selectedSuggestion.fullMessage}"
+      const model = genAI.getGenerativeModel({ model: "models/gemini-1.5-flash" });
+      const prompt = `Analyze this professor's feedback and extract the 3-5 most important actionable items for the student. Consider any mentioned attachments as part of the feedback, if explicitly referenced.
+Output in plain text. Do not use markdown symbols like **, ##, \`\`\`. Use a numbered list for the action items as specified below. Separate sections and paragraphs with double line breaks.
 
-      Format your response as:
-      Key Action Items:
-      - [Key point 1]: [Brief explanation]
-      - [Key point 2]: [Brief explanation]
-      ...`;
-      const result = await model.generateContent(prompt);
+Feedback to summarize:
+"${selectedSuggestion.fullMessage}"
+
+Format your response exactly as follows:
+Key Action Items:
+1. [Key point 1]: [Brief explanation]
+2. [Key point 2]: [Brief explanation]
+3. [Key point 3]: [Brief explanation]
+... (continue up to 5 points if applicable)
+`;
+
+      const generationConfig = {
+        temperature: 0.7,
+        topK: 40,
+        topP: 0.95,
+        maxOutputTokens: 1024,
+      };
+
+      const result = await model.generateContent(prompt, generationConfig);
       const response = await result.response;
       const text = response.text();
       setAiResponse(text);
     } catch (error) {
       console.error("Summarization error:", error);
-      setAiResponse("Error: Could not summarize feedback.");
+      if (error.message.includes("API key is not configured")) {
+        setAiResponse(`Error: ${error.message}`);
+      } else {
+        setAiResponse("Error: Could not summarize feedback. Please try again later.");
+      }
     } finally {
       setIsGeneratingResponse(false);
     }
@@ -263,27 +300,6 @@ const SuggestionsInbox = () => {
     }
   };
 
-  // This function is no longer used, handleSuggestionClick is used directly for opening modal
-  // const handleSelectSuggestion = async (suggestion) => {
-  //   setSelectedSuggestion(suggestion);
-  //   setAiResponse('');
-  //   setMessageDraft('');
-  //   setAttachments([]);
-
-  //   // If suggestion is unread, mark it as read
-  //   if (suggestion.status === 'unread') {
-  //     try {
-  //       const suggestionRef = doc(db, 'suggestions', suggestion.id);
-  //       await updateDoc(suggestionRef, {
-  //         status: 'read'
-  //       });
-  //     } catch (error) {
-  //       console.error("Error marking suggestion as read:", error);
-  //     }
-  //   }
-  // };
-
-  // Filter and sort suggestions
   const filteredSuggestions = suggestions
     .filter(suggestion => {
       if (!suggestion) return false;
@@ -293,7 +309,6 @@ const SuggestionsInbox = () => {
         (suggestion.description?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
         (suggestion.teacherName?.toLowerCase() || '').includes(searchTerm.toLowerCase());
 
-      // These filters are not yet exposed in the UI but are here for future use
       const matchesStatus = statusFilter === 'all' || suggestion.status === statusFilter;
       const matchesPriority = priorityFilter === 'all' || suggestion.priority === priorityFilter;
       const matchesCategory = categoryFilter === 'all' || suggestion.category === categoryFilter;
@@ -305,8 +320,7 @@ const SuggestionsInbox = () => {
       
       switch (sortOption) {
         case 'newest':
-          // Convert Firestore Timestamp to Date for comparison, handle missing/null dates
-          const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0); // Use epoch for safety
+          const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0); 
           const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
           return dateB.getTime() - dateA.getTime();
         case 'oldest':
@@ -320,7 +334,6 @@ const SuggestionsInbox = () => {
       }
     });
 
-  // Get priority weight for sorting
   const getPriorityWeight = (priority) => {
     switch (priority) {
       case 'high':
@@ -334,7 +347,6 @@ const SuggestionsInbox = () => {
     }
   };
 
-  // Get status color for badges
   const getStatusColor = (status) => {
     switch (status) {
       case 'unread':
@@ -343,16 +355,15 @@ const SuggestionsInbox = () => {
         return 'bg-gray-600/20 text-gray-400 border border-gray-500/30';
       case 'archived':
         return 'bg-blue-500/20 text-blue-300 border border-blue-400/30';
-      case 'pending': // Example of a new status
+      case 'pending':
         return 'bg-amber-500/20 text-amber-300 border border-amber-400/30';
-      case 'resolved': // Example of a new status
+      case 'resolved':
         return 'bg-green-500/20 text-green-300 border border-green-400/30';
       default:
         return 'bg-gray-500/20 text-gray-400 border border-gray-400/30';
     }
   };
 
-  // Get priority color for badges
   const getPriorityColor = (priority) => {
     switch (priority) {
       case 'high':
@@ -366,7 +377,6 @@ const SuggestionsInbox = () => {
     }
   };
 
-  // Get category color for badges
   const getCategoryColor = (category) => {
     switch (category) {
       case 'Academic':
@@ -375,7 +385,7 @@ const SuggestionsInbox = () => {
         return 'bg-orange-500/20 text-orange-300 border border-orange-400/30';
       case 'Social':
         return 'bg-teal-500/20 text-teal-300 border border-teal-400/30';
-      case 'Technical': // Example of a new category
+      case 'Technical':
         return 'bg-pink-500/20 text-pink-300 border border-pink-400/30';
       case 'Other':
         return 'bg-gray-500/20 text-gray-400 border border-gray-400/30';
@@ -384,18 +394,15 @@ const SuggestionsInbox = () => {
     }
   };
 
-  // Format date
   const formatDate = (timestamp) => {
     if (!timestamp) return '';
     let date;
-    // Check if it's a Firestore Timestamp or an ISO string
     if (typeof timestamp.toDate === 'function') {
       date = timestamp.toDate();
     } else {
       date = new Date(timestamp);
     }
     
-    // Ensure the date is valid before formatting
     if (isNaN(date.getTime())) {
       console.error("Invalid date object:", timestamp);
       return '';
@@ -407,28 +414,25 @@ const SuggestionsInbox = () => {
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      hour12: true // To display AM/PM
+      hour12: true
     });
   };
 
-  // Handle suggestion click to open modal
   const handleSuggestionClick = async (suggestion) => {
     if (!suggestion || !suggestion.id) return;
     
     setSelectedSuggestion(suggestion);
-    setAiResponse(''); // Clear previous AI response
+    setAiResponse(''); 
     setIsModalOpen(true);
 
-    // Update status to 'read' if it's unread
     if (suggestion.status === 'unread') {
       try {
         const suggestionRef = doc(db, 'suggestions', suggestion.id);
         await updateDoc(suggestionRef, {
           status: 'read',
-          readAt: new Date().toISOString() // Store read timestamp
+          readAt: new Date().toISOString()
         });
 
-        // Update local state to reflect the change immediately
         setSuggestions(prevSuggestions =>
           prevSuggestions.map(s =>
             s.id === suggestion.id
@@ -506,7 +510,7 @@ const SuggestionsInbox = () => {
           <div className="flex items-center gap-2 md:gap-4">
             {selectedSuggestion ? (
               <button
-                onClick={() => setSelectedSuggestion(null)} // This button is not fully functional as `isModalOpen` isn't set to false
+                onClick={() => { setIsModalOpen(false); setSelectedSuggestion(null); }} 
                 className="p-2 hover:bg-gray-700/30 rounded-lg transition-all flex items-center gap-2"
               >
                 <ChevronLeftIcon className="w-6 h-6 text-gray-300" />
@@ -540,7 +544,7 @@ const SuggestionsInbox = () => {
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-6 styled-scrollbar">
-          {!selectedSuggestion && !isModalOpen ? ( // Display inbox list only if no suggestion is selected AND modal is closed
+          {!selectedSuggestion && !isModalOpen ? ( 
             <div className="grid grid-cols-1 gap-4">
               {loading ? (
                 <div className="text-center py-8">
@@ -562,7 +566,7 @@ const SuggestionsInbox = () => {
                   <div
                     key={suggestion.id}
                     className="group p-4 md:p-6 bg-gray-800/50 rounded-xl border border-gray-700/50 hover:border-purple-400/50 transition-all cursor-pointer shadow-lg hover:shadow-purple-500/10 backdrop-blur-sm"
-                    onClick={() => handleSuggestionClick(suggestion)} // Click anywhere on the card to open
+                    onClick={() => handleSuggestionClick(suggestion)} 
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -611,7 +615,7 @@ const SuggestionsInbox = () => {
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 200, damping: 20 }}
               className="bg-gray-800 rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto styled-scrollbar shadow-2xl border border-gray-700/50"
-              onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside modal
+              onClick={(e) => e.stopPropagation()} 
             >
               <div className="p-6 relative">
                 {/* Close Button */}
