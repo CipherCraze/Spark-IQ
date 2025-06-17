@@ -1,7 +1,7 @@
 // firebaseConfig.js
 import { initializeApp, getApps } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getFirestore, collection } from "firebase/firestore";
+import { getFirestore, collection, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getAnalytics, isSupported } from "firebase/analytics";
 import { getPerformance } from "firebase/performance";
@@ -57,7 +57,14 @@ if (app) {
   try {
     auth = getAuth(app);
     googleProvider = new GoogleAuthProvider();
-    db = getFirestore(app);
+    
+    // Initialize Firestore with persistence
+    db = initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+      })
+    });
+    
     storage = getStorage(app);
 
     // Collection references

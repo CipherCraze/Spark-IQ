@@ -311,10 +311,33 @@ const AssignmentManagement = () => {
 
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files);
-    if (files.length > 0) {
+    const maxSize = 20 * 1024 * 1024; // 20MB
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain',
+      'image/jpeg',
+      'image/png',
+      'application/zip'
+    ];
+
+    const validFiles = files.filter(file => {
+      if (file.size > maxSize) {
+        displayMessage('error', `File ${file.name} is too large. Maximum size is 20MB.`);
+        return false;
+      }
+      if (!allowedTypes.includes(file.type)) {
+        displayMessage('error', `File ${file.name} has an unsupported format. Allowed formats: PDF, DOC, DOCX, TXT, JPG, PNG, ZIP.`);
+        return false;
+      }
+      return true;
+    });
+
+    if (validFiles.length > 0) {
       setNewAssignment(prev => ({
         ...prev,
-        attachments: [...prev.attachments, ...files]
+        attachments: [...prev.attachments, ...validFiles]
       }));
     }
   };
@@ -648,35 +671,49 @@ const AssignmentManagement = () => {
             </div>
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">Attachments</label>
-            <label htmlFor="file-upload" className="flex flex-col items-center justify-center w-full border-2 border-dashed border-gray-600 hover:border-sky-500 rounded-lg p-6 cursor-pointer bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
-              <ArrowUpTrayIcon className="w-10 h-10 text-gray-400 group-hover:text-sky-400" />
-              <span className="mt-2 text-sm text-gray-400">Click to Upload or Drag & Drop</span>
-              <input id="file-upload" type="file" onChange={handleFileUpload} className="hidden" multiple />
-            </label>
-            {(newAssignment.attachmentUrls?.length > 0 || newAssignment.attachments?.length > 0) && (
-              <div className="mt-4 space-y-2">
-                <p className="text-xs text-gray-400">Attached files:</p>
-                {newAssignment.attachmentUrls?.map((url, index) => (
-                  <div key={`url-${index}`} className="flex items-center justify-between bg-gray-700 p-2 rounded-md text-sm">
-                    <a href={url} target="_blank" rel="noopener noreferrer" className="text-sky-400 hover:underline truncate" title={decodeURIComponent(url.substring(url.lastIndexOf('/') + 1).split('?')[0].split('%2F').pop())}>
-                      <DocumentTextIcon className="w-4 h-4 inline mr-2" />
-                      {decodeURIComponent(url.substring(url.lastIndexOf('/') + 1).split('?')[0].split('%2F').pop().substring(14))} {/* Attempt to remove timestamp prefix */}
-                    </a>
-                    <button type="button" onClick={() => removeAttachment(index, true)} className="text-red-400 hover:text-red-300 ml-2 p-1 rounded-full hover:bg-red-500/20">
-                      <XMarkIcon className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-                {newAssignment.attachments?.filter(file => typeof file !== 'string').map((file, index) => (
-                    <div key={`file-${index}`} className="flex items-center justify-between bg-gray-700 p-2 rounded-md text-sm">
-                      <span className="text-gray-300 truncate" title={file.name}><DocumentTextIcon className="w-4 h-4 inline mr-2" />{file.name}</span>
-                      <button type="button" onClick={() => removeAttachment(index, false)} className="text-red-400 hover:text-red-300 ml-2 p-1 rounded-full hover:bg-red-500/20">
-                          <XMarkIcon className="w-4 h-4" />
+            <div className="space-y-4">
+              <label htmlFor="file-upload" className="flex flex-col items-center justify-center w-full border-2 border-dashed border-gray-600 hover:border-sky-500 rounded-lg p-6 cursor-pointer bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
+                <ArrowUpTrayIcon className="w-10 h-10 text-gray-400 group-hover:text-sky-400" />
+                <span className="mt-2 text-sm text-gray-400">Click to Upload or Drag & Drop</span>
+                <span className="text-xs text-gray-500 mt-1">Supported formats: PDF, DOC, DOCX, TXT, JPG, PNG, ZIP (max 20MB)</span>
+                <input 
+                  id="file-upload" 
+                  type="file" 
+                  onChange={handleFileUpload} 
+                  className="hidden" 
+                  multiple 
+                  accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.zip"
+                />
+              </label>
+              
+              {(newAssignment.attachmentUrls?.length > 0 || newAssignment.attachments?.length > 0) && (
+                <div className="mt-4 space-y-2">
+                  <p className="text-xs text-gray-400">Attached files:</p>
+                  {newAssignment.attachmentUrls?.map((url, index) => (
+                    <div key={`url-${index}`} className="flex items-center justify-between bg-gray-700 p-2 rounded-md text-sm">
+                      <a href={url} target="_blank" rel="noopener noreferrer" className="text-sky-400 hover:underline truncate" title={decodeURIComponent(url.substring(url.lastIndexOf('/') + 1).split('?')[0].split('%2F').pop())}>
+                        <DocumentTextIcon className="w-4 h-4 inline mr-2" />
+                        {decodeURIComponent(url.substring(url.lastIndexOf('/') + 1).split('?')[0].split('%2F').pop().substring(14))}
+                      </a>
+                      <button type="button" onClick={() => removeAttachment(index, true)} className="text-red-400 hover:text-red-300 ml-2 p-1 rounded-full hover:bg-red-500/20">
+                        <XMarkIcon className="w-4 h-4" />
                       </button>
                     </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                  {newAssignment.attachments?.filter(file => typeof file !== 'string').map((file, index) => (
+                    <div key={`file-${index}`} className="flex items-center justify-between bg-gray-700 p-2 rounded-md text-sm">
+                      <span className="text-gray-300 truncate" title={file.name}>
+                        <DocumentTextIcon className="w-4 h-4 inline mr-2" />
+                        {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                      </span>
+                      <button type="button" onClick={() => removeAttachment(index, false)} className="text-red-400 hover:text-red-300 ml-2 p-1 rounded-full hover:bg-red-500/20">
+                        <XMarkIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex justify-end gap-4 pt-4">
             <button type="button" onClick={() => { setShowCreateModal(false); resetNewAssignmentForm(); }}

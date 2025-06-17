@@ -9,20 +9,46 @@ service cloud.firestore {
     
     function isTeacher() {
       return isAuthenticated() && 
-        exists(/databases/$(database)/documents/teachers/$(request.auth.uid));
+        get(/databases/$(database)/documents/teachers/$(request.auth.uid)).data != null;
     }
 
-    // This rule allows anyone with your Firestore database reference to view, edit,
-    // and delete all data in your Firestore database. It is useful for getting
-    // started, but it is configured to expire after 30 days because it
-    // leaves your app open to attackers. At that time, all client
-    // requests to your Firestore database will be denied.
-    //
-    // Make sure to write security rules for your app before that time, or else
-    // all client requests to your Firestore database will be denied until you Update
-    // your rules
+    function isStudent() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/students/$(request.auth.uid)).data != null;
+    }
+
+    // Allow role checking during login
+    match /students/{userId} {
+      allow read: if true;  // Allow reading during role check
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    match /teachers/{userId} {
+      allow read: if true;  // Allow reading during role check
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Allow authenticated users to read chat data
+    match /chats/{chatId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    match /messages/{messageId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Allow authenticated users to read and write their own profile data
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Default rule for other collections
     match /{document=**} {
-      allow read, write: if request.time < timestamp.date(2025, 6, 20);
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
     }
   }
 }
@@ -65,6 +91,14 @@ service firebase.storage {
       allow write: if isTeacher() && 
                    request.resource.size < 20 * 1024 * 1024;  // 20MB file size limit
       allow delete: if isTeacher(); // Allow teachers to delete assignment files
+    }
+
+    // Announcement files
+    match /announcements/{userId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isTeacher() && 
+                   request.resource.size < 10 * 1024 * 1024;  // 10MB file size limit
+      allow delete: if isTeacher();
     }
 
     // Submission files - Updated rules

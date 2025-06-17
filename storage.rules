@@ -43,6 +43,16 @@ service firebase.storage {
       allow delete: if isTeacher(); // Allow teachers to delete assignment files
     }
 
+    // Announcement attachments
+    match /announcements/{teacherId}/{fileName} {
+      allow read: if isAuthenticated();  // Any authenticated user can read announcements
+      allow write: if isTeacher() && 
+                   request.auth.uid == teacherId && // Teachers can only write to their own folder
+                   request.resource.size < 20 * 1024 * 1024 && // 20MB file size limit
+                   request.resource.contentType.matches('image/.*|video/.*|application/pdf|application/msword|application/vnd.openxmlformats-officedocument.wordprocessingml.document'); // Restrict file types
+      allow delete: if isTeacher() && request.auth.uid == teacherId; // Teachers can delete their own attachments
+    }
+
     // Submission files - Updated rules
     match /submissions/{assignmentId}/{studentId}/{fileName} {
       allow read: if isAuthenticated() && (

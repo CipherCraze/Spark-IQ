@@ -43,6 +43,7 @@ import {
   VideoCameraIcon, // Menu icon
   CheckCircleIcon, // Toast success
   ExclamationTriangleIcon, // Toast error
+  DocumentTextIcon, // Used for file attachments
 } from '@heroicons/react/24/outline';
 
 // --- Educator Sidebar Menu Definition (from EducatorDashboard) ---
@@ -101,6 +102,10 @@ const AnnouncementsPage = () => {
   const [submitError, setSubmitError] = useState(null);
   const [submitSuccess, setSubmitSuccess] = useState(null);
 
+  // Add state for edit mode and the announcement being edited
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingAnnouncementId, setEditingAnnouncementId] = useState(null);
+  const [originalAttachmentUrls, setOriginalAttachmentUrls] = useState([]); // For keeping track of existing attachments in edit mode
 
    // Effect for authentication and fetching user profile (Copied from Dashboard)
    useEffect(() => {
@@ -263,51 +268,79 @@ const AnnouncementsPage = () => {
      // Note: If editing, you'd need logic here to mark URLs for deletion from storage on save
   };
 
-  const createAnnouncement = async (e) => {
+  const handleEditAnnouncement = (announcement) => {
+    setIsEditMode(true);
+    setEditingAnnouncementId(announcement.id);
+    setShowCreateModal(true);
+    setOriginalAttachmentUrls(announcement.attachmentUrls || []);
+    setNewAnnouncement({
+      title: announcement.title || '',
+      content: announcement.content || '',
+      tags: announcement.tags || '',
+      target: announcement.target || 'All Students',
+      attachments: [], // New uploads will go here
+    });
+  };
+
+  const handleAnnouncementSubmit = async (e) => {
     e.preventDefault();
     setSubmitError(null);
     setSubmitSuccess(null);
 
     if (!newAnnouncement.title.trim() || !newAnnouncement.content.trim()) {
-        displayMessage('error', 'Title and Content are required fields.');
-        return;
+      displayMessage('error', 'Title and Content are required fields.');
+      return;
     }
-     if (!auth.currentUser) {
-       displayMessage('error', 'You must be logged in to publish announcements.');
-       return;
+    if (!auth.currentUser) {
+      displayMessage('error', 'You must be logged in to publish announcements.');
+      return;
     }
-
 
     setIsSubmitting(true);
-    let uploadedAttachmentUrls = [];
+    let uploadedAttachmentUrls = [...originalAttachmentUrls];
 
     try {
-       // 1. Upload attachments to Firebase Storage
-        if (newAnnouncement.attachments.length > 0) {
-           const uploadPromises = newAnnouncement.attachments.map(async (file) => {
-               const uniqueFileName = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
-               const storageRef = ref(storage, `announcements/${auth.currentUser.uid}/${uniqueFileName}`);
-               await uploadBytes(storageRef, file);
-               return getDownloadURL(storageRef);
-           });
-           uploadedAttachmentUrls = await Promise.all(uploadPromises);
-        }
+      // 1. Upload new attachments to Firebase Storage
+      if (newAnnouncement.attachments.length > 0) {
+        const uploadPromises = newAnnouncement.attachments.map(async (file) => {
+          const uniqueFileName = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
+          const storageRef = ref(storage, `announcements/${auth.currentUser.uid}/${uniqueFileName}`);
+          await uploadBytes(storageRef, file);
+          return getDownloadURL(storageRef);
+        });
+        const newUrls = await Promise.all(uploadPromises);
+        uploadedAttachmentUrls = [...uploadedAttachmentUrls, ...newUrls];
+      }
 
-      // 2. Prepare and save announcement data to Firestore
-      const announcementData = {
-        title: newAnnouncement.title.trim(),
-        content: newAnnouncement.content.trim(),
-        tags: newAnnouncement.tags.trim(), // Store as comma-separated string
-        target: newAnnouncement.target,
-        attachmentUrls: uploadedAttachmentUrls, // Save the URLs
-        teacherId: auth.currentUser.uid,
-        teacherName: educator?.name || auth.currentUser.displayName || 'Teacher', // Use profile name if available
-        teacherEmail: auth.currentUser.email,
-        createdAt: new Date().toISOString(), // ISO string for sorting and display
-        pinned: false, // Default to not pinned on creation
-      };
-
-      await addDoc(collection(db, 'announcements'), announcementData);
+      if (isEditMode && editingAnnouncementId) {
+        // 2. Update announcement in Firestore
+        const announcementRef = doc(db, 'announcements', editingAnnouncementId);
+        await updateDoc(announcementRef, {
+          title: newAnnouncement.title.trim(),
+          content: newAnnouncement.content.trim(),
+          tags: newAnnouncement.tags.trim(),
+          target: newAnnouncement.target,
+          attachmentUrls: uploadedAttachmentUrls,
+          // Optionally update editedAt: new Date().toISOString(),
+        });
+        displayMessage('success', 'Announcement updated successfully!');
+      } else {
+        // 3. Create new announcement (existing logic)
+        const announcementData = {
+          title: newAnnouncement.title.trim(),
+          content: newAnnouncement.content.trim(),
+          tags: newAnnouncement.tags.trim(),
+          target: newAnnouncement.target,
+          attachmentUrls: uploadedAttachmentUrls,
+          teacherId: auth.currentUser.uid,
+          teacherName: educator?.name || auth.currentUser.displayName || 'Teacher',
+          teacherEmail: auth.currentUser.email,
+          createdAt: new Date().toISOString(),
+          pinned: false,
+        };
+        await addDoc(collection(db, 'announcements'), announcementData);
+        displayMessage('success', 'Announcement published successfully!');
+      }
 
       // Clear form and state
       setNewAnnouncement({
@@ -318,13 +351,13 @@ const AnnouncementsPage = () => {
         attachments: []
       });
       setShowCreateModal(false);
-
-      displayMessage('success', 'Announcement published successfully!');
-       fetchAnnouncements(); // Re-fetch the list to show the new announcement
+      setIsEditMode(false);
+      setEditingAnnouncementId(null);
+      setOriginalAttachmentUrls([]);
+      fetchAnnouncements();
     } catch (error) {
-      console.error('Error creating announcement:', error);
-      displayMessage('error', `Failed to publish announcement: ${error.message}.`);
-       // Optional: Clean up uploaded files if Firestore save fails - more complex logic required
+      console.error('Error saving announcement:', error);
+      displayMessage('error', `Failed to save announcement: ${error.message}.`);
     } finally {
       setIsSubmitting(false);
     }
@@ -356,12 +389,6 @@ const AnnouncementsPage = () => {
   };
 
    // Stubs for edit/delete (need full implementation)
-   const handleEditAnnouncement = (announcement) => {
-       console.log("Edit announcement:", announcement);
-       // TODO: Load announcement data into modal, change modal to 'Edit' mode
-       displayMessage('info', 'Edit functionality not yet implemented.');
-   };
-
    const handleDeleteAnnouncement = async (announcementId, attachmentUrls) => {
        if (!window.confirm('Are you sure you want to delete this announcement? This action cannot be undone.')) {
            return;
@@ -560,8 +587,8 @@ const AnnouncementsPage = () => {
         {/* Example Stats, might need real data aggregation if available */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {[
-            { title: 'Total Announcements', value: announcements.length, icon: MegaphoneIcon, color: 'blue' },
-            { title: 'Pinned Updates', value: announcements.filter(a => a.pinned).length, icon: SparklesIcon, color: 'purple' },
+            { title: 'Total Announcements', value: Array.isArray(announcements) ? announcements.length : 0, icon: MegaphoneIcon, color: 'blue' },
+            { title: 'Pinned Updates', value: Array.isArray(announcements) ? announcements.filter(a => a?.pinned).length : 0, icon: SparklesIcon, color: 'purple' },
             { title: 'Avg. Engagement', value: 'N/A', icon: UserGroupIcon, color: 'green' }, // Placeholder, needs tracking
             { title: 'Active Batches', value: 'N/A', icon: AcademicCapIcon, color: 'indigo' }, // Placeholder, needs class data
           ].map((stat, index) => (
@@ -669,7 +696,7 @@ const AnnouncementsPage = () => {
               ))
            )}
             {/* Message if no results after filtering/searching (not implemented yet, but good to keep in mind) */}
-             {!loading && !error && announcements.length > 0 && announcements.filter(/* search/filter logic */).length === 0 && (
+             {!loading && !error && announcements.length > 0 && (
                  <div className="lg:col-span-3 text-center py-10 text-slate-500">
                      No announcements match your criteria.
                  </div>
@@ -687,7 +714,12 @@ const AnnouncementsPage = () => {
               className="bg-slate-800 rounded-xl p-6 sm:p-8 w-full max-w-2xl mx-auto relative max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-700"
             >
               <button
-                onClick={() => setShowCreateModal(false)}
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setIsEditMode(false);
+                  setEditingAnnouncementId(null);
+                  setOriginalAttachmentUrls([]);
+                }}
                 className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
                 disabled={isSubmitting}
               >
@@ -695,10 +727,10 @@ const AnnouncementsPage = () => {
               </button>
 
               <h3 className="text-2xl sm:text-3xl font-bold mb-6 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                Create New Announcement
+                {isEditMode ? 'Edit Announcement' : 'Create New Announcement'}
               </h3>
 
-              <form onSubmit={createAnnouncement} className="space-y-6">
+              <form onSubmit={handleAnnouncementSubmit} className="space-y-6">
                 {/* Title */}
                 <div>
                   <label htmlFor="announcement-title" className="block text-sm font-medium text-slate-300 mb-2">Title <span className="text-red-400">*</span></label>
@@ -812,7 +844,12 @@ const AnnouncementsPage = () => {
                 <div className="flex justify-end gap-4 pt-4">
                   <button
                     type="button"
-                    onClick={() => setShowCreateModal(false)}
+                    onClick={() => {
+                      setShowCreateModal(false);
+                      setIsEditMode(false);
+                      setEditingAnnouncementId(null);
+                      setOriginalAttachmentUrls([]);
+                    }}
                     className="px-6 py-2.5 rounded-lg bg-slate-700 hover:bg-slate-600 transition-colors text-white font-medium"
                     disabled={isSubmitting}
                   >
@@ -823,20 +860,20 @@ const AnnouncementsPage = () => {
                     className="px-6 py-2.5 rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 transition-all font-semibold shadow-lg hover:shadow-xl flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={isSubmitting || !newAnnouncement.title.trim() || !newAnnouncement.content.trim()}
                   >
-                     {isSubmitting ? (
-                       <>
-                          <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          Publishing...
-                       </>
-                     ) : (
-                       <>
-                         <MegaphoneIcon className="w-5 h-5" />
-                         Publish Announcement
-                       </>
-                     )}
+                    {isSubmitting ? (
+                      <>
+                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        {isEditMode ? 'Saving...' : 'Publishing...'}
+                      </>
+                    ) : (
+                      <>
+                        <MegaphoneIcon className="w-5 h-5" />
+                        {isEditMode ? 'Save Changes' : 'Publish Announcement'}
+                      </>
+                    )}
                   </button>
                 </div>
               </form>
@@ -862,7 +899,7 @@ const AnnouncementsPage = () => {
         )}
 
        {/* Global styles for custom scrollbar - ensure these are added once globally or here */}
-       <style jsx global>{`
+       <style jsx="true" global="true">{`
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); } /* dark slate background */
         ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; } /* lighter slate thumb */

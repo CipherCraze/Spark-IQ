@@ -43,6 +43,7 @@ export default function Login() {
   // Function to check user role and redirect to appropriate dashboard
   const checkUserRoleAndRedirect = async (userId) => {
     try {
+      setLoading(true);
       // Check if user is a student
       const studentRef = doc(db, 'students', userId);
       const studentDoc = await getDoc(studentRef);
@@ -80,11 +81,17 @@ export default function Login() {
       
     } catch (error) {
       console.error('Error checking user role:', error);
-      setError('Failed to retrieve your account information. Please try again.');
+      if (error.code === 'permission-denied') {
+        setError('Unable to verify your account. Please try signing up first.');
+      } else {
+        setError('Failed to retrieve your account information. Please try again.');
+      }
       trackError('login_error', {
         error_type: 'role_check_failed',
         error_message: error.message
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -122,8 +129,8 @@ export default function Login() {
       {/* Animated Background Elements */}
       <div className="absolute inset-0 opacity-30">
         <div className="absolute w-96 h-96 bg-purple-500/20 rounded-full blur-3xl -top-48 -left-48 animate-float"></div>
-        <div className="absolute w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl top-1/2 -right-48 animate-float-delayed"></div>
-        <div className="absolute w-96 h-96 bg-pink-500/20 rounded-full blur-3xl bottom-48 left-1/4 animate-float"></div>
+        <div className="absolute w-96 h-96 bg-pink-500/20 rounded-full blur-3xl top-1/2 -right-48 animate-float"></div>
+        <div className="absolute w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl bottom-48 left-1/4 animate-float"></div>
       </div>
       
       <div className="relative w-full max-w-md space-y-8 bg-gray-900/80 backdrop-blur-xl rounded-xl shadow-2xl p-10 border border-white/10 transition-all duration-300 hover:border-white/20">

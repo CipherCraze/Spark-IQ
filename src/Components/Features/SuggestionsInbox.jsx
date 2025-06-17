@@ -83,6 +83,12 @@ const SuggestionsInbox = () => {
   const [categoryFilter, setCategoryFilter] = useState('all'); // This state is currently unused in UI but kept for potential future use
   const [sortOption, setSortOption] = useState('newest'); // This state is currently unused in UI but kept for potential future use
   const { currentUser } = useAuth();
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
+  const [announcements, setAnnouncements] = useState([]);
+  const [hiddenAnnouncements, setHiddenAnnouncements] = useState(() => {
+    const stored = localStorage.getItem('hiddenAnnouncements');
+    return stored ? JSON.parse(stored) : [];
+  });
 
   // Fetch suggestions from Firestore
   useEffect(() => {
@@ -123,6 +129,23 @@ const SuggestionsInbox = () => {
       setLoading(false);
     }
   }, [currentUser, navigate]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    const fetchAnnouncements = async () => {
+      try {
+        const q = query(
+          collection(db, 'announcements'),
+          where('target', 'in', ['All Students']) // or your logic
+        );
+        const snapshot = await getDocs(q);
+        setAnnouncements(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      } catch (err) {
+        console.error('Error fetching announcements:', err);
+      }
+    };
+    fetchAnnouncements();
+  }, [currentUser]);
 
   const statusStyles = {
     unread: 'text-red-400 bg-red-500/10',
@@ -300,6 +323,35 @@ Key Action Items:
     }
   };
 
+  const handleDeleteAnnouncement = async (e, announcementId, teacherId) => {
+    e.stopPropagation();
+    if (!currentUser || currentUser.uid !== teacherId) {
+      alert('You can only delete your own announcements.');
+      return;
+    }
+    if (!window.confirm('Are you sure you want to delete this announcement? This action cannot be undone.')) {
+      return;
+    }
+    try {
+      await deleteDoc(doc(db, 'announcements', announcementId));
+      setAnnouncements(prev => prev.filter(a => a.id !== announcementId));
+      setSelectedAnnouncement(null);
+      setIsModalOpen(false);
+    } catch (error) {
+      alert('Failed to delete announcement.');
+      console.error(error);
+    }
+  };
+
+  const handleHideAnnouncement = (e, announcementId) => {
+    e.stopPropagation();
+    const updated = [...hiddenAnnouncements, announcementId];
+    setHiddenAnnouncements(updated);
+    localStorage.setItem('hiddenAnnouncements', JSON.stringify(updated));
+  };
+
+  const visibleAnnouncements = announcements.filter(a => !hiddenAnnouncements.includes(a.id));
+
   const filteredSuggestions = suggestions
     .filter(suggestion => {
       if (!suggestion) return false;
@@ -446,6 +498,11 @@ Key Action Items:
     }
   };
 
+  const handleAnnouncementClick = (announcement) => {
+    setSelectedAnnouncement(announcement);
+    setIsModalOpen(true);
+  };
+
   return (
     <div className="min-h-screen bg-gray-950 flex text-gray-200">
       <AnimatePresence>
@@ -546,6 +603,40 @@ Key Action Items:
         <div className="flex-1 overflow-y-auto p-4 md:p-6 styled-scrollbar">
           {!selectedSuggestion && !isModalOpen ? ( 
             <div className="grid grid-cols-1 gap-4">
+              {/* Announcements as cards */}
+              {visibleAnnouncements.length > 0 && visibleAnnouncements.map((announcement) => (
+                <div
+                  key={announcement.id}
+                  className="group p-4 md:p-6 bg-gray-800/50 rounded-xl border border-gray-700/50 hover:border-purple-400/50 transition-all shadow-lg hover:shadow-purple-500/10 backdrop-blur-sm cursor-pointer"
+                  onClick={() => handleAnnouncementClick(announcement)}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-400/30">
+                          Announcement
+                        </span>
+                      </div>
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-2">
+                        <h3 className="text-xl font-bold text-white group-hover:text-purple-300 transition-colors">{announcement.title}</h3>
+                        <span className="text-gray-500 hidden sm:inline">•</span>
+                        <span className="text-gray-400 text-sm">{announcement.teacherName}</span>
+                      </div>
+                      <p className="text-gray-400 text-sm mb-4 line-clamp-2">{announcement.content}</p>
+                      <div className="flex items-center gap-4 text-sm text-gray-500">
+                        <span>{formatDate(announcement.createdAt)}</span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={e => handleHideAnnouncement(e, announcement.id)}
+                      className="p-2 hover:bg-red-500/20 rounded-lg transition-all self-start ml-4 flex-shrink-0"
+                      title="Hide Announcement"
+                    >
+                      <TrashIcon className="w-5 h-5 text-red-400 hover:text-red-300" />
+                    </button>
+                  </div>
+                </div>
+              ))}
               {loading ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto"></div>
@@ -745,6 +836,69 @@ Key Action Items:
                     </div>
                   </div>
                 </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Announcement Modal */}
+        {selectedAnnouncement && isModalOpen && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in" onClick={() => { setIsModalOpen(false); setSelectedAnnouncement(null); }}>
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+              className="bg-gray-800 rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto styled-scrollbar shadow-2xl border border-gray-700/50"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="p-6 relative">
+                <button
+                  onClick={() => { setIsModalOpen(false); setSelectedAnnouncement(null); }}
+                  className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors p-2 rounded-full hover:bg-gray-700/50"
+                >
+                  <XMarkIcon className="w-6 h-6" />
+                </button>
+                <button
+                  onClick={e => handleHideAnnouncement(e, selectedAnnouncement.id)}
+                  className="absolute top-4 right-16 text-red-400 hover:text-white transition-colors p-2 rounded-full hover:bg-red-700/50"
+                  title="Hide Announcement"
+                >
+                  <TrashIcon className="w-6 h-6" />
+                </button>
+                <div className="flex items-center gap-2 mb-4">
+                  <PaperClipIcon className="w-6 h-6 text-blue-400" />
+                  <h2 className="text-2xl font-bold text-white">{selectedAnnouncement.title}</h2>
+                </div>
+                <div className="mb-2 text-gray-400">{selectedAnnouncement.teacherName}</div>
+                <div className="mb-4 text-sm text-gray-500">{formatDate(selectedAnnouncement.createdAt)}</div>
+                <div className="prose prose-invert max-w-none text-gray-300 mb-6">
+                  <p>{selectedAnnouncement.content}</p>
+                </div>
+                {selectedAnnouncement.attachmentUrls && selectedAnnouncement.attachmentUrls.length > 0 && (
+                  <div className="mt-6 p-4 bg-gray-800/30 rounded-lg border border-gray-700/50">
+                    <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                      <PaperClipIcon className="w-6 h-6 text-purple-400" />
+                      Attachments ({selectedAnnouncement.attachmentUrls.length})
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {selectedAnnouncement.attachmentUrls.map((url, index) => (
+                        <a
+                          key={index}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-3 bg-gray-700/50 rounded-lg hover:bg-gray-700 transition-colors flex flex-col items-center gap-2 text-center group"
+                        >
+                          <DocumentTextIcon className="w-8 h-8 text-gray-400 group-hover:text-purple-400 transition-colors" />
+                          <span className="text-sm text-gray-300 truncate w-full" title={decodeURIComponent(url.substring(url.lastIndexOf('/') + 1).split('?')[0].split('%2F').pop())}>
+                            {decodeURIComponent(url.substring(url.lastIndexOf('/') + 1).split('?')[0].split('%2F').pop())}
+                          </span>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </motion.div>
           </div>
