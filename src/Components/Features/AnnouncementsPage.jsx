@@ -218,7 +218,7 @@ const AnnouncementsPage = () => {
       }, 5000); // Hide after 5 seconds
    };
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
     // accept: {
     //   'application/pdf': ['.pdf'],
     //   'application/msword': ['.doc'],
@@ -803,10 +803,19 @@ const AnnouncementsPage = () => {
                        ${isDragActive ? 'border-blue-400 bg-slate-700/70' : 'border-slate-600 hover:border-purple-400/70 bg-slate-700/50'}
                      `}
                   >
-                    <input {...getInputProps()} disabled={isSubmitting} ref={fileInputRef} />
+                    <input {...getInputProps()} />
                     <PaperClipIcon className={`w-12 h-12 mx-auto mb-4 ${isDragActive ? 'text-blue-400' : 'text-slate-400 group-hover:text-purple-300'}`} />
                     <p className="text-slate-400">
-                      Drag & drop files here, or click to select
+                      Drag & drop files here, or{' '}
+                      <span
+                        
+                        onClick={e => {
+                          e.stopPropagation();
+                          open();
+                        }}
+                      >
+                        click to select
+                      </span>
                     </p>
                     <p className="text-slate-500 text-sm mt-2">
                        (PDF, DOC, DOCX, JPG, PNG, up to 50MB)
