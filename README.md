@@ -1,192 +1,197 @@
-# Spark IQ
+# Spark-IQ: AI-Powered Educational Platform
 
-> **Empowering Educators. Engaging Students. Enhancing Learning.**
+Spark-IQ is a comprehensive educational platform that leverages artificial intelligence to enhance the learning experience for both students and educators. The platform provides intelligent assignment management, automated grading, personalized feedback, and real-time collaboration tools.
 
-[Live Demo ▶️](https://spark-iq1.vercel.app/) | [Watch Demo Video 🎥](https://youtu.be/smi-9N_w-5I?si=OeB-ICf-35HRBv8O) | [GitHub Repo](https://github.com/CipherCraze/Spark-IQ)
+## 🚀 Key Features
+
+### For Students
+
+- **Smart Assignment Submissions**: Submit assignments in multiple formats including text, documents, and images
+- **AI-Powered Evaluation**: Receive instant feedback and grades for your submissions
+- **Image Analysis**: Submit artwork, diagrams, charts, and other visual content for AI evaluation
+- **Personalized Feedback**: Get detailed, constructive feedback tailored to your work
+- **Progress Tracking**: Monitor your academic performance with comprehensive analytics
+- **Real-time Chat**: Connect with teachers and peers through integrated messaging
+- **Resource Management**: Access and organize educational materials efficiently
+
+### For Educators
+
+- **Intelligent Assignment Management**: Create and manage assignments with AI-assisted grading
+- **Automated Evaluation**: Save time with AI-powered assessment of student work
+- **Visual Content Analysis**: Evaluate artwork, diagrams, and visual assignments using AI vision
+- **Comprehensive Analytics**: Track student progress and performance metrics
+- **Real-time Communication**: Engage with students through integrated chat features
+- **Resource Sharing**: Distribute educational materials and announcements easily
+
+## 🖼️ Image Submission & AI Evaluation
+
+Spark-IQ now supports advanced image analysis for assignments:
+
+### Supported Image Formats
+
+- **JPG/JPEG**: Standard photographic images
+- **PNG**: High-quality images with transparency support
+- **GIF**: Animated images and simple graphics
+- **WEBP**: Modern web-optimized images
+
+### AI Vision Capabilities
+
+- **Visual Composition Analysis**: Evaluates design principles and artistic elements
+- **Technical Execution Assessment**: Reviews craftsmanship and attention to detail
+- **Creativity Evaluation**: Analyzes originality and visual communication effectiveness
+- **Assignment Compliance**: Checks adherence to visual problem-solving requirements
+- **Color and Form Analysis**: Evaluates use of visual elements and hierarchy
+
+### How It Works
+
+1. **Upload**: Students can upload images up to 10MB in size
+2. **Preview**: See a preview of your image before submission
+3. **AI Analysis**: The system uses Gemini's vision capabilities to analyze visual content
+4. **Instant Feedback**: Receive detailed evaluation including strengths, areas for improvement, and actionable recommendations
+5. **Grading**: Get a numerical grade based on visual assessment criteria
+
+## 🛠️ Technology Stack
+
+- **Frontend**: React.js with Vite
+- **Backend**: Node.js with Express
+- **Database**: Firebase Firestore
+- **Storage**: Firebase Storage
+- **AI Services**: Google Gemini API for text and vision analysis
+- **Authentication**: Firebase Authentication
+- **Styling**: Tailwind CSS with custom animations
+- **Icons**: Heroicons
+
+## 📁 Supported File Types
+
+### Documents
+
+- PDF files
+- Microsoft Word documents (DOC, DOCX)
+- Plain text files (TXT)
+- Markdown files (MD)
+
+### Images
+
+- JPEG/JPG images
+- PNG images with transparency
+- GIF animated images
+- WEBP modern web images
+
+### Archives
+
+- ZIP compressed files
+
+## 🔧 Installation & Setup
+
+1. **Clone the repository**
+
+   ```bash
+   git clone https://github.com/yourusername/Spark-IQ.git
+   cd Spark-IQ
+   ```
+
+2. **Install dependencies**
+
+   ```bash
+   npm install
+   ```
+
+3. **Environment Configuration**
+   Create a `.env` file in the root directory:
+
+   ```env
+   VITE_GEMINI_API_KEY=your_gemini_api_key
+   VITE_FIREBASE_API_KEY=your_firebase_api_key
+   VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+   VITE_FIREBASE_PROJECT_ID=your_project_id
+   VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+   VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+   VITE_FIREBASE_APP_ID=your_app_id
+   ```
+
+4. **Start the development server**
+   ```bash
+   npm run dev
+   ```
+
+## 🎯 Usage
+
+### For Students
+
+1. **Login** to your student account
+2. **Browse Assignments** in the assignment submission section
+3. **Upload Files** by selecting supported file types
+4. **Submit** your work for AI evaluation
+5. **Review Feedback** and grades instantly
+6. **Track Progress** through the analytics dashboard
+
+### For Educators
+
+1. **Login** to your educator account
+2. **Create Assignments** with detailed instructions and rubrics
+3. **Upload Resources** to support student learning
+4. **Review Submissions** and AI-generated evaluations
+5. **Provide Additional Feedback** as needed
+6. **Monitor Progress** through comprehensive analytics
+
+## 🤖 AI Integration
+
+Spark-IQ integrates with Google's Gemini API to provide:
+
+- **Text Analysis**: Comprehensive evaluation of written assignments
+- **Visual Analysis**: Advanced image assessment for visual content
+- **Personalized Feedback**: Tailored recommendations for improvement
+- **Grading Consistency**: Standardized evaluation criteria across all submissions
+
+## 📊 Analytics & Reporting
+
+- **Student Performance Tracking**: Monitor individual progress over time
+- **Class Analytics**: View overall class performance and trends
+- **Assignment Insights**: Analyze submission patterns and common issues
+- **Grade Distribution**: Visual representation of class performance
+
+## 🔒 Security & Privacy
+
+- **Secure Authentication**: Firebase Authentication with role-based access
+- **Data Encryption**: All data is encrypted in transit and at rest
+- **Privacy Protection**: Student data is protected and handled according to educational privacy standards
+- **Access Control**: Role-based permissions for students and educators
+
+## 🚀 Deployment
+
+The application is configured for deployment on Vercel with the following features:
+
+- **Automatic Builds**: CI/CD pipeline for seamless deployments
+- **Environment Management**: Secure handling of environment variables
+- **Performance Optimization**: Optimized for fast loading and smooth interactions
+- **Mobile Responsiveness**: Fully responsive design for all devices
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details on how to submit pull requests, report issues, and contribute to the project.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🆘 Support
+
+For support and questions:
+
+- Check our [Documentation](docs/)
+- Open an [Issue](https://github.com/yourusername/Spark-IQ/issues)
+- Contact our support team
+
+## 🔮 Roadmap
+
+- [ ] Advanced video analysis capabilities
+- [ ] Multi-language support
+- [ ] Integration with learning management systems
+- [ ] Mobile app development
+- [ ] Advanced analytics and reporting
+- [ ] Collaborative assignment features
+- [ ] Real-time collaboration tools
 
 ---
 
-## 🚀 Overview
-
-Spark IQ is an AI-powered Learning Management System (LMS) designed to revolutionize education for both students and teachers. With automated grading, personalized feedback, gamified learning, and real-time AI chat, Spark IQ makes learning and teaching smarter, faster, and more engaging.
-
----
-
-## 📸 Screenshots
-
-### 🧠 Dashboard Overview
-![Dashboard](screenshots/Dashboard.png)
-![Educator Dashboard](screenshots/educator-dashboard.png)
-![Profile](screenshots/Profile.png)
-
-### 🎙️ AI & Communication Tools
-![Sparky AI Chatbot](screenshots/sparky-ai-chatbot.png)
-![Voice Chat](screenshots/voice-chat.png)
-![Chat](screenshots/Chat.png)
-![AI Questions Generator](screenshots/ai-questions-generator.png)
-
-### 📚 Learning & Teaching Modules
-![Assignment Hub](screenshots/assignment-hub.png)
-![Personalized Feedback](screenshots/personalized-feedback.png)
-![Attendance Tracker](screenshots/attendance-tracker.png)
-![Smart Review](screenshots/smart-review.png)
-![Resources](screenshots/Resources.png)
-
-### 📰 Extra Features
-![Educational News](screenshots/educational-news.png)
-![Meetings and Conference](screenshots/meetings-and-conference.png)
-
-
----
-
-## ✨ Features
-
-- **🔐 User Authentication:** Secure login for students and teachers
-- **📄 Assignment Management:** Upload, grade, and track assignments
-- **⚖️ Automated Grading:** AI evaluates text and code assignments
-- **💡 Personalized Feedback:** Actionable, student-specific insights
-- **📊 Dashboards:** Real-time analytics for students and educators
-- **🏆 Gamification:** Badges, rewards, and leaderboards
-- **💬 Real-time Chat:** Instant messaging between users
-- **🤖 Sparky AI Chatbot:** LLM-powered assistant for academic help
-- **🔍 AI Resource Finder:** Smart search for learning materials
-- **🎙️ Voice Chat:** Talk to Sparky using your voice (Web Speech API)
-- **💼 Profile Management:** Easy management of user data
-
----
-
-## 🛠️ Tech Stack
-
-| Layer              | Technologies                                |
-| ------------------ | ------------------------------------------- |
-| **Frontend**       | React.js, Vite                              |
-| **Backend**        | Firebase (Firestore, Auth, Cloud Functions) |
-| **AI Integration** | Gemini API, Vertex AI, Google Custom Search |
-| **Styling**        | Tailwind CSS                                |
-| **Build Tool**     | Vite                                        |
-| **Deployment**     | Vercel, Firebase                            |
-
----
-
-## 🖥️ Local Setup & Installation
-
-### 1. **Clone the Repository**
-
-```bash
-git clone https://github.com/CipherCraze/Spark-IQ.git
-cd Spark-IQ
-```
-
-### 2. **Install Dependencies**
-
-```bash
-npm install
-```
-
-### 3. **Configure Environment Variables**
-
-Create a `.env` file in the root directory with the following (replace with your actual keys):
-
-```env
-VITE_FIREBASE_API_KEY=your_firebase_api_key
-VITE_FIREBASE_AUTH_DOMAIN=your_firebase_auth_domain
-VITE_FIREBASE_PROJECT_ID=your_firebase_project_id
-VITE_FIREBASE_STORAGE_BUCKET=your_firebase_storage_bucket
-VITE_FIREBASE_MESSAGING_SENDER_ID=your_firebase_messaging_sender_id
-VITE_FIREBASE_APP_ID=your_firebase_app_id
-VITE_GEMINI_API_KEY=your_gemini_api_key
-```
-
-> You can find these values in your Firebase project settings and Google AI Console.
-
-### 4. **Run the App Locally**
-
-```bash
-npm run dev
-```
-
-Visit [http://localhost:5173](http://localhost:5173) in your browser.
-
----
-
-## 🌐 Deployment
-
-- **Vercel**: Push to GitHub, connect your repo on Vercel, and set the same environment variables in the Vercel dashboard.
-- **Other Hosts**: Make sure to configure your server to redirect all routes to `index.html` for React Router support.
-
----
-
-## 🧑‍💻 Usage Guide
-
-- **Student Dashboard**: Track assignments, grades, attendance, and chat with Sparky.
-- **Educator Dashboard**: Manage classes, grade assignments, and communicate with students.
-- **Voice Chat**: Use the sidebar to access the voice chat feature for both students and educators.
-- **AI Chatbot**: Ask Sparky any academic question for instant help.
-
----
-
-## 🏗️ Project Structure
-
-```
-Spark-IQ/
-├── public/
-├── src/
-│   ├── Components/
-│   │   ├── Chatbot/
-│   │   │   ├── VoiceChat.jsx
-│   │   │   └── TeacherVoiceChat.jsx
-│   │   ├── dashboard/
-│   │   │   ├── Dashboard.jsx
-│   │   │   └── EducatorDashboard.jsx
-│   │   └── ...
-│   ├── firebase/
-│   ├── contexts/
-│   ├── styles/
-│   └── App.jsx
-├── .env.example
-├── README.md
-└── ...
-```
-
----
-
-## 🧩 Contribution
-
-We welcome PRs, ideas, and collaborations! To contribute:
-
-1. Fork the repo
-2. Create a new branch (`git checkout -b feature/your-feature`)
-3. Commit your changes
-4. Push to your fork and open a Pull Request
-
----
-
-## 🙋 FAQ
-
-**Q: I get a 404 on page refresh or direct route?**  
-A: Make sure your deployment server is configured to redirect all routes to `index.html` (see README above).
-
-**Q: Where do I get API keys?**  
-A: [Firebase Console](https://console.firebase.google.com/) and [Google AI Console](https://makersuite.google.com/app/apikey).
-
-**Q: How do I add screenshots?**  
-A: Place images in a `/screenshots` folder and update the placeholders above.
-
----
-
-## 👥 Team CodeSharks
-
-- **Team Leader:** Pranav C R
-- **Team Members:** Noel Manoj, Joswin M.J, Niranjan J Rajesh
-- **Institution:** Indian Institute of Information Technology (IIIT) Kottayam
-- **Contest:** Google Solutions Challenge
-
----
-
-## 📚 License
-
-Licensed under the [MIT License](LICENSE).
-
----
-
-_Spark IQ: Empowering Educators. Engaging Students. Enhancing Learning._
+**Spark-IQ** - Empowering education through intelligent technology.

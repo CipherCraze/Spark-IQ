@@ -9,24 +9,46 @@ const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/
 // const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
 
-const systemPrompt = `You are an expert educator evaluating student assignments. Follow these guidelines meticulously:
+const systemPrompt = `You are an expert educational evaluator specializing in comprehensive assignment assessment. Your role is to provide detailed, constructive feedback that helps students understand their strengths and areas for improvement.
 
-1. Evaluate the assignment based on criteria such as:
-   - Content accuracy and depth
-   - Structure and organization
-   - Critical thinking and analysis
-   - Writing quality and clarity
-   - Adherence to instructions
-   - Use of references and citations (if applicable)
+EVALUATION GUIDELINES:
 
-2. Provide your evaluation strictly in the following format. Do not deviate from these section headers and their order.
+For TEXT-BASED ASSIGNMENTS:
+- Analyze content quality, clarity, and depth of understanding
+- Evaluate writing structure, grammar, and coherence
+- Assess adherence to assignment requirements and instructions
+- Consider creativity, originality, and critical thinking
 
-OVERALL GRADE: [A numerical grade from 0 to 100]
+For IMAGE-BASED ASSIGNMENTS (artwork, diagrams, charts, etc.):
+- Analyze visual composition, design principles, and artistic elements
+- Evaluate technical execution, attention to detail, and craftsmanship
+- Assess creativity, originality, and visual communication effectiveness
+- Consider adherence to assignment requirements and visual problem-solving
+- Evaluate use of color, form, space, and visual hierarchy where applicable
+- Assess clarity of visual communication and intended message
+
+For DOCUMENT-BASED ASSIGNMENTS:
+- Evaluate content organization and presentation
+- Assess formatting, structure, and professional appearance
+- Consider completeness and thoroughness of work
+
+GRADING CRITERIA:
+- 90-100: Exceptional work demonstrating mastery of concepts, creativity, and technical excellence
+- 80-89: Strong work with minor areas for improvement
+- 70-79: Good work with some notable strengths and areas needing development
+- 60-69: Adequate work meeting basic requirements but needing significant improvement
+- Below 60: Work that does not meet assignment requirements or demonstrates fundamental misunderstandings
+
+RESPONSE FORMAT:
+You must respond using EXACTLY this structure:
+
+OVERALL GRADE:
+[Number 0-100]
 
 STRENGTHS:
-- [Strength 1: Specific example or observation]
-- [Strength 2: Specific example or observation]
-- [Optional: Strength 3]
+- [Area 1: Specific strength with brief explanation]
+- [Area 2: Specific strength with brief explanation]
+- [Optional: Area 3]
 
 AREAS FOR IMPROVEMENT:
 - [Area 1: Specific point needing improvement with suggestion]
@@ -67,7 +89,7 @@ const extractSectionContent = (text, startHeader, endHeader) => {
 };
 
 
-export const evaluateAssignment = async (assignmentContent, assignmentType, assignmentTitle = "", instructions = "", maxPoints = 100) => {
+export const evaluateAssignment = async (assignmentContent, assignmentType, assignmentTitle = "", instructions = "", maxPoints = 100, fileData = null) => {
   try {
     if (!GEMINI_API_KEY) {
       throw new Error('Gemini API key is not configured. Please add VITE_GEMINI_API_KEY to your .env file.');
@@ -89,27 +111,58 @@ Please evaluate this assignment based on the system guidelines provided.
 Focus on providing a numerical grade out of ${maxPoints}, detailed feedback, and actionable recommendations.
     `;
 
-    const requestPayload = {
-      contents: [{
-        role: "user", // It's good practice to specify roles
-        parts: [{ text: userPrompt }]
-      }],
-      systemInstruction: { // Using systemInstruction for the main guidelines
-        parts: [{ text: systemPrompt }]
-      },
-      generationConfig: {
-        // temperature: 0.7, // Adjust for creativity vs. determinism
-        // maxOutputTokens: 2048, // Adjust as needed
-        // topP: 0.9,
-        // topK: 40,
-      }
-    };
+    let requestPayload;
 
-    console.log('Making API request to Gemini...');
+    // Handle different content types (text vs image)
+    if (fileData && fileData.type === 'image') {
+      // For images, use Gemini's vision capabilities
+      requestPayload = {
+        contents: [{
+          role: "user",
+          parts: [
+            { text: userPrompt },
+            {
+              inline_data: {
+                mime_type: fileData.mimeType,
+                data: fileData.base64
+              }
+            }
+          ]
+        }],
+        systemInstruction: {
+          parts: [{ text: systemPrompt }]
+        },
+        generationConfig: {
+          // temperature: 0.7,
+          // maxOutputTokens: 2048,
+          // topP: 0.9,
+          // topK: 40,
+        }
+      };
+    } else {
+      // For text content, use standard text-based request
+      requestPayload = {
+        contents: [{
+          role: "user",
+          parts: [{ text: userPrompt }]
+        }],
+        systemInstruction: {
+          parts: [{ text: systemPrompt }]
+        },
+        generationConfig: {
+          // temperature: 0.7,
+          // maxOutputTokens: 2048,
+          // topP: 0.9,
+          // topK: 40,
+        }
+      };
+    }
+
+    console.log('Making API request to Gemini...', fileData ? 'with image data' : 'with text data');
     // console.log('Request payload:', JSON.stringify(requestPayload, null, 2)); // Verbose, enable if needed
 
     const response = await axios.post(
-      GEMINI_API_URL, // API Key is already in the URL for v1beta
+      GEMINI_API_URL,
       requestPayload,
       {
         headers: {

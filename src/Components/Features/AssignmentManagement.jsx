@@ -317,8 +317,12 @@ const AssignmentManagement = () => {
       'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'text/plain',
+      'text/markdown',
       'image/jpeg',
+      'image/jpg',
       'image/png',
+      'image/gif',
+      'image/webp',
       'application/zip'
     ];
 
@@ -328,7 +332,7 @@ const AssignmentManagement = () => {
         return false;
       }
       if (!allowedTypes.includes(file.type)) {
-        displayMessage('error', `File ${file.name} has an unsupported format. Allowed formats: PDF, DOC, DOCX, TXT, JPG, PNG, ZIP.`);
+        displayMessage('error', `File ${file.name} has an unsupported format. Allowed formats:\n\n• Documents: PDF, DOC, DOCX, TXT, MD\n• Images: JPG, JPEG, PNG, GIF, WEBP\n• Archives: ZIP`);
         return false;
       }
       return true;
@@ -675,14 +679,14 @@ const AssignmentManagement = () => {
               <label htmlFor="file-upload" className="flex flex-col items-center justify-center w-full border-2 border-dashed border-gray-600 hover:border-sky-500 rounded-lg p-6 cursor-pointer bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
                 <ArrowUpTrayIcon className="w-10 h-10 text-gray-400 group-hover:text-sky-400" />
                 <span className="mt-2 text-sm text-gray-400">Click to Upload or Drag & Drop</span>
-                <span className="text-xs text-gray-500 mt-1">Supported formats: PDF, DOC, DOCX, TXT, JPG, PNG, ZIP (max 20MB)</span>
+                <span className="text-xs text-gray-500 mt-1">Supported formats: PDF, DOC, DOCX, TXT, MD, JPG, JPEG, PNG, GIF, WEBP, ZIP (max 20MB)</span>
                 <input 
                   id="file-upload" 
                   type="file" 
                   onChange={handleFileUpload} 
                   className="hidden" 
                   multiple 
-                  accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.zip"
+                  accept=".pdf,.doc,.docx,.txt,.md,.jpg,.jpeg,.png,.gif,.webp,.zip"
                 />
               </label>
               

@@ -237,11 +237,49 @@ const AssignmentSubmission = () => {
       await uploadBytes(fileRef, fileToSubmit);
       const downloadURL = await getDownloadURL(fileRef);
 
+      // Enhanced file content processing for different file types
       let fileContent = `[File: ${fileToSubmit.name} - Type: ${fileToSubmit.type}]`;
+      let fileData = null;
+
       if (fileToSubmit.type === 'text/plain' || fileToSubmit.type === 'text/markdown') {
+        // Handle text files
         fileContent = await fileToSubmit.text();
-      } else if (fileToSubmit.type.startsWith('application/pdf') || fileToSubmit.type.startsWith('application/msword') || fileToSubmit.type.startsWith('application/vnd.openxmlformats-officedocument.wordprocessingml.document')) {
-        fileContent = `[Binary file: ${fileToSubmit.name}. Content not directly readable for this demo. Evaluation will be based on metadata and instructions.]`;
+      } else if (fileToSubmit.type.startsWith('image/')) {
+        // Handle image files - convert to base64 for AI vision analysis
+        try {
+          // Check if the image is too large for processing
+          const maxImageSizeForAI = 4 * 1024 * 1024; // 4MB limit for AI processing
+          if (fileToSubmit.size > maxImageSizeForAI) {
+            console.warn('Image too large for AI processing, will submit without AI evaluation');
+            fileContent = `[Image file: ${fileToSubmit.name} - Size: ${fileToSubmit.size} bytes - Too large for AI analysis]`;
+            // Don't set fileData, so it won't be processed by AI
+          } else {
+            const arrayBuffer = await fileToSubmit.arrayBuffer();
+            const base64String = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+            fileContent = `[Image file: ${fileToSubmit.name} - Size: ${fileToSubmit.size} bytes]`;
+            fileData = {
+              type: 'image',
+              base64: base64String,
+              mimeType: fileToSubmit.type,
+              fileName: fileToSubmit.name
+            };
+          }
+        } catch (imageError) {
+          console.error('Error processing image file:', imageError);
+          fileContent = `[Image file: ${fileToSubmit.name} - Error processing image content for AI analysis]`;
+          // Continue without AI processing
+        }
+      } else if (fileToSubmit.type.startsWith('application/pdf') || 
+                 fileToSubmit.type.startsWith('application/msword') || 
+                 fileToSubmit.type.startsWith('application/vnd.openxmlformats-officedocument.wordprocessingml.document')) {
+        // Handle document files
+        fileContent = `[Document file: ${fileToSubmit.name} - Type: ${fileToSubmit.type} - Size: ${fileToSubmit.size} bytes. Content not directly readable for this demo. Evaluation will be based on metadata and instructions.]`;
+      } else if (fileToSubmit.type === 'application/zip') {
+        // Handle zip files
+        fileContent = `[Archive file: ${fileToSubmit.name} - Type: ZIP - Size: ${fileToSubmit.size} bytes. Contains multiple files that need to be extracted for evaluation.]`;
+      } else {
+        // Handle other file types
+        fileContent = `[File: ${fileToSubmit.name} - Type: ${fileToSubmit.type} - Size: ${fileToSubmit.size} bytes]`;
       }
 
       let evaluationData = { grade: null, feedback: null, suggestions: null, status: 'submitted', gradedAt: null };
@@ -251,7 +289,8 @@ const AssignmentSubmission = () => {
           fileToSubmit.type,
           assignment.title,
           assignment.instructions,
-          assignment.points || 100
+          assignment.points || 100,
+          fileData // Pass the file data for image processing
         );
         evaluationData = {
           grade: result.grade,
@@ -263,7 +302,10 @@ const AssignmentSubmission = () => {
         console.log('Gemini evaluation successful:', evaluationData);
       } catch (geminiError) {
         console.error('Gemini evaluation failed:', geminiError);
-        alert(`Assignment submitted. Automatic evaluation by AI failed: ${geminiError.message}. Your teacher will review it.`);
+        const errorMessage = fileToSubmit.type.startsWith('image/') 
+          ? `Image analysis failed: ${geminiError.message}. Your image has been submitted and will be reviewed by your teacher.`
+          : `Automatic evaluation by AI failed: ${geminiError.message}. Your teacher will review it.`;
+        alert(errorMessage);
       }
 
       const submissionPayload = {
@@ -312,11 +354,36 @@ const AssignmentSubmission = () => {
       alert('Please select a file to submit.');
       return;
     }
-    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain', 'image/jpeg', 'image/png', 'application/zip'];
+    
+    // Enhanced file type validation with better feedback
+    const allowedTypes = [
+      'application/pdf', 
+      'application/msword', 
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
+      'text/plain', 
+      'text/markdown',
+      'image/jpeg', 
+      'image/jpg',
+      'image/png', 
+      'image/gif',
+      'image/webp',
+      'application/zip'
+    ];
+    
     if (!allowedTypes.includes(selectedFile.type) && !selectedFile.type.startsWith('text/')) {
-        alert('Invalid file type. Allowed: PDF, Word, TXT, JPG, PNG, ZIP.');
+        alert('Invalid file type. Allowed formats:\n\n• Documents: PDF, DOC, DOCX, TXT, MD\n• Images: JPG, JPEG, PNG, GIF, WEBP\n• Archives: ZIP\n\nPlease select a supported file type.');
         return;
     }
+    
+    // Additional validation for image files
+    if (selectedFile.type.startsWith('image/')) {
+      const maxImageSize = 10 * 1024 * 1024; // 10MB for images
+      if (selectedFile.size > maxImageSize) {
+        alert(`Image file is too large. Maximum size for images is 10MB. Your file is ${(selectedFile.size / 1024 / 1024).toFixed(1)}MB.`);
+        return;
+      }
+    }
+    
     await processSubmission(assignmentId, selectedFile);
   };
 
@@ -568,6 +635,18 @@ const AssignmentSubmission = () => {
 
                   <div className="bg-gray-900/30 p-4 rounded-lg">
                     <h4 className="text-gray-400 text-sm mb-2 font-medium">Submit Assignment</h4>
+                    {selectedFiles[assignment.id]?.type?.startsWith('image/') && (
+                      <div className="mb-3 p-2 bg-blue-500/10 border border-blue-500/20 rounded-md">
+                        <p className="text-xs text-blue-300">
+                          📸 <strong>Image detected!</strong> Your image will be analyzed by AI for visual content, composition, and adherence to assignment requirements.
+                        </p>
+                        {selectedFiles[assignment.id]?.size > 4 * 1024 * 1024 && (
+                          <p className="text-xs text-yellow-300 mt-1">
+                            ⚠️ <strong>Note:</strong> Your image is larger than 4MB and may not be processed by AI. It will still be submitted for teacher review.
+                          </p>
+                        )}
+                      </div>
+                    )}
                     {isEditingThis ? (
                       <div className="space-y-3">
                         <input
@@ -579,15 +658,47 @@ const AssignmentSubmission = () => {
                             file:text-sm file:font-medium
                             file:bg-indigo-500/20 file:text-indigo-400
                             hover:file:bg-indigo-500/30"
-                          accept=".pdf,.doc,.docx,.txt,.zip,.rar,.jpg,.jpeg,.png"
+                          accept=".pdf,.doc,.docx,.txt,.md,.zip,.jpg,.jpeg,.png,.gif,.webp"
                         />
+                        
+                        {/* Image Preview */}
+                        {selectedFiles[assignment.id]?.type?.startsWith('image/') && (
+                          <div className="mt-3 p-3 bg-gray-800/50 rounded-lg border border-gray-600/30">
+                            <h5 className="text-gray-300 text-xs mb-2 font-medium">Image Preview:</h5>
+                            <div className="relative">
+                              <img 
+                                src={URL.createObjectURL(selectedFiles[assignment.id])} 
+                                alt="Preview" 
+                                className="max-w-full h-auto max-h-48 rounded-md border border-gray-600/30"
+                                onLoad={(e) => {
+                                  // Clean up the object URL after the image loads
+                                  setTimeout(() => URL.revokeObjectURL(e.target.src), 1000);
+                                }}
+                              />
+                              <div className="mt-2 text-xs text-gray-400">
+                                Size: {(selectedFiles[assignment.id].size / 1024 / 1024).toFixed(2)} MB
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        
                         <div className="flex gap-2">
                           <button
                             onClick={() => currentSubmission ? handleEditSubmission(assignment.id) : handleSubmit(assignment.id)}
                             disabled={isSubmitting || !selectedFiles[assignment.id]}
-                            className="flex-1 px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex-1 px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                           >
-                            {isSubmitting ? 'Submitting...' : currentSubmission ? 'Update' : 'Submit'}
+                            {isSubmitting ? (
+                              <>
+                                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                {selectedFiles[assignment.id]?.type?.startsWith('image/') ? 'Analyzing Image...' : 'Submitting...'}
+                              </>
+                            ) : (
+                              currentSubmission ? 'Update' : 'Submit'
+                            )}
                           </button>
                           <button
                             onClick={() => setEditingAssignment(null)}
@@ -812,3 +923,5 @@ const AssignmentSubmission = () => {
 };
 
 export default AssignmentSubmission;
+
+
