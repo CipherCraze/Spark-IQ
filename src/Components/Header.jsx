@@ -34,7 +34,7 @@ export default function Header() {
         <Link to="/" className="flex items-center gap-2">
           <SparklesIcon className="w-8 h-8 text-indigo-400" />
           <span className="text-2xl font-bold text-white">
-            SPARK<span className="text-indigo-400">IQ</span>
+            <span className="text-indigo-400">IGNATIA</span>
           </span>
         </Link>
 
