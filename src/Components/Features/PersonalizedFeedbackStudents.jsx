@@ -45,7 +45,7 @@ const studentMenu = [
   { title: 'Grades & Feedback', Icon: PresentationChartLineIcon, link: '/GradesAndFeedback' },
   { title: 'AI Feedback', Icon: DocumentMagnifyingGlassIcon, link: '/personalized-feedback-students', description: "Get AI-powered insights on your progress." },
   { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/voice-chat' },
-  { title: 'Ask Sparky', Icon: QuestionMarkCircleIcon, link: '/chatbot-access' },
+  { title: ' Ask Iko ', Icon: QuestionMarkCircleIcon, link: '/chatbot-access' },
   { title: 'AI Questions', Icon: LightBulbIcon, link: '/ai-generated-questions' },
   { title: 'Educational News', Icon: NewspaperIcon, link: '/educational-news' },
   { title: 'Smart Review', Icon: WrenchScrewdriverIcon, link: '/smart-review' },
@@ -71,7 +71,7 @@ const generateFeedbackWithGemini = async (studentData) => {
 
   // Construct the full prompt by combining instructions and data
   const fullPrompt = `
-    You are Sparky, a friendly, insightful, and encouraging AI academic advisor for the SPARK-IQ platform.
+    You are Sparky, a friendly, insightful, and encouraging AI academic advisor for the IGNITIA platform.
     Your goal is to provide a holistic, personalized feedback report to a student based on their performance data.
     Be positive, constructive, and avoid overly negative language. Focus on growth and actionable advice.
 
@@ -82,7 +82,7 @@ const generateFeedbackWithGemini = async (studentData) => {
     - "overallSummary": A brief (2-3 sentences), encouraging paragraph summarizing the student's overall performance and effort.
     - "strengths": An array of 2-3 strings. Each string is a bullet point highlighting a specific positive aspect (e.g., "Consistent high scores in assignments show a strong grasp of the material.", "Excellent attendance record demonstrates great commitment.").
     - "areasForImprovement": An array of 2-3 strings. Each string is a constructive bullet point identifying an area for growth (e.g., "There's an opportunity to boost test scores to match your strong assignment performance.", "Paying close attention to submission deadlines will help maximize potential grades.").
-    - "actionableSuggestions": An array of 2-3 strings. Each string is a specific, actionable tip that references SPARK-IQ features (e.g., "To prepare for tests, try using the 'AI Questions' feature to practice on related topics.", "Before submitting your next essay, run it through the 'Smart Review' tool to catch any small errors.").
+    - "actionableSuggestions": An array of 2-3 strings. Each string is a specific, actionable tip that references IGNITIA features (e.g., "To prepare for tests, try using the 'AI Questions' feature to practice on related topics.", "Before submitting your next essay, run it through the 'Smart Review' tool to catch any small errors.").
 
     Do not include any text, markdown, or formatting outside of the single JSON object.
   `;
@@ -353,7 +353,7 @@ const PersonalizedFeedback = () => {
               <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg shadow-lg">
                 <SparklesIcon className="w-7 h-7 text-white" />
               </div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">SPARK-IQ</h1>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">IGNITIA</h1>
               {!isDesktop && (
                 <button onClick={() => setIsSidebarOpen(false)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-white rounded-full hover:bg-gray-700/50 transition-colors">
                   <XMarkIcon className="w-5 h-5"/>
@@ -420,7 +420,7 @@ const PersonalizedFeedback = () => {
                 <span className="absolute inset-0 bg-gradient-to-br from-purple-500 to-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
                 <SparklesIcon className="w-6 h-6 mr-3 text-yellow-300 transition-transform duration-300 group-hover:rotate-12"/>
                 <span className="relative">
-                  {generatingFeedback ? 'Sparky is Analyzing...' : (loadingData ? 'Loading Data...' : 'Generate My AI Feedback')}
+                  {generatingFeedback ? 'Iko is Analyzing...' : (loadingData ? 'Loading Data...' : 'Generate My AI Feedback')}
                 </span>
             </motion.button>
             {/* Optional: Add a helper text if API key is missing */}

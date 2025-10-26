@@ -72,7 +72,7 @@ const educatorSidebarMenuSource = [
     { title: 'Teacher Insights', Icon: DocumentMagnifyingGlassIcon, link: '/personalized-feedback-educators', description: "Get AI-powered feedback on your teaching activity." },
     // --- END NEW MENU ITEM ---
     { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/teacher-voice-chat' },
-    { title: 'AI Chatbot (Ask Sparky)', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
+    { title: 'AI Chatbot ( Ask Iko )', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
     { title: 'AI Questions', Icon: SparklesIcon, link: '/ai-generated-questions-educator' },
     // Using SolidUserGroupIcon as it appeared in one of the provided menus for this role
     { title: 'Social / Chat', Icon: SolidUserGroupIcon, link: '/chat-functionality' },
@@ -136,7 +136,7 @@ const EducatorLayout = ({ children, educator, pageTitle = "Educator Portal" }) =
         <Link to="/educator-dashboard" className="flex items-center gap-3 group" onClick={() => !isDesktop && setIsMobileSidebarOpen(false)}>
             <GlobeAltIcon className="w-8 h-10 text-purple-500 group-hover:text-purple-400 transition-all duration-300 transform group-hover:rotate-[15deg] group-hover:scale-105" />
             <h1 className="text-xl font-bold bg-gradient-to-r from-purple-500 via-pink-500 to-blue-500 bg-clip-text text-transparent group-hover:opacity-90 transition-opacity">
-              SPARK-IQ
+              IGNITIA
             </h1>
         </Link>
         {!isDesktop && (
@@ -283,9 +283,9 @@ const generateTeacherFeedbackWithGemini = async (teacherStats) => {
   }
 
   const prompt = `
-    You are an AI Teaching Assistant named Sparky, providing personalized feedback and insights to an educator based on their activity within the SPARK-IQ platform.
+    You are an AI Teaching Assistant named Sparky, providing personalized feedback and insights to an educator based on their activity within the IGNITIA platform.
     Your goal is to offer a constructive, encouraging, and insightful report about their engagement with the platform's tools (Assignments, Tests, Attendance, Resources, etc.).
-    Focus on highlighting achievements, identifying areas where they might benefit from further utilizing features, and providing actionable suggestions directly related to using SPARK-IQ.
+    Focus on highlighting achievements, identifying areas where they might benefit from further utilizing features, and providing actionable suggestions directly related to using IGNITIA.
 
     Analyze the following summary statistics of the educator's activity:
     ${JSON.stringify(teacherStats, null, 2)}
@@ -294,7 +294,7 @@ const generateTeacherFeedbackWithGemini = async (teacherStats) => {
     - "overallSummary": A brief (2-3 sentences) summary of their overall platform engagement and impact.
     - "strengths": An array of 2-3 strings. Each string is a bullet point highlighting a specific positive aspect based on their activity (e.g., "Demonstrating strong commitment by utilizing the Attendance Tracker consistently.", "Effectively managing learning with a significant number of created Assignments.").
     - "areasForDevelopment": An array of 2-3 strings. Each string is a constructive bullet point identifying an area for growth (e.g., "Opportunity to further leverage the platform by creating Tests.", "Exploring the Resource Management section could enhance teaching materials.").
-    - "actionableAdvice": An array of 2-3 strings. Each string is a specific, actionable tip referencing SPARK-IQ features (e.g., "Try creating your first test using the AI question generator feature.", "Use the Assignment Management tool to view submission analytics and identify student difficulties.").
+    - "actionableAdvice": An array of 2-3 strings. Each string is a specific, actionable tip referencing IGNITIA features (e.g., "Try creating your first test using the AI question generator feature.", "Use the Assignment Management tool to view submission analytics and identify student difficulties.").
 
     Ensure the language is professional, supportive, and educator-focused.
     Do not include any text, markdown, or formatting outside of the single JSON object.
@@ -616,7 +616,7 @@ const PersonalizedTeacherFeedback = () => {
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">
               <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Your Educator Insights</span>
             </h2>
-            <p className="text-gray-400 max-w-2xl mx-auto">An AI-powered analysis of your activity and suggestions for leveraging Spark-IQ.</p>
+            <p className="text-gray-400 max-w-2xl mx-auto">An AI-powered analysis of your activity and suggestions for leveraging IGNITIA.</p>
           </header>
 
           {error && <div className="mb-6 p-4 bg-red-900/50 border border-red-700 text-red-300 rounded-lg text-center">{error}</div>}
@@ -650,7 +650,7 @@ const PersonalizedTeacherFeedback = () => {
                 <span className="absolute inset-0 bg-gradient-to-br from-purple-500 to-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
                 <SparklesIcon className="w-6 h-6 mr-3 text-yellow-300 transition-transform duration-300 group-hover:rotate-12"/>
                 <span className="relative">
-                  {generatingFeedback ? 'Sparky is Analyzing...' : (loadingData ? 'Loading Data...' : 'Generate My AI Insights')}
+                  {generatingFeedback ? 'Iko is Analyzing...' : (loadingData ? 'Loading Data...' : 'Generate My AI Insights')}
                 </span>
             </motion.button>
             {/* Optional: Add a helper text if API key is missing */}

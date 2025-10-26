@@ -45,7 +45,7 @@ const studentMenu = [
     { title: 'Grades & Feedback', Icon: PresentationChartLineIcon, link: '/GradesAndFeedback', description: "Check your grades." },
     { title: 'AI Feedback', Icon: DocumentMagnifyingGlassIcon, link: '/personalized-feedback-students', description: "Get AI-powered insights on your progress." },
     { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/voice-chat', description: "Discuss with peers." },
-    { title: 'Ask Sparky', Icon: QuestionMarkCircleIcon, link: '/chatbot-access', description: "Your AI study assistant." },
+    { title: ' Ask Iko ', Icon: QuestionMarkCircleIcon, link: '/chatbot-access', description: "Your AI study assistant." },
     { title: 'AI Questions', Icon: LightBulbIcon, link: '/ai-generated-questions', description: "Practice with AI questions." },
     { title: 'Educational News', Icon: NewspaperIcon, link: '/educational-news', description: "Latest in education." },
     { title: 'Smart Review', Icon: WrenchScrewdriverIcon, link: '/smart-review', description: "Enhance your writing." },
@@ -84,7 +84,7 @@ const StudentLayout = ({ children, student, pageTitle = "Student Portal" }) => {
         <Link to="/dashboard" className="flex items-center gap-3 group" onClick={() => !isDesktop && setIsMobileSidebarOpen(false)}>
             <GlobeAltIcon className="w-8 h-10 text-purple-500 group-hover:text-purple-400 transition-all duration-300 transform group-hover:rotate-[15deg] group-hover:scale-105" />
             <h1 className="text-xl font-bold bg-gradient-to-r from-purple-500 via-pink-500 to-blue-500 bg-clip-text text-transparent group-hover:opacity-90 transition-opacity">
-              SPARK-IQ
+              IGNITIA
             </h1>
         </Link>
         {!isDesktop && (

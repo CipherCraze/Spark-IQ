@@ -159,7 +159,7 @@ const GradingAccess = () => {
                         </button>
                         <ClipboardDocumentIcon className="w-8 h-8 text-indigo-400 animate-pulse" />
                         <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
-                            SPARK-IQ
+                            IGNITIA
                         </h1>
                     </div>
                 </div>

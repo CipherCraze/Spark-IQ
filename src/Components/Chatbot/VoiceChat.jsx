@@ -126,7 +126,7 @@ const studentMenu = [
   { title: 'Grades & Feedback', Icon: PresentationChartLineIcon, link: '/GradesAndFeedback', description: "Check your grades." },
   { title: 'AI Feedback', Icon: DocumentMagnifyingGlassIcon, link: '/personalized-feedback-students', description: "Get AI-powered insights on your progress." },
   { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/voice-chat', description: "Discuss with peers." },
-  { title: 'Ask Sparky', Icon: QuestionMarkCircleIcon, link: '/chatbot-access', description: "Your AI study assistant." },
+  { title: ' Ask Iko ', Icon: QuestionMarkCircleIcon, link: '/chatbot-access', description: "Your AI study assistant." },
   { title: 'AI Questions', Icon: LightBulbIcon, link: '/ai-generated-questions', description: "Practice with AI questions." },
   { title: 'Educational News', Icon: NewspaperIcon, link: '/educational-news', description: "Latest in education." },
   { title: 'Smart Review', Icon: WrenchScrewdriverIcon, link: '/smart-review', description: "Enhance your writing." },
@@ -293,7 +293,7 @@ const VoiceChat = () => {
 
     } catch (e) {
       console.error('Error in handleSendMessage:', e);
-      const errorMsg = `Sparky had an oopsie: ${e.message || 'Could not process message.'}`;
+      const errorMsg = `Iko had an oopsie: ${e.message || 'Could not process message.'}`;
       setError(errorMsg);
       setMessages(prev => [...prev, { id: `error-${Date.now()}`, text: errorMsg, sender: 'assistant', timestamp: new Date().toISOString() }]);
     } finally {
@@ -327,7 +327,7 @@ const VoiceChat = () => {
               <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg shadow-lg">
                 <SparklesIcon className="w-7 h-7 text-white" />
               </div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">SPARK-IQ</h1>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">IGNITIA</h1>
               {!isDesktop && (
                 <button onClick={() => setIsSidebarOpen(false)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-white rounded-full hover:bg-gray-700/50 transition-colors">
                   <XMarkIcon className="w-5 h-5" />
@@ -369,7 +369,7 @@ const VoiceChat = () => {
         <header className="bg-slate-800/60 backdrop-blur-lg p-3 md:p-4 border-b border-slate-700 shadow-lg flex justify-between items-center sticky top-0 z-10 flex-shrink-0">
           <div className="flex items-center">
             <div>
-              <h1 className="text-lg md:text-xl font-semibold text-sky-400">Voice Chat with Sparky</h1>
+              <h1 className="text-lg md:text-xl font-semibold text-sky-400">Voice Chat with Iko </h1>
               <p className="text-xs md:text-sm text-slate-400">Your AI Study Companion</p>
             </div>
           </div>
@@ -445,7 +445,7 @@ const VoiceChat = () => {
               />
               {isProcessing && (
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 animate-pulse">
-                  Sparky is thinking...
+                  Iko is thinking...
                 </span>
               )}
             </div>

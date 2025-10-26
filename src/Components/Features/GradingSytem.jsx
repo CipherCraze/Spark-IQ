@@ -81,7 +81,7 @@ const GradingSystem = () => {
     { title: 'Assignments', Icon: ClipboardDocumentIcon, link: '/assignment-management' },
     { title: 'Resources', Icon: FolderIcon, link: '/resource-management' },
     { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-tracking' },
-    { title: 'Ask Sparky', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
+    { title: ' Ask Iko ', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
     { title: 'Feedback', Icon: LightBulbIcon, link: '/feedback-dashboard' },
     { title: 'Questions', Icon: SparklesIcon, link: '/ai-generated-questions' },
     { title: 'News', Icon: UsersIcon, link: '/educational-news' },

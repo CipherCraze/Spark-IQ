@@ -140,7 +140,7 @@ export default function Login() {
           <div className="inline-flex items-center gap-2 mb-6">
             <SparklesIcon className="w-10 h-10 text-purple-400 animate-pulse" />
             <span className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-              SPARK-IQ
+              IGNITIA
             </span>
           </div>
           <h4 className="mt-6 text-4xl font-bold text-transparent bg-gradient-to-r from-white to-purple-100 bg-clip-text">
@@ -267,7 +267,7 @@ export default function Login() {
 
         {/* Signup Link */}
         <p className="mt-8 text-center text-gray-400">
-          New to SPARK-IQ?{' '}
+          New to IGNITIA?{' '}
           <Link
             to="/signup"
             className="font-medium text-purple-400 hover:text-purple-300 transition-colors duration-300 relative group"

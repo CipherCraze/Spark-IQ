@@ -255,7 +255,7 @@ const StudentDashboard = () => {
     { title: 'Grades & Feedback', Icon: PresentationChartLineIcon, link: '/GradesAndFeedback', description: "Check your grades." },
     { title: 'AI Feedback', Icon: DocumentMagnifyingGlassIcon, link: '/personalized-feedback-students', description: "Get AI-powered insights on your progress." },
     { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/voice-chat', description: "Discuss with peers." },
-    { title: 'Ask Sparky', Icon: QuestionMarkCircleIcon, link: '/chatbot-access', description: "Your AI study assistant." },
+    { title: ' Ask Iko ', Icon: QuestionMarkCircleIcon, link: '/chatbot-access', description: "Your AI study assistant." },
     { title: 'AI Questions', Icon: LightBulbIcon, link: '/ai-generated-questions', description: "Practice with AI questions." },
     { title: 'Educational News', Icon: NewspaperIcon, link: '/educational-news', description: "Latest in education." },
     { title: 'Smart Review', Icon: WrenchScrewdriverIcon, link: '/smart-review', description: "Enhance your writing." },
@@ -398,7 +398,7 @@ const StudentDashboard = () => {
         { id:1, type: 'submit_assignment', description: 'Submitted "Quantum Mechanics Problem Set"', time: '30m ago', icon: DocumentTextIcon, color: 'blue' },
         { id:2, type: 'join_meeting', description: 'Joined "Study Group for Finals"', time: '2h ago', icon: VideoCameraIcon, color: 'green' },
         { id:3, type: 'receive_grade', description: 'Received grade for "History Essay"', time: '1d ago', icon: PresentationChartLineIcon, color: 'purple' },
-        { id:4, type: 'ask_sparky', description: 'Asked Sparky about "Newton\'s Laws"', time: '2d ago', icon: QuestionMarkCircleIcon, color: 'indigo' },
+        { id:4, type: 'ask_sparky', description: 'Asked Iko about "Newton\'s Laws"', time: '2d ago', icon: QuestionMarkCircleIcon, color: 'indigo' },
       ].slice(0,4);
 
       setDashboardData({
@@ -517,7 +517,7 @@ const StudentDashboard = () => {
               <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg shadow-lg">
                 <SparklesIcon className="w-7 h-7 text-white" />
               </div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">SPARK-IQ</h1>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">IGNITIA</h1>
               {!isDesktop && (
                 <button onClick={() => setIsSidebarOpen(false)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-white rounded-full hover:bg-gray-700/50 transition-colors">
                   <XMarkIcon className="w-5 h-5"/>
@@ -553,7 +553,7 @@ const StudentDashboard = () => {
               </button>
             )}
             <h2 className="text-xl md:text-2xl font-semibold text-white hidden sm:block">
-              {isDesktop ? "Student Dashboard" : "SPARK-IQ"}
+              {isDesktop ? "Student Dashboard" : "IGNITIA"}
             </h2>
           </div>
           <div className="flex items-center gap-3 md:gap-5">
@@ -683,7 +683,7 @@ const StudentDashboard = () => {
                   Smart Tools
                 </h3>
                 <div className="space-y-3.5">
-                  <QuickAccessCard title="Ask Sparky AI" icon={QuestionMarkCircleIcon} link="/chatbot-access" color="indigo" description="Your AI study assistant." />
+                  <QuickAccessCard title="Ask Iko AI" icon={QuestionMarkCircleIcon} link="/chatbot-access" color="indigo" description="Your AI study assistant." />
                   <QuickAccessCard title="AI Question Hub" icon={LightBulbIcon} link="/ai-generated-questions" color="teal" description="Practice with AI questions."/>
                   <QuickAccessCard title="Smart Reviewer" icon={WrenchScrewdriverIcon} link="/smart-review" color="rose" description="Enhance your writing."/>
                 </div>

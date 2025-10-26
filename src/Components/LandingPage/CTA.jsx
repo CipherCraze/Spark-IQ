@@ -19,7 +19,7 @@ const CTA = () => {
           id="cta-heading"
           className="text-4xl font-bold mb-6 leading-tight"
         >
-          Empower Education with SPARK-IQ
+          Empower Education with IGNITIA
         </h2>
         <p className="text-xl text-gray-300 mb-8">
           Transform your teaching experience with AI-powered grading and personalized feedback. 
@@ -27,7 +27,7 @@ const CTA = () => {
         </p>
         <button
           onClick={handleClick}
-          aria-label="Get Started with SPARK-IQ"
+          aria-label="Get Started with IGNITIA"
           className="inline-block px-8 py-4 text-lg font-bold text-gray-900 bg-gradient-to-r from-[#00d4ff] via-[#5b42f3] to-[#af40ff] rounded-full hover:scale-105 hover:text-white transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-purple-500/30 relative overflow-hidden"
         >
           Get Started Free

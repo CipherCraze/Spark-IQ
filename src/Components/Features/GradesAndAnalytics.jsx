@@ -60,7 +60,7 @@ const educatorSidebarMenuSource = [
     { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-tracking' },
     { title: 'Teacher Insights', Icon: DocumentMagnifyingGlassIcon, link: '/personalized-feedback-educators', current: false},
     { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/teacher-voice-chat' },
-    { title: 'AI Chatbot (Ask Sparky)', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
+    { title: 'AI Chatbot ( Ask Iko )', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
     { title: 'AI Questions', Icon: SparklesIcon, link: '/ai-generated-questions-educator' },
     { title: 'Social / Chat', Icon: SolidUserGroupIcon, link: '/chat-functionality' },
     { title: 'Educational News', Icon: GlobeAltIcon, link: '/educational-news-educator' },
@@ -122,7 +122,7 @@ const EducatorLayout = ({ children, educator, pageTitle = "Educator Portal" }) =
         <Link to="/educator-dashboard" className="flex items-center gap-3 group" onClick={() => !isDesktop && setIsMobileSidebarOpen(false)}>
             <GlobeAltIcon className="w-8 h-10 text-purple-500 group-hover:text-purple-400 transition-all duration-300 transform group-hover:rotate-[15deg] group-hover:scale-105" />
             <h1 className="text-xl font-bold bg-gradient-to-r from-purple-500 via-pink-500 to-blue-500 bg-clip-text text-transparent group-hover:opacity-90 transition-opacity">
-              SPARK-IQ
+              IGNITIA
             </h1>
         </Link>
         {!isDesktop && (

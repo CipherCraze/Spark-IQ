@@ -8,7 +8,7 @@ import { FiChevronDown, FiChevronRight, FiLogOut } from 'react-icons/fi'; // Exa
 const Link = ({ to, children, className, ...props }) => <a href={to} className={className} {...props}>{children}</a>;
 const useLocation = () => ({ pathname: '/smart-review' }); // Mock current path for 'Smart Review'
 
-const Sidebar = ({ menuItems, appName = "SPARK-IQ", userRole = "Student" }) => {
+const Sidebar = ({ menuItems, appName = "IGNITIA", userRole = "Student" }) => {
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true); // For collapsibility
 

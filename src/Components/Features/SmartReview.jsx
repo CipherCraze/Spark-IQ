@@ -39,7 +39,7 @@ const studentMenu = [
   { title: 'Grades & Feedback', Icon: PresentationChartLineIcon, link: '/GradesAndFeedback', description: "Check your grades." },
   { title: 'AI Feedback', Icon: DocumentMagnifyingGlassIcon, link: '/personalized-feedback-students', description: "Get AI-powered insights on your progress." },
   { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/voice-chat', description: "Discuss with peers." },
-  { title: 'Ask Sparky', Icon: QuestionMarkCircleIcon, link: '/chatbot-access', description: "Your AI study assistant." },
+  { title: ' Ask Iko ', Icon: QuestionMarkCircleIcon, link: '/chatbot-access', description: "Your AI study assistant." },
   { title: 'AI Questions', Icon: LightBulbIcon, link: '/ai-generated-questions', description: "Practice with AI questions." },
   { title: 'Educational News', Icon: NewspaperIcon, link: '/educational-news', description: "Latest in education." },
   { title: 'Smart Review', Icon: WrenchScrewdriverIcon, link: '/smart-review', description: "Enhance your writing." },
@@ -129,7 +129,7 @@ const SmartReview = () => {
               <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg shadow-lg">
                 <SparklesIcon className="w-7 h-7 text-white" />
               </div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">SPARK-IQ</h1>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">IGNITIA</h1>
               {!isDesktop && (
                 <button
                   onClick={() => setIsSidebarOpen(false)}
@@ -285,7 +285,7 @@ const SmartReview = () => {
 
         <footer className="bg-slate-900/80 dark:bg-slate-950/90 border-t border-slate-700/50 dark:border-slate-800/60 py-3 px-4 sm:px-6 lg:px-8">
           <div className="max-w-full mx-auto text-center text-xs text-slate-500 dark:text-slate-600">
-            <p>SPARK-IQ © {new Date().getFullYear()} — AI-Powered Content Enhancement Tool.</p>
+            <p>IGNITIA © {new Date().getFullYear()} — AI-Powered Content Enhancement Tool.</p>
           </div>
         </footer>
       </div>

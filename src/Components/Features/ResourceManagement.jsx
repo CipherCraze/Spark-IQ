@@ -210,7 +210,7 @@ const ResourceManagement = () => {
     { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-tracking' },
     { title: 'Teacher Insights', Icon: DocumentMagnifyingGlassIcon, link: '/personalized-feedback-educators' },
     { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/teacher-voice-chat' },
-    { title: 'AI Chatbot (Ask Sparky)', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
+    { title: 'AI Chatbot ( Ask Iko )', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
     { title: 'AI Questions', Icon: SparklesIcon, link: '/ai-generated-questions-educator' },
     { title: 'Social / Chat', Icon: SolidUserGroupIcon, link: '/chat-functionality' },
     { title: 'Educational News', Icon: GlobeAltIcon, link: '/educational-news-educator' },
@@ -496,7 +496,7 @@ const ResourceManagement = () => {
           <Link to="/educator-dashboard" className="flex items-center gap-3 group">
             <GlobeAltIcon className="w-10 h-10 text-purple-500 group-hover:text-purple-400 transition-all duration-300 transform group-hover:rotate-[20deg] group-hover:scale-110" />
             <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-500 via-pink-500 to-blue-500 bg-clip-text text-transparent group-hover:opacity-90 transition-opacity">
-              SPARK-IQ
+              IGNITIA
             </h1>
           </Link>
           {/* Mobile-only close button inside sidebar header */}
@@ -569,7 +569,7 @@ const ResourceManagement = () => {
         {/* LLM Search Section */}
         <div className="mb-8 p-5 sm:p-6 bg-slate-800/60 backdrop-blur-lg rounded-2xl border border-slate-700/50 shadow-xl">
           <h2 className="text-xl font-semibold text-white mb-3">Discover New Resources with AI</h2>
-          <p className="text-sm text-slate-400 mb-4">Enter a topic, and Sparky AI will find relevant teaching materials for you.</p>
+          <p className="text-sm text-slate-400 mb-4">Enter a topic, and Iko AI will find relevant teaching materials for you.</p>
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <MagnifyingGlassIcon className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />

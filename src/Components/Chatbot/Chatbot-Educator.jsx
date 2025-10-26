@@ -643,7 +643,7 @@ Sunday Afternoon (1 hr):
           <div className="flex items-center gap-3 mb-8">
             <SparklesIcon className="w-8 h-8 text-indigo-400 animate-pulse" />
             <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
-              SPARK-IQ
+              IGNITIA
             </h1>
           </div>
           
@@ -754,7 +754,7 @@ Sunday Afternoon (1 hr):
               <div className="flex items-center gap-3">
                 <ChatBubbleLeftRightIcon className="w-8 h-8 text-indigo-400 animate-pulse" />
                 <h2 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
-                  Sparky AI Chatbot
+                  Iko AI Chatbot
                 </h2>
               </div>
             </div>
@@ -802,7 +802,7 @@ Sunday Afternoon (1 hr):
                   <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-100" />
                   <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-200" />
                 </div>
-                <span className="text-sm">Sparky is thinking...</span>
+                <span className="text-sm">Iko is thinking...</span>
               </div>
             )}
             <div ref={messagesEndRef} />

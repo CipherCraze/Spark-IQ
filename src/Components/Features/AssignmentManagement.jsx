@@ -57,7 +57,7 @@ const educatorSidebarMenu = [
   { title: 'Attendance', Icon: ChartBarIcon, link: '/attendance-tracking' },
   { title: 'Teacher Insights', Icon: DocumentMagnifyingGlassIcon, link: '/personalized-feedback-educators', description: "Get AI-powered feedback on your teaching activity." },
   { title: 'Voice Chat', Icon: ChatBubbleLeftRightIcon, link: '/teacher-voice-chat' },
-  { title: 'AI Chatbot (Ask Sparky)', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
+  { title: 'AI Chatbot ( Ask Iko )', Icon: ChatBubbleLeftRightIcon, link: '/chatbot-education' },
   { title: 'AI Questions', Icon: SparklesIcon, link: '/ai-generated-questions-educator' },
   { title: 'Social / Chat', Icon: SolidUserGroupIcon, link: '/chat-functionality' },
   { title: 'Educational News', Icon: GlobeAltIcon, link: '/educational-news-educator' },
@@ -860,7 +860,7 @@ const AssignmentManagement = () => {
           <Link to="/educator-dashboard" className="flex items-center gap-3 group">
             <GlobeAltIcon className="w-10 h-10 text-purple-500 group-hover:text-purple-400 transition-all duration-300 transform group-hover:rotate-[20deg] group-hover:scale-110" />
              <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-500 via-pink-500 to-blue-500 bg-clip-text text-transparent group-hover:opacity-90 transition-opacity">
-              SPARK-IQ
+              IGNITIA
             </h1>
           </Link>
            {/* Close button for mobile sidebar */}
