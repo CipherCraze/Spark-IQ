@@ -415,7 +415,7 @@ When users ask about the current time or date, always provide this information i
       }
 
       const response = await axios.post(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent',
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
         {
           contents,
           generationConfig: {

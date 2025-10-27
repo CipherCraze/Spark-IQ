@@ -267,38 +267,30 @@ const Chatbot = () => {
       let latestNews = '';
       if (NEWS_API_KEY && NEWS_API_KEY !== 'your-news-api-key') {
         try {
-          // Fetch news from different categories
-          const categories = ['sports', 'technology', 'business', 'entertainment', 'general'];
-          const newsPromises = categories.map(category => 
-            axios.get(NEWS_API_BASE_URL, {
-              params: {
-                category: category,
-                apikey: NEWS_API_KEY,
-                max: 2, // Get 2 top headlines from each category
-                lang: 'en'
-              }
-            })
-          );
+          // Fetch news from only one category to avoid rate limiting
+          const category = 'general';
+          const newsResponse = await axios.get(NEWS_API_BASE_URL, {
+            params: {
+              category: category,
+              apikey: NEWS_API_KEY,
+              max: 5, // Get 5 top headlines
+              lang: 'en'
+            }
+          });
 
-          const newsResponses = await Promise.all(newsPromises);
-          const allNews = newsResponses.flatMap(response => 
-            response.data.articles || []
-          );
+          const allNews = newsResponse.data.articles || [];
 
-          // Sort by publishedAt to get the most recent news
-          allNews.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
-
-          // Take the top 5 most recent news items
-          const topNews = allNews.slice(0, 5);
-
-          if (topNews.length > 0) {
-            latestNews = '\n\nLATEST NEWS:\n' + topNews
+          if (allNews.length > 0) {
+            latestNews = '\n\nLATEST NEWS:\n' + allNews
               .map(article => `• ${article.title} (${article.source.name}) - ${new Date(article.publishedAt).toLocaleDateString()}`)
               .join('\n');
           }
         } catch (error) {
           console.error('Error fetching news:', error);
-          // Continue without news if there's an error
+          // If rate limited or error, just skip news context
+          if (error.response?.status === 429) {
+            console.warn('GNews API rate limit exceeded. Skipping news context.');
+          }
         }
       }
 
@@ -358,7 +350,7 @@ When users ask about the current time or date, always provide this information i
       }
 
       const response = await axios.post(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent',
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
         {
           contents,
           generationConfig: {
@@ -369,7 +361,6 @@ When users ask about the current time or date, always provide this information i
           }
         },
         {
-          params: { key: GEMINI_API_KEY },
           headers: { 
             'Content-Type': 'application/json',
           },
